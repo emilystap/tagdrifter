@@ -37,6 +37,18 @@ def _vorbis_comment(tags: dict[str, str | list[str]]) -> bytes:
     return out
 
 
+def _picture(size: int) -> bytes:
+    # Picture type, MIME, description, width/height/depth/colours, then the image data, padded
+    # so the whole block is `size` bytes. Mutagen parses this structure rather than trusting the
+    # block length, so it has to be well formed.
+    mime = b"image/jpeg"
+    header = struct.pack(">II", 3, len(mime)) + mime + struct.pack(">IIIII", 0, 500, 500, 24, 0)
+    data_len = size - len(header) - 4
+    if data_len < 0:
+        raise ValueError(f"picture_bytes must be at least {len(header) + 4}")
+    return header + struct.pack(">I", data_len) + b"\x00" * data_len
+
+
 def build_flac(
     path: Path,
     tags: dict[str, str | list[str]] | None = None,
@@ -50,7 +62,7 @@ def build_flac(
     `picture_bytes` adds a PICTURE block of that size (before or after the comment block).
     """
     blocks: list[tuple[int, bytes]] = [(0, _streaminfo())]
-    picture = (6, b"\x00" * picture_bytes) if picture_bytes else None
+    picture = (6, _picture(picture_bytes)) if picture_bytes else None
     comment = (4, _vorbis_comment(tags)) if tags is not None else None
     ordered = [picture, comment] if picture_first else [comment, picture]
     blocks += [b for b in ordered if b]
