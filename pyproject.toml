@@ -34,5 +34,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
 # Ambiguous-unicode warnings fire on the deliberate filesystem-safe substitutes (∕ ∗ ∣ ″ “ ”).
-ignore = ["RUF001", "RUF002", "RUF003"]
+# Only the sanitizer and the tests use them; keep the rules on everywhere else.
+"src/tagdrifter/core/sanitize.py" = ["RUF001", "RUF002", "RUF003"]
+"tests/**" = ["RUF001", "RUF002", "RUF003"]

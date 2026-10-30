@@ -81,8 +81,10 @@ uv run tagdrifter issues --check path.track_location --limit 20
 
 ## Conventions
 
-- Ruff (line length 100). The RUF001-003 ambiguous-unicode rules are disabled because the
-  filesystem-safe substitutes (∕ ∗ ∣ ″ “ ”) are intentional.
+- Ruff (line length 100). The RUF001-003 ambiguous-unicode rules are disabled only for
+  `core/sanitize.py` and `tests/`, where the filesystem-safe substitutes (∕ ∗ ∣ ″ “ ”) are
+  intentional. Elsewhere, keep them out of literals (use `sanitize()` or constants such as
+  `SLASH_REPLACEMENT`), so the rules still catch accidental lookalikes.
 - Tests build real FLAC files on the fly (`tests/conftest.py::build_flac`, including
   cover-art blocks); never commit audio fixtures.
 - `.gitattributes` forces LF line endings.
