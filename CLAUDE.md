@@ -49,13 +49,16 @@ deployed as a single Docker container on TrueNAS SCALE via Docker compose. Read 
 ## Status / roadmap
 
 0. Repo, tooling ✅  1. Pure core ✅  2. Scanner + SQLite + checks + CLI ✅
-3. **Next: web UI**: FastAPI app with a dashboard (issue counts per check, last scan), a
-   filterable issue list (check / artist / severity / path / MBID-tagged), scan history, and a
-   "Scan now" button that runs `run_scan` in a background thread and reports progress via
-   `ScanProgress`. Reuse `Store` queries and add more as needed.
-4. APScheduler, Dockerfile (python:3.13-slim, non-root), `compose.yaml` (library `:ro`, data
-   volume, env vars), healthcheck, TrueNAS "Install via YAML" notes, GitHub Actions → GHCR
-   once a remote exists.
+3. Web UI ✅: `tagdrifter serve` → `web/app.py` (dashboard, filterable/paged issue list with
+   highlighted expected paths, scan history, `/healthz`), `web/runner.py` (`ScanRunner`: one
+   background scan at a time, progress polled by HTMX every 1s; a finished scan fires the
+   `scan-finished` event and the page reloads `#page`). Server-rendered Jinja; partials are
+   chosen by the `HX-Target` header. HTMX 2.0.4 is vendored in `web/static/` (no CDN).
+   Polish idea: group per-track issues by album, since one album rename produces one issue
+   per track (SZA *SOS Deluxe: LANA* = 42 rows).
+4. **Next**: APScheduler, Dockerfile (python:3.13-slim, non-root, `serve --host 0.0.0.0`),
+   `compose.yaml` (library `:ro`, data volume, env vars), healthcheck on `/healthz`, TrueNAS
+   "Install via YAML" notes, GitHub Actions → GHCR (remote: github.com/emilystap/tagdrifter).
 5. Later: fix actions (rename + move `.lrc`/`.txt` sidecars, prune empty dirs; v1's
    `organize_artist_directory` has the logic), Navidrome rescan trigger, notifications
    (ntfy/Apprise), non-FLAC formats via mutagen.
@@ -80,6 +83,7 @@ uv run pytest
 uv run ruff check . ; uv run ruff format .
 uv run tagdrifter scan            # uses config.toml (git-ignored; copy config.example.toml)
 uv run tagdrifter issues --check path.track_location --limit 20
+uv run tagdrifter serve           # web UI on http://127.0.0.1:8080
 ```
 
 ## Conventions

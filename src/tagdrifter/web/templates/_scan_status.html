@@ -1,0 +1,44 @@
+{#- Scan status widget in the top bar. Polls every second while a scan runs. -#}
+{% if status.running %}
+<div id="scan-status" class="scan-status running"
+     hx-get="/scan/status?watching=1" hx-trigger="every 1s" hx-swap="outerHTML">
+  {% set p = status.progress %}
+  <span class="spinner" aria-hidden="true"></span>
+  <span class="scan-text">
+    {% if p is none %}
+      Starting scan…
+    {% elif p.phase == "discover" %}
+      Discovering · {{ "{:,}".format(p.done) }} files
+    {% elif p.phase == "read" %}
+      {% if p.total %}
+        Reading tags · {{ "{:,}".format(p.done) }}/{{ "{:,}".format(p.total) }}
+        {% if status.eta is not none %}· {{ status.eta | duration }} left{% endif %}
+      {% else %}
+        Reading tags · nothing changed
+      {% endif %}
+    {% elif p.phase == "check" %}
+      Checking · {{ p.done }}/{{ p.total }} artists
+    {% else %}
+      Saving results…
+    {% endif %}
+  </span>
+  {% if status.fraction is not none %}
+    <progress value="{{ status.fraction }}" max="1" aria-label="Scan progress"></progress>
+  {% endif %}
+</div>
+{% else %}
+<div id="scan-status" class="scan-status">
+  {% if status.error %}
+    <span class="badge error" title="{{ status.error }}">Last scan failed</span>
+  {% elif last_scan and last_scan["status"] != "completed" %}
+    <a class="badge warning" href="/scans">Last scan {{ last_scan["status"] }}</a>
+  {% elif last_scan %}
+    <span class="muted">Scanned {{ (last_scan["finished_at"] or last_scan["started_at"]) | ago }}</span>
+  {% else %}
+    <span class="muted">Never scanned</span>
+  {% endif %}
+  <form hx-post="/scan" hx-target="#scan-status" hx-swap="outerHTML" method="post" action="/scan">
+    <button type="submit" class="button primary">Scan now</button>
+  </form>
+</div>
+{% endif %}

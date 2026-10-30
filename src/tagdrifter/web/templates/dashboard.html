@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Tag Drifter{% endblock %}
+{% block content %}
+<section class="tiles">
+  <a class="tile" href="/issues">
+    <span class="tile-label">Open issues</span>
+    <span class="tile-value">{{ "{:,}".format(total) }}</span>
+    <span class="tile-sub">
+      {% for sev in ["error", "warning", "info"] if by_severity.get(sev) %}
+        <span class="sev-dot {{ sev }}"></span>{{ "{:,}".format(by_severity[sev]) }} {{ sev }}{% if by_severity[sev] != 1 %}s{% endif %}{% if not loop.last %} · {% endif %}
+      {% else %}
+        Nothing to fix
+      {% endfor %}
+    </span>
+  </a>
+  <a class="tile" href="/issues?mbid=no">
+    <span class="tile-label">On MBID-tagged files</span>
+    <span class="tile-value">{{ "{:,}".format(mbid_tagged) }}</span>
+    <span class="tile-sub">
+      {% if total %}{{ "{:,}".format(total - mbid_tagged) }} other{% if total - mbid_tagged != 1 %}s{% endif %}: untagged files or library-wide{% else %}–{% endif %}
+    </span>
+  </a>
+  <div class="tile">
+    <span class="tile-label">Files in library</span>
+    <span class="tile-value">{{ "{:,}".format(files) }}</span>
+    <span class="tile-sub"><code>{{ settings.library_path }}</code></span>
+  </div>
+  <a class="tile" href="/scans">
+    <span class="tile-label">Last scan</span>
+    {% if last_scan %}
+      <span class="tile-value small">{{ (last_scan["finished_at"] or last_scan["started_at"]) | ago }}</span>
+      <span class="tile-sub">
+        #{{ last_scan["id"] }} · {{ last_scan["status"] }} · {{ last_scan | scan_duration }}
+        · +{{ last_scan["issues_new"] }} / −{{ last_scan["issues_resolved"] }}
+      </span>
+    {% else %}
+      <span class="tile-value small">Never</span>
+      <span class="tile-sub">Press “Scan now” to read the library.</span>
+    {% endif %}
+  </a>
+</section>
+
+<div class="columns">
+  <section class="panel">
+    <h2>Issues by check</h2>
+    <table class="table">
+      <thead>
+        <tr><th>Check</th><th class="num">Open</th></tr>
+      </thead>
+      <tbody>
+        {% for c in checks %}
+        <tr class="{% if not c.count %}zero{% endif %}{% if not c.enabled %} disabled{% endif %}">
+          <td>
+            <span class="sev-dot {{ c.severity }}" title="{{ c.severity }}"></span>
+            {% if c.count %}<a href="/issues?check={{ c.id | urlencode }}"><code>{{ c.id }}</code></a>
+            {% else %}<code>{{ c.id }}</code>{% endif %}
+            {% if not c.enabled %}<span class="badge">disabled</span>{% endif %}
+            <div class="muted small">{{ c.description }}</div>
+          </td>
+          <td class="num">{{ "{:,}".format(c.count) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Artists with the most issues</h2>
+    {% if top_artists %}
+    <table class="table">
+      <tbody>
+        {% for name, n in top_artists %}
+        <tr>
+          <td><a href="/issues?artist={{ name | urlencode }}">{{ name or "(library root)" }}</a></td>
+          <td class="num">{{ "{:,}".format(n) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <p class="muted">No open issues.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

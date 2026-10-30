@@ -14,8 +14,8 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 0 | Repo, tooling, tests | ✅ |
 | 1 | Pure core: sanitization, metadata, expected paths, album placement | ✅ |
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
-| 3 | Web UI (FastAPI + Jinja/HTMX) | ⏳ |
-| 4 | Scheduler, Docker image, TrueNAS compose deployment | — |
+| 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
+| 4 | Scheduler, Docker image, TrueNAS compose deployment | ⏳ |
 | 5 | Fix actions, Navidrome rescan, notifications | — |
 | 6 | MusicBrainz integration: checks against MusicBrainz, Picard-style retagging | — |
 
@@ -32,11 +32,28 @@ uv run tagdrifter issues --check tags.required --path "Wolfmother"
 uv run tagdrifter issues --mbid no       # only issues on files without release/recording MBIDs
 uv run tagdrifter checks                 # available checks and whether they're enabled
 uv run tagdrifter scans                  # scan history
+uv run tagdrifter serve                  # web UI on http://127.0.0.1:8080
 ```
 
 `--library` and `--db` override the config file for a single run, e.g.
 `uv run tagdrifter --library Y:\music scan`. `scan --full` ignores the cache and re-reads every
 file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up where it stopped.
+
+## Web UI
+
+`tagdrifter serve [--host 0.0.0.0] [--port 8080]` runs the UI:
+
+- **Dashboard**: open issues by severity and by check, how many are on MBID-tagged (trusted)
+  files, library size, the last scan, and the artists with the most issues.
+- **Issues**: filter by check, severity, artist, MBID status, or a search over paths and
+  messages. Proposed renames show the current and expected path with the differing characters
+  highlighted. Filtered views have their own URL, so they can be bookmarked.
+- **Scans**: scan history with files read and issues opened/resolved.
+- **Scan now** (top bar, every page): runs a scan in the background with live progress; the page
+  refreshes its counts when it finishes. Only one scan runs at a time.
+
+`GET /healthz` returns `{"status": "ok", ...}` for container health checks. The UI has no
+login; keep it on your LAN.
 
 ## How a scan works
 
@@ -92,6 +109,8 @@ src/tagdrifter/
   db.py          SQLite: file/tag cache, scan history, issue lifecycle
   scanner.py     Discover → read changed → check → save
   cli.py         `tagdrifter` command
+  web/           FastAPI app (app.py), background ScanRunner, Jinja templates, static/ (CSS,
+                 vendored htmx.min.js 2.0.4)
 tests/           pytest suite; builds real FLAC files on the fly (no fixtures to commit)
 ```
 

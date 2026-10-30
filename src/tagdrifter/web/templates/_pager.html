@@ -1,0 +1,13 @@
+{% if pages > 1 %}
+<nav class="pager" aria-label="Pages">
+  {% if page_no > 1 %}
+    <a class="button" href="{{ page_url(page_no - 1) }}" hx-get="{{ page_url(page_no - 1) }}"
+       hx-target="#results" hx-push-url="true">← Prev</a>
+  {% endif %}
+  <span class="muted">Page {{ page_no }} of {{ pages }}</span>
+  {% if page_no < pages %}
+    <a class="button" href="{{ page_url(page_no + 1) }}" hx-get="{{ page_url(page_no + 1) }}"
+       hx-target="#results" hx-push-url="true">Next →</a>
+  {% endif %}
+</nav>
+{% endif %}

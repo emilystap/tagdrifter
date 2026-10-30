@@ -5,7 +5,10 @@ description = "Monitors a music library for files that drift from its naming and
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.162.0",
+    "jinja2>=3.1.6",
     "mutagen>=1.47",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]

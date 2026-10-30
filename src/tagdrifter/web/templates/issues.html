@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Issues · Tag Drifter{% endblock %}
+{% block content %}
+<form id="filters" class="filters" method="get" action="/issues"
+      hx-get="/issues" hx-target="#results" hx-push-url="true"
+      hx-trigger="input changed delay:250ms, submit" hx-sync="this:replace">
+  <label>
+    <span>Check</span>
+    <select name="check">
+      <option value="">All checks</option>
+      {% for c in check_ids %}
+        <option value="{{ c }}" {% if params.check == c %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>Severity</span>
+    <select name="severity">
+      <option value="">Any</option>
+      {% for s in ["error", "warning", "info"] %}
+        <option value="{{ s }}" {% if params.severity == s %}selected{% endif %}>{{ s | capitalize }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>Artist</span>
+    <select name="artist">
+      <option value="">All artists</option>
+      {% for name, n in artists %}
+        <option value="{{ name }}" {% if params.artist == name %}selected{% endif %}>{{ name or "(library root)" }} ({{ n }})</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>MBIDs</span>
+    <select name="mbid">
+      <option value="">Any</option>
+      <option value="yes" {% if params.mbid == "yes" %}selected{% endif %}>MBID-tagged</option>
+      <option value="no" {% if params.mbid == "no" %}selected{% endif %}>Not MBID-tagged</option>
+    </select>
+  </label>
+  <label class="grow">
+    <span>Search path or message</span>
+    <input type="search" name="q" value="{{ params.q }}" placeholder="e.g. Born This Way" autocomplete="off">
+  </label>
+  <button type="submit" class="button">Filter</button>
+</form>
+
+<div id="results">
+  {% include "_issue_results.html" %}
+</div>
+{% endblock %}

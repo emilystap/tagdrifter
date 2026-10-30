@@ -1,0 +1,163 @@
+import pytest
+from fastapi.testclient import TestClient
+
+from tagdrifter.db import Store
+from tagdrifter.web import ScanRunner, create_app
+from tagdrifter.web.format import diff_marks, expected_location
+
+from .conftest import scan, settings_for
+
+HX = {"HX-Request": "true"}
+
+
+def results(client, **params) -> str:
+    """The issue list partial (what the filter form swaps in), whitespace collapsed."""
+    response = client.get("/issues", params=params, headers=HX | {"HX-Target": "results"})
+    assert response.status_code == 200
+    return " ".join(response.text.split())
+
+
+@pytest.fixture
+def settings(library, tmp_path):
+    return settings_for(library, tmp_path)
+
+
+@pytest.fixture
+def client(settings):
+    with TestClient(create_app(settings)) as c:
+        yield c
+
+
+def test_pages_render_before_any_scan(client) -> None:
+    for url in ("/", "/issues", "/scans"):
+        response = client.get(url)
+        assert response.status_code == 200, url
+    assert "Never" in client.get("/").text
+    assert "No open issues match." in client.get("/issues").text
+    assert "Scan now" in client.get("/scan/status").text
+
+
+def test_dashboard_counts_issues_per_check(client, settings) -> None:
+    scan(settings)
+    page = client.get("/").text
+    assert "/issues?check=path.track_location" in page
+    assert "/issues?artist=Pixies" in page
+    assert "/static/htmx.min.js" in page
+
+
+def test_issue_filters(client, settings) -> None:
+    scan(settings)
+    page = client.get("/issues").text
+    assert 'id="filters"' in page and "<html" in page
+    assert "7 open issues" in results(client)
+
+    only_errors = results(client, severity="error")
+    assert "tags.invalid_mbid" in only_errors and "path.loose_file" not in only_errors
+
+    by_artist = results(client, artist="Pixies")
+    assert "loose.flac" not in by_artist and "02 Tame.flac" in by_artist
+
+    assert "3 open issues" in results(client, q="tame")
+
+    untagged = results(client, mbid="no")
+    assert "no MBIDs" in untagged and "Pixies/Hits" not in untagged
+
+
+def test_issue_filter_partial_for_htmx(client, settings) -> None:
+    scan(settings)
+    partial = results(client, check="path.loose_file")
+    assert "<html" not in partial and 'id="filters"' not in partial
+    assert "1–1 of 1 open issue" in partial
+
+
+def test_track_location_shows_highlighted_expected_path(client, settings) -> None:
+    scan(settings)
+    page = results(client, check="path.track_location")
+    assert "Expected" in page and "<mark>" in page
+
+
+def test_paging(client, settings, monkeypatch) -> None:
+    from tagdrifter.web import app as web_app
+
+    monkeypatch.setattr(web_app, "PAGE_SIZE", 3)
+    scan(settings)
+    with TestClient(web_app.create_app(settings)) as c:
+        first = results(c)
+        assert "Page 1 of 3" in first and "/issues?page=2" in first
+        last = results(c, page=99)
+        assert "Page 3 of 3" in last and "7–7 of 7" in last
+
+
+def test_scan_now_runs_in_background_and_reports(settings) -> None:
+    runner = ScanRunner(settings)
+    with TestClient(create_app(settings, runner)) as c:
+        response = c.post("/scan")
+        assert response.status_code == 200
+        runner.wait(30)
+        assert not runner.status().running and runner.status().result is not None
+
+        done = c.get("/scan/status", params={"watching": 1}, headers=HX)
+        assert done.headers.get("HX-Trigger") == "scan-finished"
+        assert "Scan now" in done.text
+        assert "HX-Trigger" not in c.get("/scan/status").headers
+
+        assert "7 open issues" in results(c)
+        assert "completed" in c.get("/scans").text
+
+
+def test_runner_refuses_concurrent_scans(settings, monkeypatch) -> None:
+    import threading
+
+    from tagdrifter.web import runner as runner_mod
+
+    release = threading.Event()
+
+    def slow_scan(*args, **kwargs):
+        release.wait(10)
+        raise RuntimeError("stopped")
+
+    monkeypatch.setattr(runner_mod, "run_scan", slow_scan)
+    runner = ScanRunner(settings)
+    assert runner.start()
+    assert runner.status().running
+    assert not runner.start()
+    release.set()
+    runner.wait(10)
+    assert runner.status().error == "RuntimeError: stopped"
+
+
+def test_failed_scan_is_reported(tmp_path) -> None:
+    settings = settings_for(tmp_path / "missing", tmp_path)
+    runner = ScanRunner(settings)
+    runner.start()
+    runner.wait(10)
+    assert "FileNotFoundError" in runner.status().error
+    with TestClient(create_app(settings, runner)) as c:
+        assert "Last scan failed" in c.get("/scan/status").text
+
+
+def test_healthz(client) -> None:
+    assert client.get("/healthz").json() == {"status": "ok", "scanning": False}
+
+
+def test_store_artist_counts_and_text_filter(settings) -> None:
+    scan(settings)
+    with Store(settings.database_path) as store:
+        assert dict(store.open_issue_artists()) == {"Pixies": 6, "loose.flac": 1}
+        assert store.count_open_issues(text="100%_literal") == 0  # LIKE wildcards are escaped
+        assert store.count_open_issues(text="Tame", check_id="path.track_location") == 1
+
+
+def test_diff_marks_highlights_only_differences() -> None:
+    current, expected = diff_marks("A/Born: X.flac", "A/Born꞉ X.flac")
+    assert str(current) == "A/Born<mark>:</mark> X.flac"
+    assert str(expected) == "A/Born<mark>꞉</mark> X.flac"
+    escaped, _ = diff_marks("<b>", "<i>")
+    assert "<b>" not in str(escaped)
+
+
+def test_expected_location_for_placement() -> None:
+    assert expected_location(
+        "album.placement", "Charli xcx/CRASH", {"expected_artist_folder": "Charli XCX"}
+    ) == ("Charli xcx/CRASH", "Charli XCX/CRASH")
+    assert expected_location("tags.required", "a/b.flac", {"missing": ["x"]}) is None

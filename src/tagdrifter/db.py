@@ -88,11 +88,52 @@ class IssueRow:
     mbid_tagged: bool | None
 
 
+def _like_escape(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+@dataclass(frozen=True)
+class IssueFilter:
+    """Filters for open issues. Empty values mean "any"."""
+
+    check_id: str | None = None
+    severity: str | None = None
+    path_prefix: str | None = None  # library-relative folder or file, e.g. an artist folder
+    # False also matches artist/library-scope issues, which have no MBID status.
+    mbid_tagged: bool | None = None
+    text: str | None = None  # substring of subject or message
+
+    def where(self) -> tuple[str, list[Any]]:
+        sql = "resolved_scan IS NULL"
+        params: list[Any] = []
+        if self.check_id:
+            sql += " AND check_id = ?"
+            params.append(self.check_id)
+        if self.severity:
+            sql += " AND severity = ?"
+            params.append(self.severity)
+        if self.mbid_tagged is not None:
+            sql += (
+                " AND mbid_tagged = 1" if self.mbid_tagged else " AND COALESCE(mbid_tagged, 0) = 0"
+            )
+        if self.path_prefix:
+            prefix = self.path_prefix.rstrip("/")
+            sql += " AND (subject = ? OR subject LIKE ? ESCAPE '\\')"
+            params += [prefix, _like_escape(prefix) + "/%"]
+        if self.text:
+            sql += " AND (subject LIKE ? ESCAPE '\\' OR message LIKE ? ESCAPE '\\')"
+            pattern = f"%{_like_escape(self.text)}%"
+            params += [pattern, pattern]
+        return sql, params
+
+
 class Store:
     def __init__(self, path: Path | str) -> None:
         if str(path) != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(str(path))
+        # check_same_thread=False: the web app opens one Store per request, and FastAPI may run
+        # a request's dependency and handler on different threadpool threads.
+        self.conn = sqlite3.connect(str(path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
@@ -240,34 +281,19 @@ class Store:
 
     def open_issues(
         self,
+        filters: IssueFilter | None = None,
         *,
-        check_id: str | None = None,
-        path_prefix: str | None = None,
-        severity: str | None = None,
-        mbid_tagged: bool | None = None,
         limit: int | None = None,
+        offset: int = 0,
+        **filter_kwargs: Any,
     ) -> list[IssueRow]:
-        """Open issues, filtered. `mbid_tagged=False` also matches artist/library-scope issues,
-        which have no MBID status."""
-        sql = "SELECT * FROM issues WHERE resolved_scan IS NULL"
-        params: list[Any] = []
-        if check_id:
-            sql += " AND check_id = ?"
-            params.append(check_id)
-        if severity:
-            sql += " AND severity = ?"
-            params.append(severity)
-        if mbid_tagged is not None:
-            sql += " AND mbid_tagged = 1" if mbid_tagged else " AND COALESCE(mbid_tagged, 0) = 0"
-        if path_prefix:
-            sql += " AND (subject = ? OR subject LIKE ? ESCAPE '\\')"
-            escaped = path_prefix.rstrip("/").replace("\\", "\\\\").replace("%", "\\%")
-            escaped = escaped.replace("_", "\\_")
-            params += [path_prefix.rstrip("/"), escaped + "/%"]
-        sql += " ORDER BY check_id, subject"
+        """Open issues ordered by check and subject. Filter with an IssueFilter or its fields
+        as keywords, e.g. `open_issues(check_id="tags.required")`."""
+        where, params = (filters or IssueFilter(**filter_kwargs)).where()
+        sql = f"SELECT * FROM issues WHERE {where} ORDER BY check_id, subject"
         if limit:
-            sql += " LIMIT ?"
-            params.append(limit)
+            sql += " LIMIT ? OFFSET ?"
+            params += [limit, offset]
         return [
             IssueRow(
                 id=r["id"],
@@ -284,6 +310,10 @@ class Store:
             for r in self.conn.execute(sql, params)
         ]
 
+    def count_open_issues(self, filters: IssueFilter | None = None, **filter_kwargs: Any) -> int:
+        where, params = (filters or IssueFilter(**filter_kwargs)).where()
+        return self.conn.execute(f"SELECT COUNT(*) FROM issues WHERE {where}", params).fetchone()[0]
+
     def open_issue_counts(self) -> dict[tuple[str, str], int]:
         """{(check_id, severity): count} for open issues."""
         return {
@@ -293,3 +323,18 @@ class Store:
                 " WHERE resolved_scan IS NULL GROUP BY check_id, severity"
             )
         }
+
+    def open_issue_artists(self) -> list[tuple[str, int]]:
+        """(artist folder, open issue count) pairs, by folder name. Library-level subjects
+        (no '/') count as their own name, e.g. a loose file."""
+        return [
+            (r["artist"], r["n"])
+            for r in self.conn.execute(
+                "SELECT substr(subject, 1, instr(subject || '/', '/') - 1) AS artist,"
+                " COUNT(*) AS n FROM issues WHERE resolved_scan IS NULL"
+                " GROUP BY artist ORDER BY artist COLLATE NOCASE"
+            )
+        ]
+
+    def file_count(self) -> int:
+        return self.conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]

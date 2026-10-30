@@ -1,5 +1,4 @@
 import os
-from pathlib import Path
 
 import pytest
 
@@ -7,69 +6,7 @@ from tagdrifter.config import Settings
 from tagdrifter.db import Store
 from tagdrifter.scanner import run_scan
 
-from .conftest import build_flac
-
-MBIDS = {
-    "musicbrainz_artistid": "11111111-1111-4111-8111-111111111111",
-    "musicbrainz_albumartistid": "11111111-1111-4111-8111-111111111111",
-    "musicbrainz_albumid": "22222222-2222-4222-8222-222222222222",
-    "musicbrainz_releasegroupid": "33333333-3333-4333-8333-333333333333",
-    "musicbrainz_trackid": "44444444-4444-4444-8444-444444444444",
-}
-
-
-def good_tags(**overrides: str) -> dict[str, str]:
-    tags = {
-        "ALBUMARTIST": "Pixies",
-        "ARTIST": "Pixies",
-        "ALBUM": "Doolittle",
-        "TITLE": "Debaser",
-        "TRACKNUMBER": "1",
-        "DISCNUMBER": "1",
-        "TOTALDISCS": "1",
-        "DATE": "1989",
-        **MBIDS,
-    }
-    tags.update(overrides)
-    return tags
-
-
-@pytest.fixture
-def library(tmp_path: Path) -> Path:
-    lib = tmp_path / "music"
-    # Correct track, with art and a matching lyrics file
-    build_flac(
-        lib / "Pixies/Doolittle/Pixies_Doolittle_01_Debaser.flac", good_tags(), picture_bytes=50_000
-    )
-    (lib / "Pixies/Doolittle/Pixies_Doolittle_01_Debaser.lrc").write_text("[00:00] la")
-    # Misnamed track, missing an MBID, with a bad MBID
-    tags = good_tags(TITLE="Tame", TRACKNUMBER="2", musicbrainz_trackid="not-a-uuid")
-    del tags["musicbrainz_releasegroupid"]
-    build_flac(lib / "Pixies/Doolittle/02 Tame.flac", tags)
-    # Orphan lyrics, and an unreadable file
-    (lib / "Pixies/Doolittle/old name.lrc").write_text("x")
-    (lib / "Pixies/Doolittle/broken.flac").write_bytes(b"not flac")
-    # Compilation filed under an artist
-    build_flac(
-        lib / "Pixies/Hits/Pixies_Hits_01_Song.flac",
-        good_tags(ALBUMARTIST="Various Artists", ALBUM="Hits", TITLE="Song"),
-    )
-    # Loose file in the root, and ignored folders
-    build_flac(lib / "loose.flac", good_tags())
-    build_flac(lib / ".zfs/snapshot/x.flac", good_tags())
-    build_flac(lib / "@eaDir/x.flac", good_tags())
-    return lib
-
-
-def scan(settings: Settings, **kw):
-    with Store(settings.database_path) as store:
-        result = run_scan(settings, store, **kw)
-        issues = {(i.check_id, i.subject): i for i in store.open_issues()}
-    return result, issues
-
-
-def settings_for(lib: Path, tmp_path: Path, **kw) -> Settings:
-    return Settings(library_path=lib, database_path=tmp_path / "db" / "td.db", workers=4, **kw)
+from .conftest import build_flac, good_tags, scan, settings_for
 
 
 def test_full_scan_finds_expected_issues(library, tmp_path) -> None:

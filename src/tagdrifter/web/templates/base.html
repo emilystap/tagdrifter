@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Tag Drifter{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Tag Drifter</a>
+    <nav>
+      <a href="/" {% if page == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a>
+      <a href="/issues" {% if page == "issues" %}aria-current="page"{% endif %}>Issues</a>
+      <a href="/scans" {% if page == "scans" %}aria-current="page"{% endif %}>Scans</a>
+    </nav>
+    <div id="scan-status" hx-get="/scan/status" hx-trigger="load" hx-swap="outerHTML">
+      <span class="muted">…</span>
+    </div>
+  </header>
+
+  <main id="page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer muted">
+    Library <code>{{ settings.library_path }}</code>
+    · case-{{ "sensitive" if settings.case_sensitive else "insensitive" }}
+    · v{{ version }}
+  </footer>
+
+  <script>
+    // Show <time> elements in the viewer's local time zone.
+    function localizeTimes(root) {
+      root.querySelectorAll("time[datetime]").forEach((el) => {
+        const d = new Date(el.getAttribute("datetime"));
+        if (!isNaN(d)) {
+          el.textContent = d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+          el.title = el.getAttribute("datetime");
+        }
+      });
+    }
+    document.addEventListener("DOMContentLoaded", () => localizeTimes(document));
+    document.addEventListener("htmx:afterSwap", (e) => localizeTimes(e.detail.target));
+    // When a scan finishes, reload the page's content in place so counts and lists update.
+    document.body.addEventListener("scan-finished", () => {
+      htmx.ajax("GET", location.href, { target: "#page", select: "#page", swap: "outerHTML" });
+    });
+  </script>
+</body>
+</html>

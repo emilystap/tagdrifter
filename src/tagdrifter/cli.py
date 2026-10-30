@@ -1,4 +1,4 @@
-"""Command line interface: `tagdrifter scan | issues | checks | scans`."""
+"""Command line interface: `tagdrifter scan | issues | checks | scans | serve`."""
 
 from __future__ import annotations
 
@@ -200,6 +200,20 @@ def cmd_checks(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
+    import uvicorn  # imported lazily: only the web UI needs it
+
+    from .web import create_app
+
+    print(
+        f"Tag Drifter UI on http://{args.host}:{args.port} "
+        f"(library {settings.library_path}, database {settings.database_path})",
+        file=sys.stderr,
+    )
+    uvicorn.run(create_app(settings), host=args.host, port=args.port, log_level=args.log_level)
+    return 0
+
+
 def cmd_scans(settings: Settings, args: argparse.Namespace) -> int:
     with Store(settings.database_path) as store:
         rows = store.recent_scans(args.limit)
@@ -252,6 +266,14 @@ def build_parser() -> argparse.ArgumentParser:
     scans = sub.add_parser("scans", help="show recent scan history")
     scans.add_argument("--limit", type=int, default=20)
     scans.set_defaults(func=cmd_scans)
+
+    serve = sub.add_parser("serve", help="run the web UI")
+    serve.add_argument("--host", default="127.0.0.1", help="bind address (0.0.0.0 in Docker)")
+    serve.add_argument("--port", type=int, default=8080)
+    serve.add_argument(
+        "--log-level", default="info", choices=["critical", "error", "warning", "info", "debug"]
+    )
+    serve.set_defaults(func=cmd_serve)
     return parser
 
 
