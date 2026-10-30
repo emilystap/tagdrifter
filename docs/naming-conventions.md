@@ -14,7 +14,17 @@ The rules Tag Drifter checks a library against. Implemented in `src/tagdrifter/c
 - If `albumartist` is missing, `artist` is used.
 - Issue types: Compilation inside Solo Artist Folder · Solo/Collab Album inside Various Artists ·
   Collab Album placed under Single Contributor · Solo Album placed under Collab Folder ·
-  Artist Name Mismatch · Artist Folder Sanitization Mismatch.
+  Artist Name Mismatch · Artist Folder Sanitization Mismatch · Artist Folder Letter Case
+  Mismatch (the folder matches an accepted spelling except for case, e.g. `Charli xcx` for
+  `Charli XCX`; only when `case_sensitive` is on).
+
+## Source of truth
+
+MusicBrainz is the ultimate authority. Until Tag Drifter consults it, a track's tags are trusted
+over its path, letter case included, when it is **MBID-tagged**: it has well-formed
+`musicbrainz_albumid` and `musicbrainz_trackid` values, which usually means Picard tagged it.
+Every track- and album-level issue records this (an album counts when all its tracks do), so
+issues on untrusted files can be told apart: `tagdrifter issues --mbid no`.
 
 ## Album Folder (`core/naming.py`)
 

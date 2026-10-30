@@ -86,3 +86,28 @@ def test_read_metadata_rejects_non_audio(tmp_path) -> None:
     bogus.write_bytes(b"definitely not flac")
     with pytest.raises(MetadataReadError):
         read_metadata(bogus)
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        (
+            {
+                "musicbrainz_albumid": "22222222-2222-4222-8222-222222222222",
+                "musicbrainz_trackid": "44444444-4444-4444-8444-444444444444",
+            },
+            True,
+        ),
+        ({"musicbrainz_albumid": "22222222-2222-4222-8222-222222222222"}, False),
+        (
+            {
+                "musicbrainz_albumid": "22222222-2222-4222-8222-222222222222",
+                "musicbrainz_trackid": "not-a-uuid",
+            },
+            False,
+        ),
+        ({}, False),
+    ],
+)
+def test_is_mbid_tagged(tags: dict[str, str], expected: bool) -> None:
+    assert make_meta(**tags).is_mbid_tagged is expected

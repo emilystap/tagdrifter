@@ -47,15 +47,27 @@ deployed as a single Docker container on TrueNAS SCALE via Docker compose. Read 
 
 0. Repo, tooling ✅  1. Pure core ✅  2. Scanner + SQLite + checks + CLI ✅
 3. **Next: web UI**: FastAPI app with a dashboard (issue counts per check, last scan), a
-   filterable issue list (check / artist / severity / path), scan history, and a "Scan now"
-   button that runs `run_scan` in a background thread and reports progress via `ScanProgress`.
-   Reuse `Store` queries and add more as needed.
+   filterable issue list (check / artist / severity / path / MBID-tagged), scan history, and a
+   "Scan now" button that runs `run_scan` in a background thread and reports progress via
+   `ScanProgress`. Reuse `Store` queries and add more as needed.
 4. APScheduler, Dockerfile (python:3.13-slim, non-root), `compose.yaml` (library `:ro`, data
    volume, env vars), healthcheck, TrueNAS "Install via YAML" notes, GitHub Actions → GHCR
    once a remote exists.
 5. Later: fix actions (rename + move `.lrc`/`.txt` sidecars, prune empty dirs; v1's
    `organize_artist_directory` has the logic), Navidrome rescan trigger, notifications
-   (ntfy/Apprise), MusicBrainz lookups for missing MBIDs, non-FLAC formats via mutagen.
+   (ntfy/Apprise), non-FLAC formats via mutagen.
+6. MusicBrainz integration: look up releases by `musicbrainz_albumid` (WS/2 JSON, 1 req/s,
+   descriptive User-Agent), cache them in SQLite, and add checks comparing tags with MusicBrainz
+   (album artist, album, track titles incl. case, numbering). Then Picard-style retagging with
+   preview + approve, and lookups for releases missing MBIDs.
+
+## Source of truth
+
+MusicBrainz is the authority. Until step 6, tags on **MBID-tagged** tracks (valid
+`musicbrainz_albumid` + `musicbrainz_trackid`, i.e. Picard-tagged) are trusted over paths,
+including letter case, so path fixes rename to match those tags. Issues record this as
+`mbid_tagged` (track: that track; album: all its tracks; artist/library: NULL). Files without
+MBIDs are untrusted; don't auto-fix their paths from tags. See `docs/naming-conventions.md`.
 
 ## Commands
 

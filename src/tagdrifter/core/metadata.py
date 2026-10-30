@@ -14,6 +14,7 @@ from pathlib import PurePath
 from .sanitize import nfc
 
 RE_LEADING_INT = re.compile(r"^\s*(\d+)")
+RE_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 
 # Tag keys checked, in priority order, for each logical field.
 ALBUM_ARTIST_KEYS = ("albumartist", "album artist")
@@ -35,6 +36,7 @@ DISAMBIGUATION_KEYS = (
     "edition",
 )
 RELEASE_MBID_KEYS = ("musicbrainz_albumid", "musicbrainz album id")
+RECORDING_MBID_KEYS = ("musicbrainz_trackid", "musicbrainz track id")
 DATE_KEYS = ("date", "year", "originaldate", "originalyear")
 CATALOG_KEYS = ("catalognumber", "catalog number")
 COUNTRY_KEYS = ("releasecountry", "musicbrainz album release country")
@@ -79,6 +81,11 @@ def tag_list(tags: Tags, keys: Iterable[str]) -> tuple[str, ...]:
         if result:
             return tuple(result)
     return ()
+
+
+def is_mbid(value: str) -> bool:
+    """Whether a value is a well-formed MusicBrainz ID (a UUID)."""
+    return bool(RE_UUID.match(value.strip()))
 
 
 def parse_index(value: str, default: int = 1) -> int:
@@ -171,6 +178,15 @@ class TrackMeta:
 
     def has_tag(self, key: str) -> bool:
         return any(v.strip() for v in self.tags.get(key.lower(), ()))
+
+    @property
+    def is_mbid_tagged(self) -> bool:
+        """Has valid release and recording MBIDs, i.e. was most likely tagged by Picard.
+
+        Until MusicBrainz itself is consulted, such tracks' tags are trusted as the source of
+        truth (including letter case) over their paths.
+        """
+        return is_mbid(self.release_mbid) and is_mbid(first_tag(self.tags, RECORDING_MBID_KEYS))
 
 
 class MetadataReadError(Exception):

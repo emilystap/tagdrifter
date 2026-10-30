@@ -147,6 +147,7 @@ def cmd_issues(settings: Settings, args: argparse.Namespace) -> int:
             check_id=args.check,
             path_prefix=args.path,
             severity=args.severity,
+            mbid_tagged=None if args.mbid is None else args.mbid == "yes",
             limit=None if args.json else args.limit,
         )
         if args.json:
@@ -159,6 +160,7 @@ def cmd_issues(settings: Settings, args: argparse.Namespace) -> int:
                         "subject": r.subject,
                         "message": r.message,
                         "details": r.details,
+                        "mbid_tagged": r.mbid_tagged,
                         "first_seen_scan": r.first_seen_scan,
                     }
                     for r in rows
@@ -177,11 +179,12 @@ def cmd_issues(settings: Settings, args: argparse.Namespace) -> int:
             if r.check_id != current:
                 current = r.check_id
                 print(f"\n== {current} ==")
-            print(f"[{r.severity}] {r.subject}\n    {r.message}")
+            untrusted = " (no MBIDs)" if r.mbid_tagged is False else ""
+            print(f"[{r.severity}] {r.subject}{untrusted}\n    {r.message}")
         if args.limit and len(rows) == args.limit:
             print(
                 f"\n(showing first {args.limit}; use --limit 0 for all, or filter with "
-                "--check/--path/--severity)"
+                "--check/--path/--severity/--mbid)"
             )
     return 0
 
@@ -234,6 +237,11 @@ def build_parser() -> argparse.ArgumentParser:
     issues.add_argument("--check", help="only this check id (see `tagdrifter checks`)")
     issues.add_argument("--path", help="only subjects under this library-relative path")
     issues.add_argument("--severity", choices=["error", "warning", "info"])
+    issues.add_argument(
+        "--mbid",
+        choices=["yes", "no"],
+        help="only issues whose track/album has (yes) or lacks (no) release and recording MBIDs",
+    )
     issues.add_argument("--limit", type=int, default=100, help="max rows (0 = all)")
     issues.add_argument("--json", action="store_true", help="machine-readable output")
     issues.set_defaults(func=cmd_issues)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-from ..core import audit_album_placement
+from ..core import audit_album_placement, is_mbid
 from .base import AlbumContext, Check, Issue, Scope, Severity, TrackContext, register
 
 # Alternatives separated by "|": any one present satisfies the requirement.
@@ -34,7 +34,6 @@ DEFAULT_MBID_TAGS = (
     "musicbrainz_workid",
 )
 
-RE_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 RE_MULTI_SPLIT = re.compile(r"[;/,\s]+")
 
 DEFAULT_CONSISTENT_TAGS = (
@@ -74,7 +73,7 @@ class InvalidMbid(Check):
         for key in self.options.get("tags", DEFAULT_MBID_TAGS):
             for value in ctx.meta.tags.get(key, ()):
                 parts = [p for p in RE_MULTI_SPLIT.split(value.strip()) if p]
-                invalid = [p for p in parts if not RE_UUID.match(p)]
+                invalid = [p for p in parts if not is_mbid(p)]
                 if invalid:
                     bad.setdefault(key, []).extend(invalid)
         if bad:

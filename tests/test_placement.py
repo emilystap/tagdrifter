@@ -41,8 +41,16 @@ def test_audit_album_placement(folder, tags, expected) -> None:
 def test_case_only_folder_difference_depends_on_setting() -> None:
     tracks = [make_meta(albumartist="Pixies")]
     issue = audit_album_placement("pixies", tracks, case_sensitive=True)
-    assert issue is not None and issue.issue_type == T.ARTIST_FOLDER_SANITIZATION
+    assert issue is not None and issue.issue_type == T.ARTIST_FOLDER_CASE
+    assert issue.expected_artist_folder == "Pixies"
     assert audit_album_placement("pixies", tracks, case_sensitive=False) is None
+
+
+def test_case_only_match_against_sort_name_expects_that_spelling() -> None:
+    tracks = [make_meta(albumartist="The Beatles", albumartistsort="Beatles, The")]
+    issue = audit_album_placement("beatles, the", tracks)
+    assert issue is not None and issue.issue_type == T.ARTIST_FOLDER_CASE
+    assert issue.expected_artist_folder == "Beatles, The"
 
 
 def test_expected_folder_and_unique_artists() -> None:

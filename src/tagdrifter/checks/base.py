@@ -51,6 +51,9 @@ class Issue:
     subject: str  # library-relative POSIX path the issue is about
     message: str
     details: Mapping[str, Any] = field(default_factory=dict)
+    # Set by the scanner: whether the subject's track (or every track of its album) has valid
+    # release and recording MBIDs. None when that doesn't apply (artist/library scope).
+    mbid_tagged: bool | None = None
 
     @property
     def key(self) -> tuple[str, str]:

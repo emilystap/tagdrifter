@@ -16,7 +16,8 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ⏳ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | — |
-| 5 | Fix actions, Navidrome rescan, notifications, MusicBrainz lookups | — |
+| 5 | Fix actions, Navidrome rescan, notifications | — |
+| 6 | MusicBrainz integration: checks against MusicBrainz, Picard-style retagging | — |
 
 ## Quick start (local)
 
@@ -28,6 +29,7 @@ copy config.example.toml config.toml     # then set [library] path, e.g. "Y:/mus
 uv run tagdrifter scan                   # first scan reads every file; later scans only changes
 uv run tagdrifter issues                 # open issues, grouped by check
 uv run tagdrifter issues --check tags.required --path "Wolfmother"
+uv run tagdrifter issues --mbid no       # only issues on files without release/recording MBIDs
 uv run tagdrifter checks                 # available checks and whether they're enabled
 uv run tagdrifter scans                  # scan history
 ```

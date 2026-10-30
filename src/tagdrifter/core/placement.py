@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from .metadata import TrackMeta
-from .paths import path_key
+from .paths import PathMatch, compare_paths, path_key
 from .sanitize import (
     VARIOUS_ARTISTS_FOLDER,
     extract_artist_set,
@@ -26,6 +26,7 @@ class PlacementIssueType(StrEnum):
     SOLO_UNDER_COLLAB_FOLDER = "Solo Album placed under Collab Folder"
     ARTIST_NAME_MISMATCH = "Artist Name Mismatch"
     ARTIST_FOLDER_SANITIZATION = "Artist Folder Sanitization Mismatch"
+    ARTIST_FOLDER_CASE = "Artist Folder Letter Case Mismatch"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,10 +74,8 @@ def audit_album_placement(
     norm_sort = normalize_artist_name(tagged_sort)
 
     sanitized_aa = sanitize(tagged_aa)
-    acceptable_folders = {
-        path_key(name, case_sensitive=case_sensitive)
-        for name in (sanitized_aa, sanitize(tagged_sort), sanitize(tagged_aa.replace("$", "s")))
-    }
+    candidates = (sanitized_aa, sanitize(tagged_sort), sanitize(tagged_aa.replace("$", "s")))
+    acceptable_folders = {path_key(name, case_sensitive=case_sensitive) for name in candidates}
     is_sanitized_match = (
         path_key(artist_folder, case_sensitive=case_sensitive) in acceptable_folders
     )
@@ -85,6 +84,7 @@ def audit_album_placement(
     folder_va = is_various_artists_folder(artist_folder)
 
     issue: PlacementIssueType | None = None
+    expected_folder = VARIOUS_ARTISTS_FOLDER if tagged_va else sanitized_aa
     if tagged_va and not folder_va:
         issue = PlacementIssueType.COMPILATION_IN_ARTIST_FOLDER
     elif folder_va and not tagged_va:
@@ -103,7 +103,16 @@ def audit_album_placement(
             else:
                 issue = PlacementIssueType.ARTIST_NAME_MISMATCH
         elif not is_sanitized_match:
-            issue = PlacementIssueType.ARTIST_FOLDER_SANITIZATION
+            # Only letter case differs from an accepted spelling: say so, and expect that one.
+            case_match = next(
+                (n for n in candidates if compare_paths(artist_folder, n) is PathMatch.CASE_ONLY),
+                None,
+            )
+            if case_match:
+                issue = PlacementIssueType.ARTIST_FOLDER_CASE
+                expected_folder = case_match
+            else:
+                issue = PlacementIssueType.ARTIST_FOLDER_SANITIZATION
 
     if issue is None:
         return None
@@ -112,6 +121,6 @@ def audit_album_placement(
         issue_type=issue,
         current_artist_folder=artist_folder,
         tagged_album_artist=tagged_aa,
-        expected_artist_folder=VARIOUS_ARTISTS_FOLDER if tagged_va else sanitized_aa,
+        expected_artist_folder=expected_folder,
         unique_track_artists=len({t.artist for t in tracks if t.artist}),
     )

@@ -195,3 +195,20 @@ def test_buggy_check_does_not_abort_scan(library, tmp_path, monkeypatch) -> None
     assert result.check_errors
     assert any(check == "scanner.check_error" for check, _ in issues)
     assert ("path.track_location", "Pixies/Doolittle/02 Tame.flac") in issues
+
+
+def test_issues_record_mbid_status(library, tmp_path) -> None:
+    settings = settings_for(library, tmp_path)
+    _, issues = scan(settings)
+
+    # 02 Tame's recording MBID is malformed, so neither it nor its album counts as tagged.
+    assert issues[("path.track_location", "Pixies/Doolittle/02 Tame.flac")].mbid_tagged is False
+    assert issues[("file.unreadable", "Pixies/Doolittle/broken.flac")].mbid_tagged is False
+    assert issues[("album.placement", "Pixies/Hits")].mbid_tagged is True
+    assert issues[("path.loose_file", "loose.flac")].mbid_tagged is None
+
+    with Store(settings.database_path) as store:
+        tagged = {i.subject for i in store.open_issues(mbid_tagged=True)}
+        untagged = {i.subject for i in store.open_issues(mbid_tagged=False)}
+    assert tagged == {"Pixies/Hits"}
+    assert "loose.flac" in untagged and "Pixies/Hits" not in untagged

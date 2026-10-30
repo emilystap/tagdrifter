@@ -55,6 +55,10 @@ MIGRATIONS: list[str] = [
     CREATE UNIQUE INDEX issues_open_key ON issues(check_id, subject) WHERE resolved_scan IS NULL;
     CREATE INDEX issues_subject ON issues(subject);
     """,
+    # 2: whether an issue's track/album is MBID-tagged (1/0; NULL for artist/library scope)
+    """
+    ALTER TABLE issues ADD COLUMN mbid_tagged INTEGER;
+    """,
 ]
 
 
@@ -81,6 +85,7 @@ class IssueRow:
     first_seen_scan: int
     last_seen_scan: int
     resolved_scan: int | None
+    mbid_tagged: bool | None
 
 
 class Store:
@@ -210,20 +215,22 @@ class Store:
                     issue.severity.value,
                     issue.message,
                     json.dumps(issue.details, ensure_ascii=False, default=str),
+                    issue.mbid_tagged,
                     scan_id,
                 )
                 if key in existing:
                     self.conn.execute(
-                        "UPDATE issues SET severity=?, message=?, details_json=?, last_seen_scan=?"
-                        " WHERE id=?",
+                        "UPDATE issues SET severity=?, message=?, details_json=?, mbid_tagged=?,"
+                        " last_seen_scan=? WHERE id=?",
                         (*params, existing[key]),
                     )
                 else:
                     new += 1
                     self.conn.execute(
                         "INSERT INTO issues (check_id, subject, severity, message, details_json,"
-                        " first_seen_scan, last_seen_scan) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        (issue.check_id, issue.subject, *params[:3], scan_id, scan_id),
+                        " mbid_tagged, first_seen_scan, last_seen_scan)"
+                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        (issue.check_id, issue.subject, *params[:4], scan_id, scan_id),
                     )
             gone = [issue_id for key, issue_id in existing.items() if key not in current]
             self.conn.executemany(
@@ -237,8 +244,11 @@ class Store:
         check_id: str | None = None,
         path_prefix: str | None = None,
         severity: str | None = None,
+        mbid_tagged: bool | None = None,
         limit: int | None = None,
     ) -> list[IssueRow]:
+        """Open issues, filtered. `mbid_tagged=False` also matches artist/library-scope issues,
+        which have no MBID status."""
         sql = "SELECT * FROM issues WHERE resolved_scan IS NULL"
         params: list[Any] = []
         if check_id:
@@ -247,6 +257,8 @@ class Store:
         if severity:
             sql += " AND severity = ?"
             params.append(severity)
+        if mbid_tagged is not None:
+            sql += " AND mbid_tagged = 1" if mbid_tagged else " AND COALESCE(mbid_tagged, 0) = 0"
         if path_prefix:
             sql += " AND (subject = ? OR subject LIKE ? ESCAPE '\\')"
             escaped = path_prefix.rstrip("/").replace("\\", "\\\\").replace("%", "\\%")
@@ -267,6 +279,7 @@ class Store:
                 first_seen_scan=r["first_seen_scan"],
                 last_seen_scan=r["last_seen_scan"],
                 resolved_scan=r["resolved_scan"],
+                mbid_tagged=None if r["mbid_tagged"] is None else bool(r["mbid_tagged"]),
             )
             for r in self.conn.execute(sql, params)
         ]

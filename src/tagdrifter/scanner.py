@@ -12,7 +12,7 @@ import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 
@@ -247,10 +247,13 @@ def _run_checks(
     for check in checks:
         by_scope[check.scope].append(check)
 
-    def run(scope: Scope, ctx, subject: PurePosixPath | str) -> Iterable[Issue]:
+    def run(
+        scope: Scope, ctx, subject: PurePosixPath | str, mbid_tagged: bool | None = None
+    ) -> Iterable[Issue]:
         for check in by_scope[scope]:
             try:
-                yield from check.run(ctx)
+                for issue in check.run(ctx):
+                    yield replace(issue, mbid_tagged=mbid_tagged)
             except Exception as exc:  # a buggy check must not abort the scan
                 result.check_errors.append(f"{check.id} on {subject}: {exc!r}")
                 yield Issue(
@@ -307,8 +310,9 @@ def _run_checks(
             album = AlbumContext(info.rel, tracks, unreadable, tuple(info.other_files), settings)
             album_contexts.append(album)
             for track in tracks:
-                yield from run(Scope.TRACK, track, track.rel_path)
-            yield from run(Scope.ALBUM, album, album.rel_path)
+                yield from run(Scope.TRACK, track, track.rel_path, track.meta.is_mbid_tagged)
+            album_tagged = all(t.meta.is_mbid_tagged for t in tracks) if tracks else None
+            yield from run(Scope.ALBUM, album, album.rel_path, album_tagged)
 
         artist_info = dirs.get(PurePosixPath(artist))
         subfolders = tuple(artist_info.subdirs) if artist_info else ()
