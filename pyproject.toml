@@ -16,6 +16,7 @@ tagdrifter = "tagdrifter.cli:main"
 
 [dependency-groups]
 dev = [
+    "httpx2>=2.16.0",
     "pytest>=8.0",
     "ruff>=0.6",
 ]
