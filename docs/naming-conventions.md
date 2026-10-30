@@ -85,7 +85,10 @@ MusicBrainz (`…`, `’`, `‐`) pass through unchanged.
 All text is normalized to Unicode NFC first, so names written decomposed (NFD, common from macOS
 clients) compare equal to their tag values.
 
-## Differences from v1 (`music_lib_scanner_v1`)
+## Differences from v1
+
+Tag Drifter replaced a private notebook-based script ("v1"). Its rules were ported to
+`core/` with these deliberate changes:
 
 - **Case sensitivity is a setting.** v1 compared paths with `os.path.normcase`, which ignores case
   on Windows and nowhere else. Tag Drifter takes `case_sensitive` explicitly (default `True`, matching
