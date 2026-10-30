@@ -11,7 +11,8 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 > FLAC files tagged with [Picard](https://picard.musicbrainz.org/) / MusicBrainz, on a
 > case-sensitive ZFS dataset served over SMB. The naming rules are opinionated and not
 > configurable yet. It only reports for now; it never changes your files. The web UI has no
-> login, so keep it on your LAN.
+> login, so keep it on your LAN. AI relied on heavily during development - use at your
+> own peril.
 
 ## Status
 
