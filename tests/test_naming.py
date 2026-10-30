@@ -16,8 +16,48 @@ def test_single_disc_filename() -> None:
     target = compute_target(meta, "Pixies")
     assert (
         str(target.relative_path)
-        == "Pixies/Surfer Rosa/Pixies_Surfer Rosa_07_Where Is My Mind.flac"
+        == "Pixies/Surfer Rosa/Pixies_Surfer Rosa_07_Where Is My Mind？.flac"
     )
+
+
+def test_edge_dots_are_protected_only_at_name_edges() -> None:
+    # Album and artist folders end in '.', and the album starts with one: those edges get the
+    # one-dot-leader lookalike. Inside the filename the dots are safe and stay as tagged.
+    meta = make_meta(
+        "x/y/z.flac",
+        albumartist="Lipps, Inc.",
+        artist="Lipps, Inc.",
+        album=".5: The Gray Chapter.",
+        title="B.Y.O.B.",
+        tracknumber="1",
+    )
+    target = compute_target(meta, "Lipps, Inc․")
+    assert target.album_folder == "․5꞉ The Gray Chapter․"
+    assert target.filename == "Lipps, Inc._.5꞉ The Gray Chapter._01_B.Y.O.B..flac"
+
+
+def test_leading_dot_in_filename_is_protected() -> None:
+    meta = make_meta("x/y/z.flac", artist=".Hidden", album="A", title="T", tracknumber="1")
+    assert compute_target(meta, "Various Artists").filename == "․Hidden_A_01_T.flac"
+
+
+def test_collision_suffix_goes_after_unprotected_album_name() -> None:
+    a = make_meta(
+        "Kendrick Lamar/a/1.flac",
+        album="DAMN.",
+        date="2017",
+        musicbrainz_albumid="11111111-1111-4111-8111-111111111111",
+    )
+    b = make_meta(
+        "Kendrick Lamar/b/1.flac",
+        album="DAMN.",
+        date="2018",
+        musicbrainz_albumid="22222222-2222-4222-8222-222222222222",
+    )
+    targets, _ = resolve_release_collisions(
+        [(m, compute_target(m, "Kendrick Lamar")) for m in (a, b)]
+    )
+    assert {t.album_folder for t in targets} == {"DAMN. (2017)", "DAMN. (2018)"}
 
 
 def test_multi_disc_filename() -> None:

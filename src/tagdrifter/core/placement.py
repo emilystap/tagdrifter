@@ -15,7 +15,7 @@ from .sanitize import (
     is_various_artists_tag,
     normalize_artist_name,
     normalize_collaborators,
-    sanitize,
+    sanitize_folder,
 )
 
 
@@ -73,8 +73,12 @@ def audit_album_placement(
     norm_tagged = normalize_artist_name(tagged_aa)
     norm_sort = normalize_artist_name(tagged_sort)
 
-    sanitized_aa = sanitize(tagged_aa)
-    candidates = (sanitized_aa, sanitize(tagged_sort), sanitize(tagged_aa.replace("$", "s")))
+    sanitized_aa = sanitize_folder(tagged_aa)
+    candidates = (
+        sanitized_aa,
+        sanitize_folder(tagged_sort),
+        sanitize_folder(tagged_aa.replace("$", "s")),
+    )
     acceptable_folders = {path_key(name, case_sensitive=case_sensitive) for name in candidates}
     is_sanitized_match = (
         path_key(artist_folder, case_sensitive=case_sensitive) in acceptable_folders

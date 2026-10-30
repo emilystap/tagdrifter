@@ -5,8 +5,11 @@ import pytest
 from tagdrifter.core.sanitize import (
     normalize_artist_name,
     normalize_collaborators,
+    protect_edges,
     sanitize,
+    sanitize_folder,
     strip_featured_artists,
+    unprotect_edges,
 )
 
 
@@ -16,31 +19,56 @@ from tagdrifter.core.sanitize import (
     [
         ("AC/DC", "AC∕DC"),
         ("Song A / Song B", "Song A ∕ Song B"),
-        ("Back\\Slash", "Back∕Slash"),
-        ("Medley: Pick Up the Pieces", "Medley - Pick Up the Pieces"),
-        ("4:44", "4-44"),
+        (r"Back\Slash", "Back∕Slash"),
+        ("Medley: Pick Up the Pieces", "Medley꞉ Pick Up the Pieces"),
+        ("4:44", "4꞉44"),
         ("Work B**ch", "Work B∗∗ch"),
         ('Blue Monday (12" Mix)', "Blue Monday (12″ Mix)"),
         ('"Heroes"', "“Heroes”"),
         ('Stray " quote', "Stray ” quote"),
         ("A | B", "A ∣ B"),
-        ("Where Is My Mind?", "Where Is My Mind"),
-        ("<Angle>", "Angle"),
-        ("Album...", "Album"),
+        ("Where Is My Mind?", "Where Is My Mind？"),
+        ("u + me = <3", "u + me = ‹3"),
+        ("Fame > Infamy", "Fame › Infamy"),
+        ("DAMN.", "DAMN."),  # edge dots are protect_edges' job
+        ("…And Justice for All", "…And Justice for All"),
         ("  padded  ", "padded"),
         ("multiple   spaces", "multiple spaces"),
         (".", "(period)"),
         ("...", "(period)"),
-        ("?", "(question mark)"),
-        ("!", "(exclamation mark)"),
-        ("*", "(asterisk)"),
-        ("....", "(period)"),
-        ("?? ", "(unknown)"),
+        ("?", "？"),
+        ("!", "!"),
+        ("*", "∗"),
+        ("   ", "(unknown)"),
         ("", ""),
     ],
 )
 def test_sanitize(raw: str, expected: str) -> None:
     assert sanitize(raw) == expected
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("DAMN.", "DAMN․"),
+        (".5꞉ The Gray Chapter", "․5꞉ The Gray Chapter"),
+        ("..x...", "․․x․․․"),
+        ("A.D.I.D.A.S", "A.D.I.D.A.S"),
+        ("(period)", "(period)"),
+    ],
+)
+def test_protect_edges_round_trips(name: str, expected: str) -> None:
+    assert protect_edges(name) == expected
+    assert unprotect_edges(expected) == name
+
+
+def test_sanitize_folder() -> None:
+    assert sanitize_folder("Lipps, Inc.") == "Lipps, Inc․"
+
+
+def test_normalize_artist_name_sees_through_substitutes() -> None:
+    assert normalize_artist_name("Lipps, Inc․") == normalize_artist_name("Lipps, Inc.")
+    assert normalize_artist_name("Foo꞉ Bar") == normalize_artist_name("Foo: Bar")
 
 
 def test_sanitize_normalizes_to_nfc() -> None:

@@ -42,6 +42,9 @@ deployed as a single Docker container on TrueNAS SCALE via Docker compose. Read 
 - Tracks missing `musicbrainz_albumid` inherit their folder's single album ID, so they don't
   split an album into `(Year, N tracks)` releases.
 - Case-only name collisions are detected (`path.case_collision_*`).
+- Lossless sanitization: `: ? < >` become lookalikes instead of `-` / removed, dots are kept
+  except at the edges of a whole folder/file name (`protect_edges`), and only dots-only values
+  get a word (`(period)`). A name should read back as its MusicBrainz tag.
 
 ## Status / roadmap
 
@@ -82,8 +85,8 @@ uv run tagdrifter issues --check path.track_location --limit 20
 ## Conventions
 
 - Ruff (line length 100). The RUF001-003 ambiguous-unicode rules are disabled only for
-  `core/sanitize.py` and `tests/`, where the filesystem-safe substitutes (∕ ∗ ∣ ″ “ ”) are
-  intentional. Elsewhere, keep them out of literals (use `sanitize()` or constants such as
+  `core/sanitize.py` and `tests/`, where the filesystem-safe substitutes
+  (∕ ꞉ ∗ ∣ ？ ‹ › ․ ″ “ ”) are intentional. Elsewhere, keep them out of literals (use `sanitize()` or constants such as
   `SLASH_REPLACEMENT`), so the rules still catch accidental lookalikes.
 - Tests build real FLAC files on the fly (`tests/conftest.py::build_flac`, including
   cover-art blocks); never commit audio fixtures.

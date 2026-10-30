@@ -14,8 +14,10 @@ from .paths import path_key
 from .sanitize import (
     is_various_artists_folder,
     normalize_artist_name,
+    protect_edges,
     sanitize,
     strip_featured_artists,
+    unprotect_edges,
 )
 
 
@@ -55,9 +57,10 @@ def primary_track_artist(meta: TrackMeta, artist_folder: str) -> str:
     norm_primary = normalize_artist_name(primary)
     norm_sort = normalize_artist_name(primary_sort)
 
-    # The track belongs to the folder's artist: use the folder's canonical spelling.
+    # The track belongs to the folder's artist: use the folder's canonical spelling (with any
+    # edge-dot substitutes undone, as the artist sits inside the filename).
     if not is_various_artists_folder(artist_folder) and norm_folder in (norm_primary, norm_sort):
-        return artist_folder
+        return unprotect_edges(artist_folder)
     # Stylization resolved by a non-inverted sort tag (e.g. Ke$ha -> Kesha) on splits/comps.
     if "," not in primary_sort and norm_primary == norm_sort and primary != primary_sort:
         return primary_sort
@@ -67,8 +70,8 @@ def primary_track_artist(meta: TrackMeta, artist_folder: str) -> str:
 def album_folder_name(meta: TrackMeta) -> str:
     album = sanitize(meta.effective_album)
     if meta.disambiguation:
-        return f"{album} ({sanitize(meta.disambiguation)})"
-    return album
+        return protect_edges(f"{album} ({sanitize(meta.disambiguation)})")
+    return protect_edges(album)
 
 
 def track_filename(meta: TrackMeta, track_artist: str, extension: str = ".flac") -> str:
@@ -78,7 +81,7 @@ def track_filename(meta: TrackMeta, track_artist: str, extension: str = ".flac")
         index = f"{meta.disc_number:02d}-{meta.track_number:02d}"
     else:
         index = f"{meta.track_number:02d}"
-    return f"{track_artist}_{album}_{index}_{title}{extension}"
+    return protect_edges(f"{track_artist}_{album}_{index}_{title}{extension}")
 
 
 def compute_target(meta: TrackMeta, artist_folder: str) -> TrackTarget:
@@ -142,7 +145,8 @@ def resolve_release_collisions(
         )
         for release_key, idxs in releases.items():
             original = targets[idxs[0]]
-            new_folder = f"{original.album_folder} ({sanitize(suffixes[release_key])})"
+            base = unprotect_edges(original.album_folder)
+            new_folder = protect_edges(f"{base} ({sanitize(suffixes[release_key])})")
             notices.append(
                 CollisionNotice(original.artist_folder, original.album_folder, new_folder)
             )

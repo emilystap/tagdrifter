@@ -59,18 +59,28 @@ issues on untrusted files can be told apart: `tagdrifter issues --mbid no`.
 
 ## Character Sanitization (`core/sanitize.py`)
 
+Principle: **a name should read back as its tag.** Characters that Windows/SMB can't store become
+visually similar Unicode substitutes instead of being dropped or replaced with something else.
+
 | Input | Output | Example |
 | :--- | :--- | :--- |
 | `/` or `\` | `∕` (U+2215) | `AC/DC` → `AC∕DC` |
-| `: ` (colon + space) | ` - ` | `Medley: Pick Up…` → `Medley - Pick Up…` |
-| `:` | `-` | `4:44` → `4-44` |
+| `:` | `꞉` (U+A789) | `Medley: Pick Up…` → `Medley꞉ Pick Up…`, `4:44` → `4꞉44` |
 | `*` | `∗` (U+2217) | `Work B**ch` → `Work B∗∗ch` |
 | digit + `"` | `″` (U+2033) | `Blue Monday (12" Mix)` → `Blue Monday (12″ Mix)` |
 | `"…"` / stray `"` | `“…”` / `”` | `"Heroes"` → `“Heroes”` |
 | `\|` | `∣` (U+2223) | `A \| B` → `A ∣ B` |
-| `?` `<` `>` | removed | `Where Is My Mind?` → `Where Is My Mind` |
-| leading/trailing spaces and `.` | stripped | `Album...` → `Album` |
-| symbol-only values | word in parentheses | `...` → `(period)`, `?` → `(question mark)` |
+| `?` | `？` (U+FF1F) | `Where Is My Mind?` → `Where Is My Mind？` |
+| `<` `>` | `‹` `›` (U+2039/203A) | `u + me = <3` → `u + me = ‹3` |
+| `.` at the start or end of a **folder or file name** | `․` (U+2024) | `DAMN.` → `DAMN․`, `.5: The Gray Chapter` → `․5꞉ The Gray Chapter` |
+| leading/trailing spaces, repeated spaces | stripped / collapsed | `  padded  ` → `padded` |
+| dots-only values | `(period)` | `.` → `(period)` |
+
+Dots are only a problem at the edges of a whole name: Windows/SMB drop trailing dots, and a
+leading dot hides the entry (and matches the default `.*` ignore pattern). Inside a track
+filename they are safe, so `B.Y.O.B.` stays `…_B.Y.O.B..flac`, and a folder spelled `Lipps, Inc․`
+gives filenames starting `Lipps, Inc._`. Values that already use typographic characters from
+MusicBrainz (`…`, `’`, `‐`) pass through unchanged.
 
 All text is normalized to Unicode NFC first, so names written decomposed (NFD, common from macOS
 clients) compare equal to their tag values.
