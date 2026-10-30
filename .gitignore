@@ -19,7 +19,7 @@ htmlcov/
 data/
 *.db
 *.sqlite3
-config.yaml
+config.toml
 
 # Editors / OS
 .vscode/
