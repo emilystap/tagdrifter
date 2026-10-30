@@ -3,7 +3,7 @@
 # TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_SCHEDULE, TAGDRIFTER_CONFIG.
 
 [library]
-path = "Y:/music"            # in Docker this will be "/music"
+path = "M:/music"            # in Docker this will be "/music"
 # Treat names differing only by letter case as different (match your ZFS dataset setting).
 case_sensitive = true
 audio_extensions = [".flac"]

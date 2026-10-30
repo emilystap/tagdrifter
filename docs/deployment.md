@@ -51,8 +51,9 @@ The UI is then at `http://<truenas>:8080`. It has no login, so don't expose it b
 
 ## 5. First scan
 
-The first scan reads every file's tags (about a minute for ~7,000 files over SMB from a laptop;
-local disk access on the NAS should be faster). Press *Scan now* in the top bar, or wait for
+The first scan reads every file's tags. It only reads the tag blocks at the start of each file
+(cover art is skipped), so it's quick: several thousand files a minute even over SMB, and
+faster on the NAS's own disks. Press *Scan now* in the top bar, or wait for
 the schedule. Later scans re-read only files whose size or modification time changed.
 
 ## Optional: config.toml

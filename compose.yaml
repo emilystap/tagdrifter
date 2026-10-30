@@ -16,7 +16,7 @@ services:
       # Optional: a config.toml for per-check options (see config.example.toml).
       # - /mnt/POOL/apps/tagdrifter/config:/config:ro
     environment:
-      TZ: America/New_York # time zone for the schedule and logs
+      TZ: Etc/UTC # your time zone, e.g. America/New_York, for the schedule and logs
       TAGDRIFTER_SCHEDULE: "0 4 * * *" # cron (min hour day month weekday), or "off"
       TAGDRIFTER_CASE_SENSITIVE: "true" # match the dataset's case sensitivity
       TAGDRIFTER_WORKERS: "8" # parallel tag reads; lower on spinning disks

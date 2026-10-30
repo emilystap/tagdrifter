@@ -16,7 +16,7 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
-COPY README.md ./
+COPY README.md LICENSE ./
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-editable
@@ -26,7 +26,8 @@ FROM python:3.13-slim
 
 LABEL org.opencontainers.image.title="Tag Drifter" \
       org.opencontainers.image.description="Monitors a FLAC library for naming and tagging drift" \
-      org.opencontainers.image.source="https://github.com/emilystap/tagdrifter"
+      org.opencontainers.image.source="https://github.com/emilystap/tagdrifter" \
+      org.opencontainers.image.licenses="GPL-3.0-or-later"
 
 # 568:568 is TrueNAS SCALE's "apps" user; override with `user:` in compose if needed.
 ARG UID=568

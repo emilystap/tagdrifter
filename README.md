@@ -7,6 +7,12 @@ letter case.
 
 The conventions are described in [docs/naming-conventions.md](docs/naming-conventions.md).
 
+> **A personal project, shared as-is.** Tag Drifter is built around one library's conventions:
+> FLAC files tagged with [Picard](https://picard.musicbrainz.org/) / MusicBrainz, on a
+> case-sensitive ZFS dataset served over SMB. The naming rules are opinionated and not
+> configurable yet. It only reports for now; it never changes your files. The web UI has no
+> login, so keep it on your LAN.
+
 ## Status
 
 | Step | What | State |
@@ -25,7 +31,7 @@ Requires [uv](https://docs.astral.sh/uv/).
 
 ```powershell
 uv sync
-copy config.example.toml config.toml     # then set [library] path, e.g. "Y:/music"
+copy config.example.toml config.toml     # then set [library] path, e.g. "M:/music"
 uv run tagdrifter scan                   # first scan reads every file; later scans only changes
 uv run tagdrifter issues                 # open issues, grouped by check
 uv run tagdrifter issues --check tags.required --path "Wolfmother"
@@ -36,7 +42,7 @@ uv run tagdrifter serve                  # web UI on http://127.0.0.1:8080
 ```
 
 `--library` and `--db` override the config file for a single run, e.g.
-`uv run tagdrifter --library Y:\music scan`. `scan --full` ignores the cache and re-reads every
+`uv run tagdrifter --library M:\music scan`. `scan --full` ignores the cache and re-reads every
 file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up where it stopped.
 
 ## Web UI
@@ -140,3 +146,12 @@ uv run pytest           # tests
 uv run ruff check .     # lint
 uv run ruff format .    # format
 ```
+
+Changes go through pull requests into `main`; the CI and Image workflows must pass, and `main`
+publishes `ghcr.io/emilystap/tagdrifter:latest`.
+
+## License
+
+[GPL-3.0-or-later](LICENSE). Tag Drifter uses [mutagen](https://github.com/quodlibet/mutagen)
+(GPL-2.0-or-later); the vendored [htmx](https://htmx.org/) is 0BSD, and the other dependencies
+are MIT, BSD or Apache-2.0 licensed.

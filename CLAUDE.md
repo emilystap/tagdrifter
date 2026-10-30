@@ -1,19 +1,19 @@
 # Tag Drifter: notes for Claude
 
-Self-hosted service that monitors a FLAC music library for files that drift from the owner's
-naming and tagging conventions. Backend is Python, by the owner's preference. It will be
-deployed as a single Docker container on TrueNAS SCALE via Docker compose. Read `README.md`
-(usage, checks, layout) and `docs/naming-conventions.md` (the rules) before changing behaviour.
+Self-hosted service that monitors a FLAC music library for files that drift from a set of
+naming and tagging conventions. Python backend, deployed as a single Docker container (TrueNAS
+SCALE via Docker compose is the reference setup). Read `README.md` (usage, checks, layout) and
+`docs/naming-conventions.md` (the rules) before changing behaviour. Personal setup details, if
+present, are in the git-ignored `CLAUDE.local.md`.
 
-## Owner's setup
+## Target setup
 
-- Library: ~7,000 tracks, almost all `.flac`, all with **embedded cover art**. Stored on a
-  TrueNAS dataset that is **case-sensitive**, shared over SMB, streamed with Navidrome. Sources
-  are mainly Bandcamp and Qobuz, tagged with MusicBrainz IDs.
-- Dev machine: Windows laptop with the library mounted at `Y:\music` over SMB. Use PowerShell
-  syntax in instructions. `uv` manages the environment.
-- The predecessor, `../music_lib_scanner_v1` (notebook + `library_scanner/scanner.py`), is
-  reference only. Its logic has been ported into `src/tagdrifter/core/`. Don't import it.
+- Libraries of thousands of `.flac` tracks with embedded cover art, tagged with Picard /
+  MusicBrainz IDs, on a **case-sensitive** ZFS dataset shared over SMB and streamed by a
+  server such as Navidrome.
+- Development uses `uv`. The test suite builds FLAC files on the fly, so no library is needed.
+- Work goes through feature branches and squash-merged PRs: `main` publishes
+  `ghcr.io/emilystap/tagdrifter:latest`, which deployments pull.
 
 ## Architecture decisions (agreed)
 
@@ -54,8 +54,8 @@ deployed as a single Docker container on TrueNAS SCALE via Docker compose. Read 
    background scan at a time, progress polled by HTMX every 1s; a finished scan fires the
    `scan-finished` event and the page reloads `#page`). Server-rendered Jinja; partials are
    chosen by the `HX-Target` header. HTMX 2.0.4 is vendored in `web/static/` (no CDN).
-   Per-track issues should be grouped by album (step 5), since one album rename produces one issue
-   per track (SZA *SOS Deluxe: LANA* = 42 rows).
+   Per-track issues should be grouped by album (step 5): one album rename produces one issue per
+   track, e.g. 42 rows for a 42-track album.
 4. Deployment ✅ (written; verified by CI's image build + smoke test, not yet installed on
    TrueNAS): `web/scheduler.py` (`ScanScheduler`, APScheduler 3 `BackgroundScheduler`, started
    in the app lifespan; `scan_schedule` / `TAGDRIFTER_SCHEDULE`, default `0 4 * * *`).
@@ -64,7 +64,7 @@ deployed as a single Docker container on TrueNAS SCALE via Docker compose. Read 
    (uv 0.13 build stage, python:3.13-slim, UID/GID 568, `/music` `/data` `/config`,
    HEALTHCHECK on `/healthz`), `compose.yaml`, `docs/deployment.md`, workflows `ci.yml` and
    `image.yml` (build, smoke test, push to `ghcr.io/emilystap/tagdrifter` from main and `v*`
-   tags). No Docker on the dev laptop: image changes are only tested in CI.
+   tags). Image changes are tested by CI (build + smoke test) unless Docker is available locally.
 5. **Next**: fix actions (rename + move `.lrc`/`.txt` sidecars, prune empty dirs; v1's
    `organize_artist_directory` has the logic) with per-album grouping in the UI, Navidrome
    rescan trigger, notifications (ntfy/Apprise), non-FLAC formats via mutagen.
