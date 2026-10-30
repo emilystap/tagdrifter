@@ -15,7 +15,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 1 | Pure core: sanitization, metadata, expected paths, album placement | ✅ |
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
-| 4 | Scheduler, Docker image, TrueNAS compose deployment | ⏳ |
+| 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
 | 5 | Fix actions, Navidrome rescan, notifications | — |
 | 6 | MusicBrainz integration: checks against MusicBrainz, Picard-style retagging | — |
 
@@ -51,9 +51,26 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
 - **Scans**: scan history with files read and issues opened/resolved.
 - **Scan now** (top bar, every page): runs a scan in the background with live progress; the page
   refreshes its counts when it finishes. Only one scan runs at a time.
+- **Scheduled scans**: while the UI runs, it scans on `[scan] schedule` / `TAGDRIFTER_SCHEDULE`,
+  a standard cron expression (default `0 4 * * *`, daily at 04:00 local time) or `off`. A
+  scheduled scan that comes due while another is running is skipped. The footer shows the
+  next one.
 
 `GET /healthz` returns `{"status": "ok", ...}` for container health checks. The UI has no
 login; keep it on your LAN.
+
+## Docker / TrueNAS SCALE
+
+The image is published to `ghcr.io/emilystap/tagdrifter` by GitHub Actions. It runs as UID/GID
+568 (TrueNAS's `apps` user), serves on port 8080, reads the library at `/music` (mount it
+`:ro`) and keeps its database in `/data`. [`compose.yaml`](compose.yaml) is ready for TrueNAS's
+*Install via YAML* once you fill in your dataset paths; [docs/deployment.md](docs/deployment.md)
+walks through permissions, the first scan and updates.
+
+```bash
+docker build -t tagdrifter .
+docker run -p 8080:8080 -v /path/to/music:/music:ro -v tagdrifter-data:/data tagdrifter
+```
 
 ## How a scan works
 
@@ -109,9 +126,11 @@ src/tagdrifter/
   db.py          SQLite: file/tag cache, scan history, issue lifecycle
   scanner.py     Discover → read changed → check → save
   cli.py         `tagdrifter` command
-  web/           FastAPI app (app.py), background ScanRunner, Jinja templates, static/ (CSS,
-                 vendored htmx.min.js 2.0.4)
+  web/           FastAPI app (app.py), background ScanRunner, cron ScanScheduler, Jinja
+                 templates, static/ (CSS, vendored htmx.min.js 2.0.4)
 tests/           pytest suite; builds real FLAC files on the fly (no fixtures to commit)
+docs/            Naming conventions, TrueNAS deployment
+Dockerfile, compose.yaml, .github/workflows/ (CI: lint + tests; Image: build, smoke test, GHCR)
 ```
 
 ## Development

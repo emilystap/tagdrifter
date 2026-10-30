@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 import time
@@ -205,12 +206,23 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
 
     from .web import create_app
 
+    try:
+        app = create_app(settings)
+    except ValueError as exc:  # e.g. an invalid scan schedule
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    # Show the app's own log lines (scheduled scans, scan results) next to uvicorn's.
+    logging.basicConfig(
+        level=args.log_level.upper(), format="%(levelname)-9s %(name)s: %(message)s"
+    )
+    if args.log_level != "debug":
+        logging.getLogger("apscheduler").setLevel(logging.WARNING)  # job bookkeeping noise
     print(
         f"Tag Drifter UI on http://{args.host}:{args.port} "
         f"(library {settings.library_path}, database {settings.database_path})",
         file=sys.stderr,
     )
-    uvicorn.run(create_app(settings), host=args.host, port=args.port, log_level=args.log_level)
+    uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level)
     return 0
 
 

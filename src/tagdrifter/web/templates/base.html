@@ -27,6 +27,7 @@
   <footer class="footer muted">
     Library <code>{{ settings.library_path }}</code>
     · case-{{ "sensitive" if settings.case_sensitive else "insensitive" }}
+    · {% if scheduler.enabled and scheduler.next_run() %}next automatic scan {{ scheduler.next_run() | timestamp }}{% else %}automatic scans off{% endif %}
     · v{{ version }}
   </footer>
 

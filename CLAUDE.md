@@ -54,14 +54,20 @@ deployed as a single Docker container on TrueNAS SCALE via Docker compose. Read 
    background scan at a time, progress polled by HTMX every 1s; a finished scan fires the
    `scan-finished` event and the page reloads `#page`). Server-rendered Jinja; partials are
    chosen by the `HX-Target` header. HTMX 2.0.4 is vendored in `web/static/` (no CDN).
-   Polish idea: group per-track issues by album, since one album rename produces one issue
+   Per-track issues should be grouped by album (step 5), since one album rename produces one issue
    per track (SZA *SOS Deluxe: LANA* = 42 rows).
-4. **Next**: APScheduler, Dockerfile (python:3.13-slim, non-root, `serve --host 0.0.0.0`),
-   `compose.yaml` (library `:ro`, data volume, env vars), healthcheck on `/healthz`, TrueNAS
-   "Install via YAML" notes, GitHub Actions → GHCR (remote: github.com/emilystap/tagdrifter).
-5. Later: fix actions (rename + move `.lrc`/`.txt` sidecars, prune empty dirs; v1's
-   `organize_artist_directory` has the logic), Navidrome rescan trigger, notifications
-   (ntfy/Apprise), non-FLAC formats via mutagen.
+4. Deployment ✅ (written; verified by CI's image build + smoke test, not yet installed on
+   TrueNAS): `web/scheduler.py` (`ScanScheduler`, APScheduler 3 `BackgroundScheduler`, started
+   in the app lifespan; `scan_schedule` / `TAGDRIFTER_SCHEDULE`, default `0 4 * * *`).
+   APScheduler 3 numbers weekdays Monday = 0, so `_cron_weekdays` translates standard cron
+   weekdays; don't pass raw crontab strings to `CronTrigger.from_crontab`. `Dockerfile`
+   (uv 0.13 build stage, python:3.13-slim, UID/GID 568, `/music` `/data` `/config`,
+   HEALTHCHECK on `/healthz`), `compose.yaml`, `docs/deployment.md`, workflows `ci.yml` and
+   `image.yml` (build, smoke test, push to `ghcr.io/emilystap/tagdrifter` from main and `v*`
+   tags). No Docker on the dev laptop: image changes are only tested in CI.
+5. **Next**: fix actions (rename + move `.lrc`/`.txt` sidecars, prune empty dirs; v1's
+   `organize_artist_directory` has the logic) with per-album grouping in the UI, Navidrome
+   rescan trigger, notifications (ntfy/Apprise), non-FLAC formats via mutagen.
 6. MusicBrainz integration: look up releases by `musicbrainz_albumid` (WS/2 JSON, 1 req/s,
    descriptive User-Agent), cache them in SQLite, and add checks comparing tags with MusicBrainz
    (album artist, album, track titles incl. case, numbering). Then Picard-style retagging with

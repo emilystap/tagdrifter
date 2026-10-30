@@ -1,0 +1,22 @@
+# Tag Drifter on TrueNAS SCALE (Apps > Discover Apps > ⋮ > Install via YAML), or any Docker host.
+# Replace the two /mnt/... host paths with your datasets; see docs/deployment.md.
+services:
+  tagdrifter:
+    image: ghcr.io/emilystap/tagdrifter:latest
+    container_name: tagdrifter
+    restart: unless-stopped
+    user: "568:568" # TrueNAS "apps" user; needs read access to the library, write to /data
+    ports:
+      - "8080:8080"
+    volumes:
+      # The library, read-only: Tag Drifter only reports for now.
+      - /mnt/POOL/media/music:/music:ro
+      # SQLite database (tag cache, scan history, issues). Back this up with the app dataset.
+      - /mnt/POOL/apps/tagdrifter/data:/data
+      # Optional: a config.toml for per-check options (see config.example.toml).
+      # - /mnt/POOL/apps/tagdrifter/config:/config:ro
+    environment:
+      TZ: America/New_York # time zone for the schedule and logs
+      TAGDRIFTER_SCHEDULE: "0 4 * * *" # cron (min hour day month weekday), or "off"
+      TAGDRIFTER_CASE_SENSITIVE: "true" # match the dataset's case sensitivity
+      TAGDRIFTER_WORKERS: "8" # parallel tag reads; lower on spinning disks

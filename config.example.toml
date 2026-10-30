@@ -1,6 +1,6 @@
 # Tag Drifter configuration. Copy to config.toml (git-ignored) and adjust.
 # Environment variables override these: TAGDRIFTER_LIBRARY, TAGDRIFTER_DB,
-# TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_CONFIG.
+# TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_SCHEDULE, TAGDRIFTER_CONFIG.
 
 [library]
 path = "Y:/music"            # in Docker this will be "/music"
@@ -16,6 +16,9 @@ path = "data/tagdrifter.db"
 
 [scan]
 workers = 8                  # parallel tag reads; raise for SMB, lower for spinning disks
+# Automatic scans while `tagdrifter serve` runs: a cron expression (minute hour day month
+# weekday) in the server's time zone, or "off". Scans are incremental, so daily is cheap.
+schedule = "0 4 * * *"
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

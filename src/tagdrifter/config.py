@@ -6,6 +6,7 @@ Environment variables (handy in Docker compose):
     TAGDRIFTER_DB              SQLite database path
     TAGDRIFTER_CASE_SENSITIVE  true/false
     TAGDRIFTER_WORKERS         parallel file reads
+    TAGDRIFTER_SCHEDULE        cron expression for automatic scans, or "off"
 """
 
 from __future__ import annotations
@@ -30,6 +31,9 @@ class Settings:
     # fnmatch patterns for file/folder names to skip (ZFS snapshots, NAS/OS metadata, ...)
     ignore_patterns: tuple[str, ...] = (".*", "@eaDir", "#recycle", "$RECYCLE.BIN", "Thumbs.db")
     workers: int = 8
+    # When the web app scans automatically: a 5-field cron expression in the container's time
+    # zone (TZ), or "off". Default: daily at 04:00.
+    scan_schedule: str = "0 4 * * *"
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -68,6 +72,7 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         ignore_patterns=tuple(library.get("ignore", base.ignore_patterns)),
         database_path=Path(database.get("path", base.database_path)),
         workers=int(scan.get("workers", base.workers)),
+        scan_schedule=str(scan.get("schedule", base.scan_schedule)),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -106,6 +111,7 @@ def load_settings(
         "TAGDRIFTER_DB": ("database_path", Path),
         "TAGDRIFTER_CASE_SENSITIVE": ("case_sensitive", _parse_bool),
         "TAGDRIFTER_WORKERS": ("workers", int),
+        "TAGDRIFTER_SCHEDULE": ("scan_schedule", str),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):

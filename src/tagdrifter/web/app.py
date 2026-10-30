@@ -6,7 +6,8 @@ paging and scan progress. Each request opens its own Store; scans run in a ScanR
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager
 from math import ceil
 from pathlib import Path
 from typing import Annotated
@@ -23,6 +24,7 @@ from ..config import Settings
 from ..db import IssueFilter, Store
 from . import format as fmt
 from .runner import ScanRunner
+from .scheduler import ScanScheduler
 
 HERE = Path(__file__).parent
 PAGE_SIZE = 100
@@ -39,9 +41,24 @@ StoreDep = Annotated[Store, Depends(get_store)]
 
 
 def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
-    app = FastAPI(title="Tag Drifter", version=__version__, docs_url=None, redoc_url=None)
+    """Build the app. Raises ValueError for an invalid scan schedule."""
+    runner = runner or ScanRunner(settings)
+    scheduler = ScanScheduler(runner, settings.scan_schedule)
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        scheduler.start()
+        try:
+            yield
+        finally:
+            scheduler.shutdown()
+
+    app = FastAPI(
+        title="Tag Drifter", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan
+    )
     app.state.settings = settings
-    app.state.runner = runner or ScanRunner(settings)
+    app.state.runner = runner
+    app.state.scheduler = scheduler
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
     templates = Jinja2Templates(directory=HERE / "templates")
@@ -57,6 +74,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "settings": settings,
         "diff_marks": fmt.diff_marks,
         "expected_location": fmt.expected_location,
+        "scheduler": scheduler,
     }
 
     def is_partial(request: Request, target: str) -> bool:
@@ -192,7 +210,14 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     @app.get("/healthz")
     def healthz(store: StoreDep) -> JSONResponse:
         store.conn.execute("SELECT 1")
-        return JSONResponse({"status": "ok", "scanning": app.state.runner.status().running})
+        next_run = scheduler.next_run()
+        return JSONResponse(
+            {
+                "status": "ok",
+                "scanning": runner.status().running,
+                "next_scheduled_scan": next_run.isoformat() if next_run else None,
+            }
+        )
 
     return app
 

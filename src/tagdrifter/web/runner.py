@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from dataclasses import dataclass
@@ -9,6 +10,8 @@ from dataclasses import dataclass
 from ..config import Settings
 from ..db import Store
 from ..scanner import ScanProgress, ScanResult, run_scan
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -91,12 +94,24 @@ class ScanRunner:
             self._progress = progress
 
     def _run(self, full: bool) -> None:
+        log.info("Scan started (%s)", "full" if full else "incremental")
         try:
             with Store(self.settings.database_path) as store:
                 result = run_scan(self.settings, store, self._on_progress, full=full)
         except Exception as exc:  # reported in the UI; run_scan already marked the scan failed
+            log.exception("Scan failed")
             with self._lock:
                 self._error = f"{type(exc).__name__}: {exc}"
             return
+        log.info(
+            "Scan #%d finished in %.0fs: %d files, %d read; %d open issues (+%d, -%d)",
+            result.scan_id,
+            result.duration,
+            result.files_total,
+            result.files_read,
+            result.issues_open,
+            result.issues_new,
+            result.issues_resolved,
+        )
         with self._lock:
             self._result = result

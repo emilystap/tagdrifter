@@ -58,3 +58,18 @@ def test_bad_bool(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError):
         load_settings(env={"TAGDRIFTER_CASE_SENSITIVE": "maybe"})
+
+
+def test_scan_schedule_from_toml_and_env(tmp_path, monkeypatch) -> None:
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(
+        """
+[scan]
+schedule = "15 3 * * *"
+""",
+        encoding="utf-8",
+    )
+    assert load_settings(cfg, env={}).scan_schedule == "15 3 * * *"
+    assert load_settings(cfg, env={"TAGDRIFTER_SCHEDULE": "off"}).scan_schedule == "off"
+    monkeypatch.chdir(tmp_path / "..")  # no config.toml here
+    assert load_settings(env={}).scan_schedule == "0 4 * * *"

@@ -10,11 +10,11 @@ from markupsafe import Markup, escape
 PLACEHOLDER = chr(0x2013)  # en dash, for missing values
 
 
-def parse_ts(value: str | None) -> datetime | None:
-    """Parse a stored ISO timestamp (UTC)."""
+def parse_ts(value: str | datetime | None) -> datetime | None:
+    """Parse a stored ISO timestamp (naive ones are UTC); datetimes pass through."""
     if not value:
         return None
-    ts = datetime.fromisoformat(value)
+    ts = value if isinstance(value, datetime) else datetime.fromisoformat(value)
     return ts if ts.tzinfo else ts.replace(tzinfo=UTC)
 
 
@@ -46,7 +46,7 @@ def ago(value: str | None, now: datetime | None = None) -> str:
     return f"{days} day{'s' if days != 1 else ''} ago"
 
 
-def timestamp(value: str | None) -> Markup:
+def timestamp(value: str | datetime | None) -> Markup:
     """A <time> element; a small script in base.html rewrites it in the viewer's local time."""
     ts = parse_ts(value)
     if ts is None:

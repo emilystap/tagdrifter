@@ -137,7 +137,47 @@ def test_failed_scan_is_reported(tmp_path) -> None:
 
 
 def test_healthz(client) -> None:
-    assert client.get("/healthz").json() == {"status": "ok", "scanning": False}
+    health = client.get("/healthz").json()
+    assert health["status"] == "ok" and health["scanning"] is False
+    assert health["next_scheduled_scan"]  # default schedule: daily at 04:00
+
+
+def test_schedule_runs_scans_and_shows_next_run(settings) -> None:
+    from dataclasses import replace
+
+    with TestClient(create_app(replace(settings, scan_schedule="30 2 * * 1"))) as c:
+        scheduler = c.app.state.scheduler
+        next_run = scheduler.next_run()
+        assert (next_run.hour, next_run.minute, next_run.weekday()) == (2, 30, 0)
+        assert "next automatic scan" in c.get("/").text
+
+        scheduler._fire()  # what APScheduler calls when the schedule comes due
+        c.app.state.runner.wait(30)
+        assert c.app.state.runner.status().result is not None
+    assert scheduler.next_run() is None  # stopped with the app
+
+
+def test_schedule_off(settings) -> None:
+    from dataclasses import replace
+
+    with TestClient(create_app(replace(settings, scan_schedule="off"))) as c:
+        assert c.get("/healthz").json()["next_scheduled_scan"] is None
+        assert "automatic scans off" in c.get("/").text
+
+
+def test_invalid_schedule_is_rejected(settings) -> None:
+    from dataclasses import replace
+
+    with pytest.raises(ValueError, match="invalid scan schedule"):
+        create_app(replace(settings, scan_schedule="every day"))
+
+
+def test_scheduled_scan_skipped_while_one_runs(settings, monkeypatch) -> None:
+    from tagdrifter.web.scheduler import ScanScheduler
+
+    runner = ScanRunner(settings)
+    monkeypatch.setattr(runner, "start", lambda **kw: False)  # as if a scan were running
+    ScanScheduler(runner, "0 4 * * *")._fire()  # must not raise
 
 
 def test_store_artist_counts_and_text_filter(settings) -> None:
@@ -161,3 +201,41 @@ def test_expected_location_for_placement() -> None:
         "album.placement", "Charli xcx/CRASH", {"expected_artist_folder": "Charli XCX"}
     ) == ("Charli xcx/CRASH", "Charli XCX/CRASH")
     assert expected_location("tags.required", "a/b.flac", {"missing": ["x"]}) is None
+
+
+@pytest.mark.parametrize(
+    ("weekday", "days"),
+    [
+        ("1", {"Mon"}),
+        ("0", {"Sun"}),
+        ("7", {"Sun"}),
+        ("1-5", {"Mon", "Tue", "Wed", "Thu", "Fri"}),
+        ("0-6", {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}),
+        ("6,0", {"Sat", "Sun"}),
+        ("*", {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}),
+        ("*/2", {"Sun", "Tue", "Thu", "Sat"}),
+        ("1-5/2", {"Mon", "Wed", "Fri"}),
+        ("5/1", {"Fri", "Sat", "Sun"}),
+        ("mon-fri", {"Mon", "Tue", "Wed", "Thu", "Fri"}),
+    ],
+)
+def test_cron_weekdays_use_standard_numbering(weekday, days) -> None:
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    from tagdrifter.web.scheduler import parse_schedule
+
+    trigger = parse_schedule(f"0 4 * * {weekday}")
+    now, fired = datetime(2026, 11, 1, tzinfo=ZoneInfo("UTC")), set()
+    for _ in range(14):
+        nxt = trigger.get_next_fire_time(None, now)
+        fired.add(nxt.strftime("%a"))
+        now = nxt + timedelta(seconds=1)
+    assert fired == days
+
+
+def test_invalid_weekday() -> None:
+    from tagdrifter.web.scheduler import parse_schedule
+
+    with pytest.raises(ValueError, match="invalid scan schedule"):
+        parse_schedule("0 4 * * 3-9")
