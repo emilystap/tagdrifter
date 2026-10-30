@@ -155,6 +155,20 @@ def test_no_collision_for_single_release_across_folders() -> None:
     assert {t.album_folder for t in targets} == {"Pretend We're Dead"}
 
 
+def test_untagged_tracks_inherit_folder_mbid() -> None:
+    album = _release("a", "mbid-a", "1992", count=3)
+    untagged = _release("a", "", "1992", count=1)
+    _, notices = _resolve(album, untagged)
+    assert notices == []
+
+
+def test_untagged_tracks_not_merged_when_folder_is_ambiguous() -> None:
+    mixed = _release("a", "mbid-a", "1992") + _release("a", "mbid-b", "1993")
+    untagged = _release("a", "", "1994")
+    _, notices = _resolve(mixed, untagged)
+    assert len(notices) == 3
+
+
 def test_collision_without_mbid_uses_source_folder() -> None:
     _, notices = _resolve(_release("a", "", "1992"), _release("b", "", "1993"))
     assert len(notices) == 2

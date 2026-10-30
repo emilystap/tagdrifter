@@ -8,7 +8,8 @@ dependencies = [
     "mutagen>=1.47",
 ]
 
-# [project.scripts] CLI entry point arrives in step 2 (scanner + database).
+[project.scripts]
+tagdrifter = "tagdrifter.cli:main"
 
 [dependency-groups]
 dev = [

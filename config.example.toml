@@ -1,0 +1,42 @@
+# Tag Drifter configuration. Copy to config.toml (git-ignored) and adjust.
+# Environment variables override these: TAGDRIFTER_LIBRARY, TAGDRIFTER_DB,
+# TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_CONFIG.
+
+[library]
+path = "Y:/music"            # in Docker this will be "/music"
+# Treat names differing only by letter case as different (match your ZFS dataset setting).
+case_sensitive = true
+audio_extensions = [".flac"]
+sidecar_extensions = [".lrc", ".txt"]
+# File/folder names to skip (fnmatch patterns).
+ignore = [".*", "@eaDir", "#recycle", "$RECYCLE.BIN", "Thumbs.db"]
+
+[database]
+path = "data/tagdrifter.db"
+
+[scan]
+workers = 8                  # parallel tag reads; raise for SMB, lower for spinning disks
+
+[checks]
+# Check ids to switch off (see `tagdrifter checks`).
+disabled = []
+
+# Tags every track must have. "a|b" means either one satisfies the requirement.
+[checks."tags.required"]
+tags = [
+    "albumartist|album artist",
+    "artist",
+    "album",
+    "title",
+    "tracknumber",
+    "date|year|originaldate",
+    "musicbrainz_artistid",
+    "musicbrainz_albumartistid",
+    "musicbrainz_albumid",
+    "musicbrainz_releasegroupid",
+    "musicbrainz_trackid",
+]
+
+# Tags that every track in one album folder should agree on.
+[checks."album.inconsistent_tags"]
+tags = ["albumartist", "album", "musicbrainz_albumid", "musicbrainz_albumartistid"]

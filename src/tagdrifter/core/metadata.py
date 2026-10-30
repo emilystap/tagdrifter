@@ -177,9 +177,21 @@ class MetadataReadError(Exception):
     """Raised when a file's tags cannot be read."""
 
 
-def read_metadata(path: PurePath) -> TrackMeta:
-    """Read tags from an audio file via mutagen. Raises MetadataReadError on failure."""
-    from mutagen import File as MutagenFile  # local import keeps pure code import-light
+def read_tags(path: PurePath) -> dict[str, tuple[str, ...]]:
+    """Read a file's tags as {lower-case key: values}. Raises MetadataReadError on failure.
+
+    FLAC uses the built-in reader, which skips embedded artwork. Other formats fall back to
+    mutagen.
+    """
+    if path.suffix.lower() == ".flac":
+        from .flac import FlacError, read_vorbis_comments
+
+        try:
+            return normalize_tags(read_vorbis_comments(path))
+        except (FlacError, OSError) as exc:
+            raise MetadataReadError(f"{path}: {exc}") from exc
+
+    from mutagen import File as MutagenFile  # imported lazily; only needed for non-FLAC
     from mutagen import MutagenError
 
     try:
@@ -188,8 +200,12 @@ def read_metadata(path: PurePath) -> TrackMeta:
         raise MetadataReadError(f"{path}: {exc}") from exc
     if audio is None:
         raise MetadataReadError(f"{path}: unrecognized audio format")
-    # Vorbis comments (FLAC/Ogg) are a list of (key, value) pairs; other formats will need
-    # a key-mapping adapter here when support is added.
+    # Vorbis comments (Ogg/Opus) are (key, value) pairs; ID3/MP4 will need a key-mapping
+    # adapter here when those formats are supported.
     tags = audio.tags or []
-    pairs = tags if isinstance(tags, list) else list(tags.items())
-    return TrackMeta.from_tags(path, dict(normalize_tags(pairs)))
+    return normalize_tags(tags if isinstance(tags, list) else list(tags.items()))
+
+
+def read_metadata(path: PurePath) -> TrackMeta:
+    """Read a file's tags into a TrackMeta. Raises MetadataReadError on failure."""
+    return TrackMeta.from_tags(path, read_tags(path))

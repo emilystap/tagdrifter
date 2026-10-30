@@ -82,7 +82,6 @@ def test_read_metadata_from_real_flac(flac_factory) -> None:
 
 
 def test_read_metadata_rejects_non_audio(tmp_path) -> None:
-    pytest.importorskip("mutagen")
     bogus = tmp_path / "not_audio.flac"
     bogus.write_bytes(b"definitely not flac")
     with pytest.raises(MetadataReadError):

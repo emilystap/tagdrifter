@@ -102,7 +102,9 @@ def resolve_release_collisions(
 ) -> tuple[list[TrackTarget], list[CollisionNotice]]:
     """Disambiguate distinct releases that map to the same album folder under one artist.
 
-    A release is identified by its MusicBrainz album ID, else by its current folder.
+    A release is identified by its MusicBrainz album ID, else by its current folder. A track
+    without an album ID inherits it from its folder when every tagged sibling agrees on one
+    ID, so a few untagged tracks don't split an album in two (v1 did split them).
     Folder names are compared case-insensitively regardless of the library setting, so
     the service never proposes two folders that would collide over SMB.
 
@@ -111,11 +113,22 @@ def resolve_release_collisions(
 
     Returns targets in the same order as `items`, plus one notice per renamed release.
     """
+    folder_mbids: dict[str, set[str]] = {}
+    for meta, _ in items:
+        source = path_key(meta.path.parent, case_sensitive=False)
+        mbids = folder_mbids.setdefault(source, set())
+        if meta.release_mbid:
+            mbids.add(meta.release_mbid)
+
     # folder key -> release key -> indices into items
     groups: dict[str, dict[str, list[int]]] = {}
     for idx, (meta, target) in enumerate(items):
         folder_key = path_key(target.album_relative_path, case_sensitive=False)
-        release_key = meta.release_mbid or path_key(meta.path.parent, case_sensitive=False)
+        source = path_key(meta.path.parent, case_sensitive=False)
+        inherited = folder_mbids[source]
+        release_key = meta.release_mbid or (
+            next(iter(inherited)) if len(inherited) == 1 else source
+        )
         groups.setdefault(folder_key, {}).setdefault(release_key, []).append(idx)
 
     targets = [t for _, t in items]

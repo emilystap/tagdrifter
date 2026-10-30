@@ -2,7 +2,8 @@
 
 A self-hosted service that watches a music library and reports files that have drifted from its
 naming and tagging conventions: misnamed tracks and folders, albums filed under the wrong artist,
-and missing tags such as Album Artist or MusicBrainz IDs.
+missing or malformed tags (Album Artist, MusicBrainz IDs, …), and names that differ only by
+letter case.
 
 The conventions are described in [docs/naming-conventions.md](docs/naming-conventions.md).
 
@@ -12,46 +13,90 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | --- | --- | --- |
 | 0 | Repo, tooling, tests | ✅ |
 | 1 | Pure core: sanitization, metadata, expected paths, album placement | ✅ |
-| 2 | Scanner + SQLite + CLI, pluggable checks (path, required tags, MBID validity, case collisions) | ⏳ |
-| 3 | Web UI (FastAPI + Jinja/HTMX) | — |
+| 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
+| 3 | Web UI (FastAPI + Jinja/HTMX) | ⏳ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | — |
 | 5 | Fix actions, Navidrome rescan, notifications, MusicBrainz lookups | — |
+
+## Quick start (local)
+
+Requires [uv](https://docs.astral.sh/uv/).
+
+```powershell
+uv sync
+copy config.example.toml config.toml     # then set [library] path, e.g. "Y:/music"
+uv run tagdrifter scan                   # first scan reads every file; later scans only changes
+uv run tagdrifter issues                 # open issues, grouped by check
+uv run tagdrifter issues --check tags.required --path "Wolfmother"
+uv run tagdrifter checks                 # available checks and whether they're enabled
+uv run tagdrifter scans                  # scan history
+```
+
+`--library` and `--db` override the config file for a single run, e.g.
+`uv run tagdrifter --library Y:\music scan`. `scan --full` ignores the cache and re-reads every
+file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up where it stopped.
+
+## How a scan works
+
+1. **Discover**: walk the library (skipping `ignore` patterns such as `.zfs` and `@eaDir`),
+   recording each audio file's size and modification time.
+2. **Read**: re-read tags only for new or changed files. FLAC tags are read by a built-in parser
+   that skips embedded cover art. Results are cached in SQLite.
+3. **Check**: run every enabled check over the whole library (cheap; no disk access).
+4. **Save**: issues are identified by (check, path). New ones are recorded with the scan they
+   first appeared in, and ones no longer reported are marked resolved.
+
+## Checks
+
+| Check | Scope | What it reports |
+| --- | --- | --- |
+| `path.track_location` | track | Wrong album folder and/or filename (including case-only differences when case-sensitive) |
+| `tags.required` | track | Missing required tags (configurable list, with `a\|b` alternatives) |
+| `tags.invalid_mbid` | track | MusicBrainz ID tags that aren't valid UUIDs |
+| `album.placement` | album | Album under the wrong artist folder (v1's placement audit) |
+| `album.inconsistent_tags` | album | Tracks in one folder disagree on album artist, album, release MBID, … |
+| `file.unreadable` | album | Audio files whose tags can't be read |
+| `path.orphan_sidecar` | album | `.lrc`/`.txt` with no matching audio file |
+| `path.case_collision_*` | album/artist/library | Sibling names differing only by case (collide over SMB) |
+| `path.loose_file` | library | Audio files directly in the library root |
+
+### Adding a check
+
+Create a module in `src/tagdrifter/checks/`, subclass `Check`, decorate it with `@register`,
+and import the module in `checks/__init__.py`:
+
+```python
+@register
+class NoLiveAlbums(Check):
+    id = "custom.no_live_albums"
+    scope = Scope.ALBUM            # TRACK, ALBUM, ARTIST or LIBRARY
+    description = "Flags album folders with '(Live)' in the name."
+
+    def run(self, ctx: AlbumContext):
+        if "(Live)" in ctx.rel_path.name:
+            yield self.issue(ctx.rel_path, "Live album")
+```
+
+Options from `[checks."custom.no_live_albums"]` in `config.toml` are available as
+`self.options`. The scanner, database and CLI pick the check up automatically.
 
 ## Layout
 
 ```
 src/tagdrifter/
-  core/              Pure rules. Only metadata.read_metadata touches files.
-    sanitize.py      Filesystem-safe names, artist normalization
-    metadata.py      TrackMeta (tags -> facts with v1 fallbacks), mutagen reader
-    naming.py        Expected album folder / filename, release-collision suffixes
-    placement.py     Is an album under the right artist folder?
-    paths.py         Case- and Unicode-aware path comparison, case-collision detection
-tests/               pytest suite (no audio files needed except two mutagen round-trip tests)
-scripts/
-  parity_check.py    Compare against music_lib_scanner_v1 on a real library (read-only)
-docs/
+  core/          Pure naming rules (sanitize, metadata, naming, placement, paths) + flac.py reader
+  checks/        Check framework (base.py) and built-in checks
+  config.py      Settings: defaults < config.toml < TAGDRIFTER_* env vars < CLI flags
+  db.py          SQLite: file/tag cache, scan history, issue lifecycle
+  scanner.py     Discover → read changed → check → save
+  cli.py         `tagdrifter` command
+tests/           pytest suite; builds real FLAC files on the fly (no fixtures to commit)
 ```
 
 ## Development
 
-Requires [uv](https://docs.astral.sh/uv/).
-
 ```powershell
-uv sync                 # create .venv with runtime + dev dependencies
-uv run pytest           # run tests
+uv run pytest           # tests
 uv run ruff check .     # lint
 uv run ruff format .    # format
 ```
-
-### Check parity with v1 on the real library
-
-Read-only. Prints any track whose expected path, or album whose placement verdict, differs from
-the v1 scanner.
-
-```powershell
-uv run --with pandas --with tqdm python scripts/parity_check.py Y:\music `
-    --v1 C:\Users\easst\code\music_lib_scanner_v1
-```
-
-Add `--artist "Wolfmother"` (repeatable) to limit the run.

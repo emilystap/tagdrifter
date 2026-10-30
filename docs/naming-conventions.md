@@ -25,7 +25,8 @@ The rules Tag Drifter checks a library against. Implemented in `src/tagdrifter/c
   `edition`.
 - **Multi-release collisions:** when distinct releases (by `musicbrainz_albumid`, else by source
   folder) under one artist resolve to the same folder name (compared case-insensitively), the
-  first suffix that makes them all unique is appended:
+  first suffix that makes them all unique is appended. A track without an album ID counts as part
+  of its folder's release when its tagged siblings all share one ID:
   1. `({Year})`
   2. `({Year}, {N} tracks)`
   3. `({Year}, {Catalog# or Country})`, with `[mbid8]` appended if still identical
@@ -73,5 +74,9 @@ clients) compare equal to their tag values.
   `Abbey Road` / `Abbey road` coexist on a case-sensitive dataset but collide for SMB clients.
 - **Empty tag values are skipped.** v1 stopped at a tag that existed with an empty value (e.g.
   `ARTISTSORT=""`). Tag Drifter falls through to the next candidate key / fallback. A differential
-  test over ~9,000 randomized tracks found no other differences.
+  test over ~9,000 randomized tracks found no other differences in the step-1 port.
 - **Unicode NFC normalization**, as described above.
+- **Untagged tracks don't split an album.** v1 treated tracks lacking `musicbrainz_albumid` as a
+  separate release from their tagged siblings and proposed `(Year, N tracks)` folder splits.
+  They now inherit the folder's single album ID; the missing tag is reported by
+  `album.inconsistent_tags` / `tags.required` instead.

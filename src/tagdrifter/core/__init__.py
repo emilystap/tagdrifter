@@ -1,6 +1,6 @@
 """Pure naming/tagging rules. Only `metadata.read_metadata` touches the filesystem."""
 
-from .metadata import MetadataReadError, TrackMeta, parse_index, read_metadata
+from .metadata import MetadataReadError, TrackMeta, parse_index, read_metadata, read_tags
 from .naming import CollisionNotice, TrackTarget, compute_target, resolve_release_collisions
 from .paths import PathMatch, compare_paths, find_case_collisions, is_mismatch, path_key
 from .placement import (
@@ -37,6 +37,7 @@ __all__ = [
     "parse_index",
     "path_key",
     "read_metadata",
+    "read_tags",
     "resolve_release_collisions",
     "sanitize",
     "strip_featured_artists",
