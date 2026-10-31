@@ -105,7 +105,16 @@ present, are in the git-ignored `CLAUDE.local.md`.
      with `describe()` and `send(Notification)`.
    - **Next**: step 6b-2 below.
    - Later: ntfy/webhook notifiers.
-   - Later: rename across artist folders for `album.placement` issues; a CLI for renames.
+   - 5f: bulk renames (owner's request; ~700 `path.track_location` issues are tedious one
+     album at a time). Select albums on `/issues` (a checkbox per album card, "select all
+     matching this filter", or every album of an artist) and preview them together: each album
+     is still planned on its own by `plan_album` with all its refusals, and refused albums are
+     listed and skipped rather than blocking the rest. Apply runs in the background with
+     progress (like scans; `ScanRunner.paused()` holds scans off), one journal batch per album
+     so Undo stays per album and one failure rolls back only its album, then a single rescan at
+     the end. The preview's fingerprint covers every selected album. A CLI
+     (`tagdrifter rename --check path.track_location [--artist X] [--dry-run]`) shares it.
+   - Later: rename across artist folders for `album.placement` issues.
    - Later: non-FLAC formats via mutagen.
    - Later (owner's request): a conventional first-run login. On first launch with no
      password set, every page leads to a "Set a password" form; the scrypt hash is stored in
@@ -209,7 +218,35 @@ present, are in the git-ignored `CLAUDE.local.md`.
        / release title or the primary `en` alias. Maenarawanai's release and track titles
        are already Latin in MusicBrainz (e.g. track "sekigae Gattuso", recording
        "席替ガットゥーゾ"), so track titles compare with the *track* title first.
+   - 6b-3: refresh one release on demand (owner's request). A *Refresh from MusicBrainz*
+     button on an album's issue card (and the CLI) re-fetches that album's release(s) now
+     instead of waiting for `refresh_after`, then rescans. Useful after editing the release on
+     MusicBrainz, or to confirm a fix. Keep it gentle: one request per release through the
+     shared `RateLimiter`, refused while lookups are paused after an error, and a no-op
+     (with a message) if the release was fetched in the last few minutes, so repeated clicks
+     can't hammer the API. Already covered without it: a release MBID changed by retagging
+     is a release the cache doesn't have yet, so the next lookups fetch it like a new album
+     (`mb_releases_due` puts never-fetched releases first). The old release's row is left
+     behind: never refreshed (only library releases are looked up), just a few KB; prune
+     rows no longer in the library at the same time.
    - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
+7. Library browser (owner's request): a *Library* tab to look up any release, not just ones
+   with issues.
+   - Search by artist, album or release MBID; results grouped by album folder (one row per
+     release, from the `files` cache, so browsing never touches the disk or the network).
+   - Release page: the album folder, each track's current path and its tags (all of them, in a
+     compact table; differences between tracks highlighted for album-level tags), audio
+     length, the album's open issues, and links to the release (and release group) on
+     musicbrainz.org. With the cache, show the MusicBrainz tracklist beside the files. The
+     6b-3 *Refresh from MusicBrainz* button and the 5c rename preview belong here too.
+   - Cover art from the **embedded** PICTURE block (every file in the target library has
+     one), not the Cover Art Archive: no extra requests to anyone, and it shows what Navidrome
+     shows. `core/flac.py` skips PICTURE blocks today (they can be several MB); add a reader
+     that returns the front cover (type 3, else the first) on demand, served by a route that
+     scales it down to a thumbnail cached under the data dir (keyed by path + size + mtime)
+     and sent with a long `Cache-Control`. Scaling needs an image library (Pillow) or the
+     browser does it from the full image; decide when building. Only read on page view,
+     never during scans.
 
 ## Source of truth
 
