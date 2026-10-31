@@ -335,3 +335,18 @@ details summary { cursor: pointer; }
 .notify-panel { margin-top: 16px; }
 .notify-panel p { margin: 6px 0; }
 .notify-panel form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* Bulk renames */
+.bulk-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+.bulk-bar label { display: inline-flex; align-items: center; gap: 6px; }
+#bulk:not(:empty) { margin: 0 0 12px; }
+.bulk-title { margin: 0 0 4px; font-size: 1rem; }
+.bulk-albums, .bulk-refused { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.bulk-albums details { margin: 0; }
+.bulk-albums .bulk-moves { padding-left: 1.2em; }
+.bulk-refused li { padding: 4px 0; }
+.bulk-refused .rename-problem { margin: 2px 0 0; }
+.bulk-progress { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; overflow-wrap: anywhere; }
+.bulk-progress progress { flex: 1 1 120px; }
+.bulk-status form { margin: 0; }
+.group-head input[type="checkbox"] { margin: 0; }

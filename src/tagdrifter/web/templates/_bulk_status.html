@@ -1,0 +1,52 @@
+{#- Progress and outcome of a bulk rename. Polls every second while it runs; when it finishes,
+    fires `scan-started` so the scan widget picks up the rescan. Expects `status`, `error`. -#}
+<div class="panel bulk-status"
+     {% if status.running and not error %}hx-get="/rename/bulk/status?watching=1" hx-trigger="every 1s" hx-swap="outerHTML"{% endif %}>
+  {% if error %}
+    <p class="rename-problem"><strong>Nothing renamed:</strong> {{ error }}</p>
+  {% elif status.running %}
+    <div class="bulk-progress">
+      <span class="spinner" aria-hidden="true"></span>
+      <span>
+        Renaming album {{ [status.done + 1, status.total] | min }} of {{ status.total }}
+        {% if status.current %}· <span class="path">{{ status.current }}</span>{% endif %}
+      </span>
+      {% if status.fraction is not none %}
+        <progress value="{{ status.fraction }}" max="1" aria-label="Rename progress"></progress>
+      {% endif %}
+      {% if status.stopping %}
+        <span class="muted small">Stopping after this album…</span>
+      {% else %}
+        <form hx-post="/rename/bulk/stop" hx-target="closest .bulk-status" hx-swap="outerHTML">
+          <button type="submit" class="button">Stop</button>
+        </form>
+      {% endif %}
+    </div>
+  {% elif status.result %}
+    {% set r = status.result %}
+    <p class="rename-done">
+      <span class="badge {{ 'warning' if r.failed or r.skipped else 'ok' }}">bulk rename</span>
+      {{ r.applied | length }} album{% if r.applied | length != 1 %}s{% endif %} renamed
+      ({{ r.moved }} change{% if r.moved != 1 %}s{% endif %}){% if r.applied %}; rescanning to update the issues{% endif %}.
+      {% if not on_renames %}<a href="/renames">Undo per album on the Renames page</a>{% endif %}
+    </p>
+    {% if r.partial %}
+      <p class="rename-problem"><strong>Stopped:</strong> {{ r.partial }} was left partly renamed; see the Renames page.</p>
+    {% endif %}
+    {% if r.failed %}
+      <details{% if r.failed | length <= 5 %} open{% endif %}>
+        <summary>{{ r.failed | length }} album{% if r.failed | length != 1 %}s{% endif %} not renamed</summary>
+        <ul class="bulk-refused small">
+          {% for album, why in r.failed %}
+            <li><span class="path">{{ album }}</span><div class="rename-problem">{{ why }}</div></li>
+          {% endfor %}
+        </ul>
+      </details>
+    {% endif %}
+    {% if r.skipped %}
+      <p class="muted small">{{ r.skipped | length }} album{% if r.skipped | length != 1 %}s{% endif %} not attempted; preview them again to continue.</p>
+    {% endif %}
+  {% elif status.error %}
+    <p class="rename-problem"><strong>Bulk rename failed:</strong> {{ status.error }}</p>
+  {% endif %}
+</div>

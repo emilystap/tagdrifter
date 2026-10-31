@@ -23,7 +23,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
-| 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, later a first-run password setup | ⏳ |
+| 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, bulk renames ✅, later a first-run password setup | ⏳ |
 | 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, then Picard-style retagging | ⏳ |
 
 ## Quick start (local)
@@ -39,6 +39,7 @@ uv run tagdrifter issues --check tags.required --path "Wolfmother"
 uv run tagdrifter issues --mbid no       # only issues on files without release/recording MBIDs
 uv run tagdrifter checks                 # available checks and whether they're enabled
 uv run tagdrifter scans                  # scan history
+uv run tagdrifter rename --dry-run       # proposed renames for every album (bulk; see below)
 uv run tagdrifter serve                  # web UI on http://127.0.0.1:8080
 ```
 
@@ -71,7 +72,11 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   writable, album cards get *Preview renames*: every folder, track and `.lrc`/`.txt` move, or
   why the album can't be renamed. Only albums whose tracks are all MBID-tagged and unchanged
   since the last scan qualify, and nothing is ever overwritten. Applied renames are listed on
-  the *Renames* page with *Undo*. See [docs/deployment.md](docs/deployment.md#optional-renaming-files).
+  the *Renames* page with *Undo*. To rename many albums at once, tick their cards (or "all
+  albums with renames matching these filters", e.g. one artist) and *Preview together*; each
+  album is still checked and journaled on its own, so refused ones are skipped and Undo stays
+  per album. `tagdrifter rename [--artist X] [--dry-run]` does the same from the command line.
+  See [docs/deployment.md](docs/deployment.md#optional-renaming-files).
 - **Notifications (optional)**: with a [Gotify](https://gotify.net) server
   (`TAGDRIFTER_GOTIFY_URL` + `TAGDRIFTER_GOTIFY_TOKEN`), a scan that finds new issues sends a
   summary by album, and a failed scan or a rename left half-done sends an alert. Quiet scans
@@ -181,7 +186,7 @@ src/tagdrifter/
   scanner.py     Discover → read changed → check → save
   cli.py         `tagdrifter` command
   web/           FastAPI app (app.py), background ScanRunner, cron ScanScheduler,
-                 MusicBrainzSync (mbsync.py), Jinja
+                 MusicBrainzSync (mbsync.py), BulkRenamer (bulk.py), Jinja
                  templates, static/ (CSS, vendored htmx.min.js 2.0.4)
 tests/           pytest suite; builds real FLAC files on the fly (no fixtures to commit)
 docs/            Naming conventions, TrueNAS deployment

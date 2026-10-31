@@ -103,17 +103,25 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
      click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
      with `describe()` and `send(Notification)`.
-   - **Next**: the owner's pick among 5f (bulk renames), 6b-3 and 7.
+   - **Next**: the owner's pick. 6b-3 is better after 6c (retagging); 7 stands alone.
    - Later: ntfy/webhook notifiers.
-   - 5f: bulk renames (owner's request; ~700 `path.track_location` issues are tedious one
-     album at a time). Select albums on `/issues` (a checkbox per album card, "select all
-     matching this filter", or every album of an artist) and preview them together: each album
-     is still planned on its own by `plan_album` with all its refusals, and refused albums are
-     listed and skipped rather than blocking the rest. Apply runs in the background with
-     progress (like scans; `ScanRunner.paused()` holds scans off), one journal batch per album
-     so Undo stays per album and one failure rolls back only its album, then a single rescan at
-     the end. The preview's fingerprint covers every selected album. A CLI
-     (`tagdrifter rename --check path.track_location [--artist X] [--dry-run]`) shares it.
+   - 5f ✅ Bulk renames (owner's request: ~700 `path.track_location` issues, 130 albums).
+     `/issues` (album view, fix on) has a checkbox per renamable card (`form="bulk-form"`) and
+     "all N albums with renames matching these filters" (`Store.rename_candidates`; an artist
+     filter = every album of an artist). `POST /rename/bulk/preview` → `renamer.plan_albums`:
+     each album planned on its own by `plan_album`, plus a refusal for albums whose moves land
+     in a folder another selected album's do (their plans would change under each other).
+     Refused albums are listed and skipped. Albums expand to their moves lazily
+     (`/rename/preview?bare=1`). The apply form carries one `plan` = "<fingerprint> <album>"
+     per album, so each is re-planned and checked against its own preview.
+     `web/bulk.py` `BulkRenamer` runs `renamer.apply_albums` in a thread holding
+     `ScanRunner.paused()` for the whole run: one journal batch per album (Undo per album),
+     a failed album is rolled back and skipped, a half-moved one stops the run (and notifies),
+     *Stop* finishes the current album. One rescan at the end; the outcome stays on Issues and
+     Renames for 30 min (`BulkStatus.shown`). CLI: `tagdrifter rename [--artist X] [--check C]
+     [--album F ...] [--dry-run] [--yes] [--no-scan]` (needs fix enabled unless `--dry-run`;
+     Ctrl+C stops after the current album). The CLI can't hold the server's scan pause.
+     First dry run on the owner's library: 130 albums / 707 tracks planned.
    - Later: rename across artist folders for `album.placement` issues.
    - Later: non-FLAC formats via mutagen.
    - Later (owner's request): a conventional first-run login. On first launch with no

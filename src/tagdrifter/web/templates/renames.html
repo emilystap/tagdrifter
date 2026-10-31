@@ -4,6 +4,9 @@
 <section class="panel">
   <h2>Renames</h2>
   {% if error %}<p class="rename-problem" role="alert"><strong>Undo stopped:</strong> {{ error }}</p>{% endif %}
+  {% with status = bulk.status(), error = none, on_renames = true %}
+    {% if status.shown %}{% include "_bulk_status.html" %}{% endif %}
+  {% endwith %}
   {% if not writable %}<p class="muted small">The library is mounted read-only, so renames can’t be applied or undone.</p>{% endif %}
   {% if batches %}
   <ul class="groups">

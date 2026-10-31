@@ -16,12 +16,35 @@
   {% include "_pager.html" %}
 </div>
 
+{% if fix_enabled and view == "album" and candidates %}
+<form id="bulk-form" class="bulk-bar" hx-post="/rename/bulk/preview" hx-target="#bulk" hx-swap="innerHTML">
+  {% for k in ["check", "severity", "artist", "mbid", "q", "scan"] if params[k] %}
+    <input type="hidden" name="f_{{ k }}" value="{{ params[k] }}">
+  {% endfor %}
+  <span class="muted small">Rename several albums: tick them below, or</span>
+  <label class="small">
+    <input type="checkbox" name="all" value="1">
+    all {{ "{:,}".format(candidates) }} album{% if candidates != 1 %}s{% endif %} with renames matching these filters
+  </label>
+  <button type="submit" class="button">Preview together</button>
+</form>
+{% endif %}
+<div id="bulk">
+  {%- with status = bulk.status(), error = none %}
+    {%- if fix_enabled and status.shown %}{% include "_bulk_status.html" %}{% endif %}
+  {%- endwith %}
+</div>
+
 {% if rows and view == "album" %}
 <ul class="groups">
   {% for row in rows %}
   {% set g, changes = row.group, row.changes %}
   <li class="group">
+    {% set renamable = fix_enabled and (changes.folder or changes.split or changes.renamed_files) and not g.untagged %}
     <div class="group-head">
+      {% if renamable and candidates %}
+        <input type="checkbox" name="album" value="{{ g.key }}" form="bulk-form" aria-label="Select {{ g.key }} for renaming">
+      {% endif %}
       <span class="badge {{ g.worst_severity }}">{{ g.count }}</span>
       <span class="path group-path">{{ g.key }}</span>
       {% if g.untagged %}
@@ -45,7 +68,7 @@
     {% if changes.renamed_files %}
       <div class="muted small">{{ changes.renamed_files }} filename{% if changes.renamed_files != 1 %}s{% endif %} change{% if changes.renamed_files == 1 %}s{% endif %}</div>
     {% endif %}
-    {% if fix_enabled and (changes.folder or changes.split or changes.renamed_files) and not g.untagged %}
+    {% if renamable %}
       <div class="rename">
         <button class="button" hx-get="/rename/preview?album={{ g.key | urlencode }}" hx-target="closest .rename">Preview renames</button>
       </div>

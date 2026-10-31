@@ -15,6 +15,12 @@ Safety rules (see CLAUDE.md, roadmap 5c):
 When all of an album's tracks go to one new folder that doesn't exist yet, the folder itself
 is renamed (so artwork, scans and other files go with it); otherwise tracks move one by one
 and the old folder is removed if it ends up empty. `.lrc`/`.txt` sidecars follow their track.
+
+Bulk renames (roadmap 5f): `plan_albums` plans several albums, each on its own with all its
+refusals, and also refuses albums whose moves land in the same folder as another selected
+album's (their plans would change under each other). `apply_albums` applies the previewed
+plans one album at a time, each its own journal batch, so Undo stays per album: an album that
+fails is rolled back and skipped, and one left half-moved stops the run.
 """
 
 from __future__ import annotations
@@ -22,7 +28,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 import uuid
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -76,6 +84,19 @@ class ApplyResult:
     batch_id: int
     moved: int  # journaled moves, including the folder and sidecars
     removed_dirs: int
+
+
+@dataclass
+class BulkResult:
+    applied: list[tuple[str, ApplyResult]] = field(default_factory=list)
+    failed: list[tuple[str, str]] = field(default_factory=list)  # (album, why)
+    partial: str | None = None  # the album left half-moved, which stopped the run
+    skipped: list[str] = field(default_factory=list)  # not attempted (stopped)
+
+    @property
+    def moved(self) -> int:
+        """Changes made: folders, tracks and sidecars."""
+        return sum(r.moved for _, r in self.applied)
 
 
 def _safe_rel(text: str) -> PurePosixPath | None:
@@ -209,6 +230,59 @@ def plan_album(settings: Settings, store: Store, album: str) -> RenamePlan:
     if not plan.moves:
         plan.problems.append("Every track already has its expected path.")
     return plan
+
+
+def plan_albums(settings: Settings, store: Store, albums: Sequence[str]) -> list[RenamePlan]:
+    """Plan each album on its own; then refuse albums whose moves would land in a folder
+    another selected album's moves land in too (the first such album keeps its plan)."""
+    plans = [plan_album(settings, store, album) for album in dict.fromkeys(albums)]
+    claimed: dict[str, str] = {}  # destination folder (case-insensitive) -> album
+    for plan in plans:
+        if not plan.ok:
+            continue
+        folders = {
+            path_key(PurePosixPath(m.dst).parent, case_sensitive=False)
+            for m in plan.moves
+            if m.kind != "folder"
+        } | {path_key(m.dst, case_sensitive=False) for m in plan.moves if m.kind == "folder"}
+        clash = sorted({claimed[f] for f in folders if claimed.get(f, plan.album) != plan.album})
+        if clash:
+            plan.problems.append(
+                f"{clash[0]} also moves tracks into the same folder; rename them one at a time."
+            )
+            continue
+        claimed |= dict.fromkeys(folders, plan.album)
+    return plans
+
+
+def apply_albums(
+    settings: Settings,
+    store: Store,
+    plans: Sequence[tuple[str, str]],
+    *,
+    progress: Callable[[int, int, str], None] | None = None,
+    stop: threading.Event | None = None,
+) -> BulkResult:
+    """Apply previewed plans, (album, fingerprint) each, one album at a time. A refused or
+    failed album is skipped (nothing of it changed); a half-moved one stops the run."""
+    result = BulkResult()
+    for i, (album, fingerprint) in enumerate(plans):
+        if stop is not None and stop.is_set():
+            result.skipped = [a for a, _ in plans[i:]]
+            break
+        if progress:
+            progress(i, len(plans), album)
+        try:
+            result.applied.append((album, apply_plan(settings, store, album, fingerprint)))
+        except RenameError as exc:
+            result.failed.append((album, str(exc)))
+            if exc.partial:
+                result.partial = album
+                result.skipped = [a for a, _ in plans[i + 1 :]]
+                break
+    if progress:
+        progress(len(plans) - len(result.skipped), len(plans), "")
+    return result
 
 
 def _abs(root: Path, rel: str) -> Path:
