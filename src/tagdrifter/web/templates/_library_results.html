@@ -1,0 +1,51 @@
+{#- Album folders matching the library search; swapped into #results by the search form and
+    pager. Expects `albums` (AlbumSummary, this page), `entries`, `total`, `q`. -#}
+<div class="results-head">
+  <span>
+    {% if not entries %}
+      {% if total %}No albums match.{% else %}No albums yet: run a scan first.{% endif %}
+    {% else %}
+      {{ "{:,}".format(first_index) }}–{{ "{:,}".format(first_index + albums | length - 1) }}
+      of {{ "{:,}".format(entries) }} album{% if entries != 1 %}s{% endif %}
+      {% if q %}<span class="small">({{ "{:,}".format(total) }} in the library)</span>{% endif %}
+    {% endif %}
+  </span>
+  {% include "_pager.html" %}
+</div>
+
+{% if albums %}
+<div class="panel table-wrap">
+  <table class="table library-table">
+    <thead>
+      <tr>
+        <th>Album</th>
+        <th>Album artist</th>
+        <th class="num">Year</th>
+        <th class="num">Tracks</th>
+        <th class="num">Issues</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in albums %}
+      <tr>
+        <td>
+          <a href="/library/album?folder={{ a.folder | urlencode }}">{{ a.titles[0] if a.titles else a.folder.rpartition("/")[2] }}</a>
+          {% if a.titles | length > 1 %}<span class="badge warning" title="{{ a.titles | join(' · ') }}">{{ a.titles | length }} album titles</span>{% endif %}
+          <div class="path muted small">{{ a.folder }}</div>
+        </td>
+        <td>{{ a.artist }}</td>
+        <td class="num">{{ a.year or "–" }}</td>
+        <td class="num">
+          {{ a.tracks }}
+          {% if a.unreadable %}<div class="small rename-problem">{{ a.unreadable }} unreadable</div>{% endif %}
+        </td>
+        <td class="num">
+          {% if a.issues %}<a href="/library/album?folder={{ a.folder | urlencode }}#issues">{{ a.issues }}</a>{% else %}<span class="muted">0</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="results-foot">{% include "_pager.html" %}</div>
+{% endif %}

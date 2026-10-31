@@ -31,6 +31,15 @@ def duration(seconds: float | None) -> str:
     return f"{m}m {s:02d}s" if m else f"{s}s"
 
 
+def track_length(ms: int | None) -> str:
+    """An audio length as m:ss (h:mm:ss from an hour)."""
+    if not ms:
+        return PLACEHOLDER
+    h, rem = divmod(round(ms / 1000), 3600)
+    m, s = divmod(rem, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
 def scan_duration(row) -> str:
     start, end = parse_ts(row["started_at"]), parse_ts(row["finished_at"])
     return duration((end - start).total_seconds()) if start and end else PLACEHOLDER

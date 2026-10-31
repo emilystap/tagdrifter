@@ -506,6 +506,24 @@ class Store:
     def file_count(self) -> int:
         return self.conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
 
+    def library_file_rows(self) -> list[sqlite3.Row]:
+        """Every cached file with the few tags the library list shows (first values; NULL
+        when absent) and whether it was readable."""
+        keys = ("albumartist", "artist", "album", "date", "musicbrainz_albumid")
+        tags = ", ".join(f"json_extract(tags_json, '$.{k}[0]') AS {k}" for k in keys)
+        return self.conn.execute(
+            f"SELECT path, tags_json IS NULL AS unreadable, {tags} FROM files"
+        ).fetchall()
+
+    def open_issues_by_album(self) -> dict[str, int]:
+        """{album folder: open issue count}, for issues that belong to an album."""
+        return dict(
+            self.conn.execute(
+                "SELECT album, COUNT(*) FROM issues WHERE resolved_scan IS NULL"
+                " AND album IS NOT NULL GROUP BY album"
+            ).fetchall()
+        )
+
     # --- MusicBrainz release cache ------------------------------------------------------
 
     def library_release_ids(self) -> set[str]:
@@ -544,12 +562,13 @@ class Store:
     def mb_releases(self, mbids: Iterable[str] | None = None) -> dict[str, dict | None]:
         """Cached lookups by MBID: the release JSON, or None when MusicBrainz has none.
         Releases never looked up are absent."""
-        rows = self.conn.execute("SELECT mbid, data FROM mb_releases").fetchall()
-        wanted = None if mbids is None else {m.lower() for m in mbids}
+        sql, params = "SELECT mbid, data FROM mb_releases", []
+        if mbids is not None:
+            params = sorted({m.lower() for m in mbids})
+            sql += f" WHERE mbid IN ({','.join('?' * len(params))})"
         return {
             r["mbid"]: json.loads(zlib.decompress(r["data"])) if r["data"] is not None else None
-            for r in rows
-            if wanted is None or r["mbid"] in wanted
+            for r in self.conn.execute(sql, params)
         }
 
     def mb_cache_counts(self) -> tuple[int, int]:

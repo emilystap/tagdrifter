@@ -34,7 +34,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import __version__
+from .. import __version__, library
 from ..checks import REGISTRY, Severity
 from ..config import Settings
 from ..db import IssueFilter, Store
@@ -132,6 +132,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "duration": fmt.duration,
         "scan_duration": fmt.scan_duration,
         "timestamp": fmt.timestamp,
+        "track_length": fmt.track_length,
     }
     env.globals |= {
         "version": __version__,
@@ -292,6 +293,58 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             # The dropdowns are outside #results; refresh them out of band.
             return render(request, "_issue_results.html", facets_oob=True, **context)
         return render(request, "issues.html", **context)
+
+    @app.get("/library", response_class=HTMLResponse)
+    def library_page(
+        request: Request,
+        store: StoreDep,
+        q: str = "",
+        page: Annotated[int, Query(ge=1)] = 1,
+    ) -> HTMLResponse:
+        albums = library.album_summaries(store)
+        found = library.search_albums(albums, q) if q.strip() else albums
+        pages = max(1, ceil(len(found) / GROUP_PAGE_SIZE))
+        page = min(page, pages)
+        offset = (page - 1) * GROUP_PAGE_SIZE
+
+        def page_url(n: int) -> str:
+            query = ({"q": q} if q else {}) | ({"page": n} if n > 1 else {})
+            return "/library" + (f"?{urlencode(query)}" if query else "")
+
+        context = {
+            "page": "library",
+            "q": q,
+            "albums": found[offset : offset + GROUP_PAGE_SIZE],
+            "total": len(albums),
+            "entries": len(found),
+            "first_index": offset + 1 if found else 0,
+            "page_no": page,
+            "pages": pages,
+            "page_url": page_url,
+        }
+        if is_partial(request, "results"):
+            return render(request, "_library_results.html", **context)
+        return render(request, "library.html", **context)
+
+    @app.get("/library/album", response_class=HTMLResponse)
+    def library_album(request: Request, store: StoreDep, folder: str = "") -> HTMLResponse:
+        album = library.album_detail(store, folder)
+        if album is None:
+            response = render(request, "album.html", page="library", album=None, folder=folder)
+            response.status_code = 404
+            return response
+        issues = store.open_issues_in_groups([album.folder])[album.folder]
+        renamable = settings.fix_enabled and album.folder in store.rename_candidates(
+            IssueFilter(path_prefix=album.folder)
+        )
+        return render(
+            request,
+            "album.html",
+            page="library",
+            album=album,
+            issues=issues,
+            renamable=renamable,
+        )
 
     @app.get("/scans", response_class=HTMLResponse)
     def scans(request: Request, store: StoreDep) -> HTMLResponse:

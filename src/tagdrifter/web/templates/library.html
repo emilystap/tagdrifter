@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Library · Tag Drifter{% endblock %}
+{% block content %}
+<form id="library-search" class="filters" method="get" action="/library"
+      hx-get="/library" hx-target="#results" hx-push-url="true"
+      hx-trigger="input changed delay:250ms, submit" hx-sync="this:replace">
+  <label class="grow">
+    <span>Search artist, album, folder or release MBID</span>
+    <input type="search" name="q" value="{{ q }}" placeholder="e.g. Doolittle" autocomplete="off" autofocus>
+  </label>
+  <button type="submit" class="button">Search</button>
+</form>
+
+<div id="results">
+  {% include "_library_results.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,203 @@
+{#- One album folder: files, tags, cached MusicBrainz tracklist and open issues. Expects
+    `album` (library.AlbumDetail, or None when the folder isn't in the scan), `issues`,
+    `renamable`. -#}
+{% extends "base.html" %}
+{% block title %}{{ album.folder if album else "Not found" }} · Library · Tag Drifter{% endblock %}
+{% block content %}
+<p class="muted small crumbs"><a href="/library">Library</a> /
+  {% if album %}<a href="/library?q={{ album.artist_folder | urlencode }}">{{ album.artist_folder }}</a>{% endif %}</p>
+
+{% if not album %}
+<div class="panel">
+  <p>No audio files in <span class="path">{{ folder or "(no folder given)" }}</span> as of the last scan.</p>
+  <p class="muted small">It may have been renamed or moved since. <a href="/library">Search the library</a>.</p>
+</div>
+{% else %}
+{% set first = album.readable[0].meta if album.readable else none %}
+<section class="panel album-head">
+  <h1 class="album-title">{{ first.album if first and first.album else album.folder.rpartition("/")[2] }}</h1>
+  <div class="album-artist">{{ first.effective_album_artist if first else album.artist_folder }}</div>
+  <div class="muted small">
+    {% if first and first.date %}{{ first.date }} · {% endif %}
+    {{ album.tracks | length }} file{% if album.tracks | length != 1 %}s{% endif %}
+    {% if album.length_ms %} · {{ album.length_ms | track_length }}{% endif %}
+  </div>
+  <div class="path small album-folder">{{ album.folder }}</div>
+  <div class="album-links small">
+    {% for r in album.releases %}
+      <a href="{{ r.url }}" rel="noreferrer" target="_blank">Release on MusicBrainz{% if album.releases | length > 1 %} ({{ r.id[:8] }}){% endif %}</a>
+    {% endfor %}
+    {% for g in album.release_group_ids %}
+      <a href="https://musicbrainz.org/release-group/{{ g }}" rel="noreferrer" target="_blank">Release group{% if album.release_group_ids | length > 1 %} ({{ g[:8] }}){% endif %}</a>
+    {% endfor %}
+    {% if not album.releases %}<span class="muted">No release MBID in the tags.</span>{% endif %}
+  </div>
+  {% if album.releases | length > 1 %}
+    <p class="rename-problem small">The tracks in this folder are tagged with {{ album.releases | length }} different releases.</p>
+  {% endif %}
+</section>
+
+<section class="panel album-section" id="issues">
+  <h2>Open issues
+    {% if issues %}<span class="badge {{ 'error' if issues | selectattr('severity', 'equalto', 'error') | list else 'warning' if issues | selectattr('severity', 'equalto', 'warning') | list else 'info' }}">{{ issues | length }}</span>{% endif %}
+  </h2>
+  {% if not issues %}
+    <p class="muted small">None.</p>
+  {% else %}
+    {% if renamable %}
+      <div class="rename">
+        <button class="button" hx-get="/rename/preview?album={{ album.folder | urlencode }}" hx-target="closest .rename">Preview renames</button>
+      </div>
+    {% endif %}
+    <details class="group-issues"{% if issues | length <= 5 %} open{% endif %}>
+      <summary>{{ issues | length }} issue{% if issues | length != 1 %}s{% endif %}</summary>
+      <ul class="issues">
+        {% set in_group = true %}
+        {% for r in issues %}{% include "_issue.html" %}{% endfor %}
+      </ul>
+    </details>
+  {% endif %}
+</section>
+
+<section class="panel album-section">
+  <h2>Tracks</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th class="num">#</th><th>Title</th><th>Artist</th><th class="num">Length</th><th class="col-file">File</th></tr>
+      </thead>
+      <tbody>
+        {% for t in album.tracks %}
+          {% if t.meta %}
+            <tr>
+              <td class="num">{% if t.meta.is_multi_disc %}{{ t.meta.disc_number }}-{% endif %}{{ t.meta.track_number }}</td>
+              <td>{{ t.meta.title or "–" }}</td>
+              <td>{{ t.meta.artist or "–" }}</td>
+              <td class="num">{{ t.meta.length_ms | track_length }}</td>
+              <td class="path small col-file">{{ t.name }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td class="num">–</td>
+              <td colspan="3" class="rename-problem small">Unreadable: {{ t.error or "unknown error" }}<div class="path">{{ t.name }}</div></td>
+              <td class="col-file"></td>
+            </tr>
+          {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% for r in album.releases %}
+<section class="panel album-section">
+  <h2>MusicBrainz tracklist{% if album.releases | length > 1 %} <span class="muted small path">{{ r.id }}</span>{% endif %}</h2>
+  {% if not r.cached %}
+    <p class="muted small">
+      {% if settings.musicbrainz_enabled %}Not looked up yet; background lookups will get to it.{% else %}MusicBrainz lookups are off (<code>[musicbrainz] enabled</code>).{% endif %}
+    </p>
+  {% elif not r.release %}
+    <p class="rename-problem small">MusicBrainz has no release with this MBID (deleted or merged).</p>
+  {% else %}
+    {% set rel = r.release %}
+    {% if rel.title != (first.album if first else "") and rel.title_alias != (first.album if first else "") %}
+      <p class="small">Titled <strong>{{ rel.title }}</strong>{% if rel.title_alias %} ({{ rel.title_alias }}){% endif %} in MusicBrainz.</p>
+    {% endif %}
+    <div class="table-wrap">
+      <table class="table tracklist">
+        <thead>
+          <tr><th class="num">#</th><th>MusicBrainz title</th><th class="num">Length</th><th class="col-file">File</th><th class="num">File length</th></tr>
+        </thead>
+        <tbody>
+          {% for row in r.rows %}
+            <tr{% if not row.file or not row.track %} class="unmatched"{% endif %}>
+              {% if row.track %}
+                <td class="num">{% if rel.media | length > 1 %}{{ row.track.disc }}-{% endif %}{{ row.track.position }}</td>
+                <td>
+                  {{ row.track.title }}{% if row.track.title_alias %} <span class="muted">({{ row.track.title_alias }})</span>{% endif %}
+                  {% if row.title_differs %}<div class="small"><mark>{{ row.file.meta.title }}</mark> <span class="muted">in the tags</span></div>{% endif %}
+                </td>
+                <td class="num">{{ row.track.length_ms | track_length }}</td>
+              {% else %}
+                <td class="num">–</td><td class="muted small">Not on this release</td><td></td>
+              {% endif %}
+              {% if row.file %}
+                <td class="path small col-file">{{ row.file.name }}</td>
+                <td class="num">
+                  {{ row.file.meta.length_ms | track_length }}
+                  {% if row.length_diff_s %}<div class="small"><mark>{{ "%+d" | format(row.length_diff_s) }} s</mark></div>{% endif %}
+                </td>
+              {% else %}
+                <td class="muted small col-file">No file</td><td class="muted small">{% if row.track %}<span class="mobile-only">No file</span>{% endif %}</td>
+              {% endif %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endfor %}
+
+{% if album.readable %}
+<section class="panel album-section">
+  <h2>Album tags</h2>
+  <p class="muted small">Tags for the whole release, and any tag that’s the same on every track. <mark>Highlighted</mark> tags differ between tracks.</p>
+  <div class="table-wrap">
+    <table class="table tags">
+      <tbody>
+        {% for t in album.album_tags %}
+          <tr{% if t.differs %} class="differs"{% endif %}>
+            <th scope="row"><code>{{ t.key }}</code></th>
+            <td>
+              {% for values, n in t.values %}
+                <div class="tag-value">
+                  {%- if t.differs %}<mark>{% endif -%}
+                  {%- if values %}{{ values | join("; ") }}{% else %}<span class="muted">(not set)</span>{% endif -%}
+                  {%- if t.differs %}</mark> <span class="muted small">{{ n }} track{% if n != 1 %}s{% endif %}</span>{% endif -%}
+                </div>
+              {% endfor %}
+            </td>
+          </tr>
+        {% endfor %}
+        {% if album.covers %}
+          <tr{% if album.covers | length > 1 %} class="differs"{% endif %}>
+            <th scope="row" class="muted">Embedded pictures</th>
+            <td>
+              {% for desc, n in album.covers %}
+                <div class="tag-value">{{ desc }}{% if album.covers | length > 1 %} <span class="muted small">{{ n }} track{% if n != 1 %}s{% endif %}</span>{% endif %}</div>
+              {% endfor %}
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="panel album-section">
+  <h2>Track tags</h2>
+  <p class="muted small">Everything else, per track.</p>
+  {% for t in album.readable %}
+    <details class="track-tags">
+      <summary>
+        <span class="muted">{% if t.meta.is_multi_disc %}{{ t.meta.disc_number }}-{% endif %}{{ t.meta.track_number }}</span>
+        {{ t.meta.title or t.name }}
+      </summary>
+      <table class="table tags">
+        <tbody>
+          <tr><th scope="row" class="muted">File</th><td class="path small">{{ t.path }}</td></tr>
+          {% for key, values in album.track_tags[t.path] %}
+            <tr>
+              <th scope="row"><code>{{ key }}</code></th>
+              <td>{% for v in values %}<div class="tag-value">{{ v }}</div>{% endfor %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </details>
+  {% endfor %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

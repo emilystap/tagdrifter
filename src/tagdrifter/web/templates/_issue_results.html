@@ -46,7 +46,11 @@
         <input type="checkbox" name="album" value="{{ g.key }}" form="bulk-form" aria-label="Select {{ g.key }} for renaming">
       {% endif %}
       <span class="badge {{ g.worst_severity }}">{{ g.count }}</span>
-      <span class="path group-path">{{ g.key }}</span>
+      {% if "/" in g.key and not g.key.endswith(".flac") %}
+        <a class="path group-path" href="/library/album?folder={{ g.key | urlencode }}" title="Open in the library">{{ g.key }}</a>
+      {% else %}
+        <span class="path group-path">{{ g.key }}</span>
+      {% endif %}
       {% if g.untagged %}
         <span class="badge" title="{{ g.untagged }} of these issues are on files without valid release/recording MBIDs, so their tags aren't trusted">no MBIDs</span>
       {% endif %}
