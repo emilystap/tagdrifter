@@ -11,12 +11,13 @@ HX = {"HX-Request": "true"}
 
 
 def results(client, **params) -> str:
-    """The issue list partial (what the filter form swaps in), whitespace collapsed.
-    Defaults to the flat list (view=list); pass view="album" for the grouped view."""
+    """The issue list partial (what the filter form swaps in), whitespace collapsed, without
+    the out-of-band filter dropdowns. Defaults to the flat list (view=list); pass view="album"
+    for the grouped view."""
     params.setdefault("view", "list")
     response = client.get("/issues", params=params, headers=HX | {"HX-Target": "results"})
     assert response.status_code == 200
-    return " ".join(response.text.split())
+    return " ".join(response.text.split('<select name="check" id="filter-check"')[0].split())
 
 
 @pytest.fixture
@@ -70,6 +71,39 @@ def test_issue_filter_partial_for_htmx(client, settings) -> None:
     partial = results(client, check="path.loose_file")
     assert "<html" not in partial and 'id="filters"' not in partial
     assert "1–1 of 1 open issue" in partial
+
+
+def options(page: str, name: str) -> list[str]:
+    """The option labels of a filter dropdown, in order."""
+    import re
+
+    select = re.search(rf'<select name="{name}".*?</select>', page, re.S).group(0)
+    return [" ".join(o.split()) for o in re.findall(r"<option[^>]*>(.*?)</option>", select, re.S)]
+
+
+def test_filter_dropdowns_count_what_the_other_filters_leave(client, settings) -> None:
+    scan(settings)
+    page = client.get("/issues").text
+    assert options(page, "artist") == ["All artists", "loose.flac (1)", "Pixies (6)"]
+    assert "path.loose_file (1)" in options(page, "check")
+
+    # A check narrows the artists (and their counts) but not the checks.
+    page = client.get("/issues", params={"check": "path.track_location"}).text
+    assert options(page, "artist") == ["All artists", "Pixies (1)"]
+    assert "path.loose_file (1)" in options(page, "check")
+
+    # An artist narrows the checks; a choice that no longer matches stays, with 0.
+    page = client.get("/issues", params={"artist": "Pixies", "check": "path.loose_file"}).text
+    assert "path.loose_file (0)" in options(page, "check")
+    assert "path.track_location (1)" in options(page, "check")
+    assert options(page, "artist") == ["All artists", "loose.flac (1)", "Pixies (0)"]
+
+    # The filter form's partial refreshes both dropdowns out of band.
+    partial = client.get(
+        "/issues", params={"check": "path.loose_file"}, headers=HX | {"HX-Target": "results"}
+    ).text
+    assert 'id="filter-artist" hx-swap-oob="true"' in partial
+    assert options(partial, "artist") == ["All artists", "loose.flac (1)"]
 
 
 def test_track_location_shows_highlighted_expected_path(client, settings) -> None:
@@ -186,6 +220,12 @@ def test_store_artist_counts_and_text_filter(settings) -> None:
     scan(settings)
     with Store(settings.database_path) as store:
         assert dict(store.open_issue_artists()) == {"Pixies": 6, "loose.flac": 1}
+        assert store.open_issue_artists(IssueFilter(check_id="path.loose_file")) == [
+            ("loose.flac", 1)
+        ]
+        assert store.open_issue_checks(IssueFilter(path_prefix="loose.flac")) == {
+            "path.loose_file": 1
+        }
         assert store.count_open_issues(text="100%_literal") == 0  # LIKE wildcards are escaped
         assert store.count_open_issues(text="Tame", check_id="path.track_location") == 1
 

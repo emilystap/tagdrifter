@@ -50,7 +50,9 @@ present, are in the git-ignored `CLAUDE.local.md`.
 
 0. Repo, tooling ✅  1. Pure core ✅  2. Scanner + SQLite + checks + CLI ✅
 3. Web UI ✅: `tagdrifter serve` → `web/app.py` (dashboard, filterable/paged issue list with
-   highlighted expected paths, scan history, `/healthz`), `web/runner.py` (`ScanRunner`: one
+   highlighted expected paths, scan history, `/healthz`; the Check and Artist dropdowns
+   count what the other filters leave and are swapped out of band with each results update,
+   `_issue_facets.html`), `web/runner.py` (`ScanRunner`: one
    background scan at a time, progress polled by HTMX every 1s; a finished scan fires the
    `scan-finished` event and the page reloads `#page`). Server-rendered Jinja; partials are
    chosen by the `HX-Target` header. HTMX 2.0.4 is vendored in `web/static/` (no CDN).

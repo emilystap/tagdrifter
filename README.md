@@ -56,7 +56,9 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
 - **Issues**: grouped by album folder by default, one card per album with its checks, the
   proposed folder rename and how many filenames change; expand a card for its individual
   issues, or switch *Show* to *Every issue* for a flat list. Filter by check, severity, artist,
-  MBID status, or a search over paths and messages. Proposed renames show the current and
+  MBID status, or a search over paths and messages. The check and artist lists follow the
+  other filters: with a check chosen, only artists with that issue are listed, with their
+  counts (and the other way round). Proposed renames show the current and
   expected path with the differing characters highlighted. Filtered views have their own URL,
   so they can be bookmarked.
 - **Scans**: scan history with files read and issues opened/resolved; the new count links

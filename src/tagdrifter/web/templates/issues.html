@@ -1,17 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Issues · Tag Drifter{% endblock %}
 {% block content %}
+{% import "_issue_facets.html" as facets %}
 <form id="filters" class="filters" method="get" action="/issues"
       hx-get="/issues" hx-target="#results" hx-push-url="true"
       hx-trigger="input changed delay:250ms, submit" hx-sync="this:replace">
   <label>
     <span>Check</span>
-    <select name="check">
-      <option value="">All checks</option>
-      {% for c in check_ids %}
-        <option value="{{ c }}" {% if params.check == c %}selected{% endif %}>{{ c }}</option>
-      {% endfor %}
-    </select>
+    {{ facets.check_select(check_counts, params.check) }}
   </label>
   <label>
     <span>Severity</span>
@@ -24,12 +20,7 @@
   </label>
   <label>
     <span>Artist</span>
-    <select name="artist">
-      <option value="">All artists</option>
-      {% for name, n in artists %}
-        <option value="{{ name }}" {% if params.artist == name %}selected{% endif %}>{{ name or "(library root)" }} ({{ n }})</option>
-      {% endfor %}
-    </select>
+    {{ facets.artist_select(artists, params.artist) }}
   </label>
   <label>
     <span>MBIDs</span>
