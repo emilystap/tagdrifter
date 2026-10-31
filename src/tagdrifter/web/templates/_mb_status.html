@@ -6,19 +6,20 @@
     {% set cached, total = mb_cache %}
     <p>
       {{ "{:,}".format(cached) }} of {{ "{:,}".format(total) }} release{% if total != 1 %}s{% endif %} cached.
-      {% if mb_status.running and mb_status.waiting %}
-        <span class="muted">Lookups start in a few minutes (spread out, as MusicBrainz asks).</span>
-      {% elif mb_status.running %}
-        <span class="muted">Looking up {{ mb_status.done }} of {{ mb_status.total }}…</span>
+      {% if mb_status.running %}
+        <span class="muted">Looking up {{ mb_status.done }} of {{ mb_status.total }}{% if mb_status.background %} (background){% endif %}…</span>
       {% elif cached < total %}
-        <span class="muted">The rest are looked up after the next scan.</span>
+        <span class="muted">The rest are looked up a few at a time in the background, or all at once after you press “Scan now”.</span>
       {% endif %}
     </p>
+    {% if mb_status.next_background_time and not mb_status.paused_until %}
+      <p class="muted small">Background lookups (new releases and refreshes) run at random times through the day, as MusicBrainz asks; next around {{ mb_status.next_background_time | timestamp }}.</p>
+    {% endif %}
     {% if mb_status.last and mb_status.last.error and not mb_status.running %}
       <p class="rename-problem small">
         Last lookups stopped: {{ mb_status.last.error }}.
-        {% if mb_status.paused_until %}Paused until {{ mb_status.paused_until_time | timestamp }}; then they resume after the next scan.
-        {% else %}They resume after the next scan.{% endif %}
+        {% if mb_status.paused_until %}Paused until {{ mb_status.paused_until_time | timestamp }}.
+        {% else %}They resume with the next background lookups or scan.{% endif %}
       </p>
     {% endif %}
   {% endif %}

@@ -78,8 +78,9 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   send nothing. Tapping one opens the matching page if `TAGDRIFTER_PUBLIC_URL` is set; the
   dashboard has *Send test notification*. See [docs/deployment.md](docs/deployment.md#optional-notifications).
 - **MusicBrainz lookups (optional)**: with `TAGDRIFTER_MUSICBRAINZ=true`, each release in the
-  library is looked up once after a scan (at most one request a second, as MusicBrainz asks)
-  and cached for 45-75 days; the `mb.*` checks compare tags and audio lengths with it. The
+  library is looked up on MusicBrainz (at most one request a second; in the background a few
+  at a time at random times of day, as MusicBrainz asks, or all at once after *Scan now*) and
+  cached for 45-75 days; the `mb.*` checks compare tags and audio lengths with it. The
   dashboard shows how many releases are cached. See
   [docs/deployment.md](docs/deployment.md#optional-musicbrainz-lookups).
 - **Login (optional)**: set a password hash and every page needs a login; sessions last 30

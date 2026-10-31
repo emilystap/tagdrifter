@@ -44,8 +44,9 @@ enabled = false
 on = ["new_issues", "failures"]
 
 [musicbrainz]
-# Look up each release on MusicBrainz after scans (one request per release, at most one a
-# second, cached for 45-75 days) for the mb.* checks. Env: TAGDRIFTER_MUSICBRAINZ.
+# Look up each release on MusicBrainz for the mb.* checks: one request per release, at most
+# one a second, a few at a time at random times of day (all at once after "Scan now"),
+# cached for 45-75 days. Env: TAGDRIFTER_MUSICBRAINZ.
 enabled = false
 # How MusicBrainz can reach you (an email address or URL), added to the User-Agent next to
 # the project URL. Optional, but MusicBrainz asks for a contact. Env:

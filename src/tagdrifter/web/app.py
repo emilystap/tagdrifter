@@ -6,8 +6,9 @@ Every POST is CSRF-checked, and with a password configured every page needs a lo
 With `fix_enabled`, album cards offer a rename preview + apply, and /renames lists the
 journal with undo (renamer.py); scans are held off while files move. Notifications
 (notify.py) go out from the scan runner and for renames left half-done; the dashboard can
-send a test one. With `musicbrainz_enabled`, finished scans start MusicBrainz lookups
-(mbsync.py) and the dashboard shows the cache's progress.
+send a test one. With `musicbrainz_enabled`, MusicBrainz lookups trickle in at random times
+in the background and run at once after a scan someone started (mbsync.py); the dashboard
+shows the cache's progress.
 """
 
 from __future__ import annotations
@@ -68,13 +69,14 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         runner.notifications = notifications
     if runner.mb_sync is None:
         runner.mb_sync = MusicBrainzSync(settings)
-        runner.mb_sync.rescan = runner.start
+        runner.mb_sync.rescan = runner.rescan
     mb_sync = runner.mb_sync
     scheduler = ScanScheduler(runner, settings.scan_schedule)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         scheduler.start()
+        mb_sync.start()
         try:
             yield
         finally:

@@ -4,6 +4,7 @@ client gets a fake opener, and releases come from recorded fixtures."""
 import gzip
 import io
 import json
+import time
 import urllib.error
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
@@ -331,7 +332,7 @@ def test_sync_after_scan_then_rescan(library, tmp_path) -> None:
     settings = settings_for(library, tmp_path, musicbrainz_enabled=True)
     release_id = good_tags()["musicbrainz_albumid"]
     client, opener = client_with((200, {"id": release_id, "title": "Doolittle", "media": []}))
-    sync = MusicBrainzSync(settings, client, scheduled_delay=(0, 0))
+    sync = MusicBrainzSync(settings, client)
     runner = ScanRunner(settings, mb_sync=sync)
     assert runner.start()
     runner.wait(30)
@@ -413,7 +414,7 @@ def failing_sync(tmp_path, library, *answers):
     scan(settings)
     client, opener = client_with(*answers)
     clock = Clock()
-    sync = MusicBrainzSync(settings, client, scheduled_delay=(0, 0), clock=clock)
+    sync = MusicBrainzSync(settings, client, clock=clock)
     return sync, opener, clock
 
 
@@ -473,3 +474,101 @@ def test_contact_setting(tmp_path) -> None:
     assert MusicBrainzSync(settings).client.user_agent == user_agent("b@example.com")
     with pytest.raises(ValueError):
         create_app(Settings(musicbrainz_contact="bad\nvalue"))
+
+
+# --- Background trickle (lookups spread through the day) ---------------------------------
+
+
+def trickle_sync(tmp_path, n_releases: int, *answers, **kwargs):
+    ids = [f"11111111-1111-4111-8111-{i:012d}" for i in range(n_releases)]
+    settings = Settings(database_path=tmp_path / "td.db", musicbrainz_enabled=True)
+    store_with_files(tmp_path, *ids).close()
+    client, opener = client_with(*answers)
+    return MusicBrainzSync(settings, client, **kwargs), opener
+
+
+def test_scheduled_scan_leaves_lookups_to_the_trickle(tmp_path) -> None:
+    sync, opener = trickle_sync(tmp_path, 3)
+    assert not sync.after_scan(automatic=True)
+    assert opener.requests == []
+
+
+def test_trickle_looks_up_a_small_batch(tmp_path) -> None:
+    answers = [(200, {"id": "x", "media": []})] * 8
+    sync, opener = trickle_sync(tmp_path, 8, *answers, trickle_batch=5)
+    rescans = []
+    sync.rescan = lambda: rescans.append(1)
+    assert sync.trickle_once()
+    assert len(opener.requests) == 5 and sync.status().last.fetched == 5
+    assert rescans == [1]  # apply what was fetched
+    assert sync.trickle_once()
+    assert len(opener.requests) == 8
+    assert not sync.trickle_once()  # nothing due: no request
+    assert len(opener.requests) == 8
+
+
+def test_trickle_respects_the_error_pause(tmp_path) -> None:
+    clock = Clock()
+    sync, opener = trickle_sync(tmp_path, 3, (500, None), clock=clock)
+    assert sync.trickle_once()
+    assert not sync.trickle_once()
+    assert len(opener.requests) == 1
+    clock.now += 3601
+    opener.answers.append((200, {"id": "x", "media": []}))
+    assert sync.trickle_once()
+
+
+def test_trickle_and_scan_lookups_never_overlap(tmp_path) -> None:
+    sync, _ = trickle_sync(tmp_path, 3)
+    assert sync._claim(background=False, total=3)  # a run after a scan is going
+    assert not sync.trickle_once()
+    assert not sync.after_scan()
+
+
+def test_trickle_wakes_at_random_intervals(tmp_path, monkeypatch) -> None:
+    import tagdrifter.web.mbsync as mbsync
+
+    drawn = []
+
+    def uniform(a, b):
+        drawn.append((a, b))
+        return 0.01
+
+    monkeypatch.setattr(mbsync.random, "uniform", uniform)
+    answers = [(200, {"id": "x", "media": []})] * 3
+    sync, opener = trickle_sync(tmp_path, 3, *answers, trickle_batch=1)
+    sync.start()
+    try:
+        deadline = time.monotonic() + 10
+        while len(opener.requests) < 3 and time.monotonic() < deadline:
+            time.sleep(0.01)
+    finally:
+        sync.shutdown()
+    assert len(opener.requests) == 3
+    assert drawn[0] == mbsync.TRICKLE_INTERVAL  # a fresh random wait before every wake-up
+    assert len(drawn) >= 3
+    assert sync.status().next_background is not None
+
+
+def test_trickle_off_when_lookups_off(tmp_path) -> None:
+    settings = Settings(database_path=tmp_path / "td.db")
+    sync = MusicBrainzSync(settings, client_with()[0])
+    sync.start()
+    assert sync._trickle is None and not sync.trickle_once()
+
+
+def test_rescan_after_background_lookups_doesnt_fetch_the_rest(library, tmp_path) -> None:
+    ids = [f"11111111-1111-4111-8111-{i:012d}" for i in range(3)]
+    for i, mbid in enumerate(ids):
+        build_flac(library / f"Extra/A{i}/1.flac", good_tags(musicbrainz_albumid=mbid))
+    settings = settings_for(library, tmp_path, musicbrainz_enabled=True)
+    scan(settings)
+    answers = [(200, {"id": "x", "media": []})] * 4
+    client, opener = client_with(*answers)
+    sync = MusicBrainzSync(settings, client, trickle_batch=1)
+    runner = ScanRunner(settings, mb_sync=sync)
+    assert sync.trickle_once()
+    runner.wait(30)  # the rescan that applies it
+    with Store(settings.database_path) as store:
+        assert len(store.recent_scans()) == 2
+    assert len(opener.requests) == 1  # the rescan didn't look up the other three
