@@ -2,6 +2,7 @@ name: Image
 
 # Builds and smoke-tests the container on every push and pull request. Publishes to GHCR from
 # main (tags: latest, sha-<short>) and from version tags v1.2.3 (tags: 1.2.3, 1.2, sha-<short>).
+# Docs-only changes skip the build, so merging them publishes no new image.
 on:
   push:
     branches: [main]
@@ -13,7 +14,27 @@ permissions:
   packages: write
 
 jobs:
+  # A job skipped by its `if` still reports its check (as skipped, which counts as passing), so
+  # the required `build` check never blocks a docs-only merge. Version tags always build.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.check.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: check
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          IS_TAG: ${{ github.ref_type == 'tag' }}
+        run: |
+          if [ "$IS_TAG" = true ]; then code=true; else code=$(bash .github/scripts/code-changed.sh "$BASE"); fi
+          echo "code=$code" | tee -a "$GITHUB_OUTPUT"
+
   build:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

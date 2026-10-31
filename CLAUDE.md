@@ -64,6 +64,10 @@ present, are in the git-ignored `CLAUDE.local.md`.
    HEALTHCHECK on `/healthz`), `compose.yaml`, `docs/deployment.md`, workflows `ci.yml` and
    `image.yml` (build, smoke test, push to `ghcr.io/emilystap/tagdrifter` from main and `v*`
    tags). Image changes are tested by CI (build + smoke test) unless Docker is available locally.
+   Both workflows start with a `changes` job (`.github/scripts/code-changed.sh`): if only
+   `docs/**`, `CLAUDE.md` or `LICENSE` changed, `test`/`build` are skipped via `if:`, which
+   still satisfies the required checks. Keep that list docs-only; everything else counts as
+   code. Never use `paths-ignore` on these workflows: the required checks would never report.
 5. Fix actions, in PRs:
    - 5a ✅ Issues grouped by album: the scanner stores each issue's album folder (`album`
      column, migration 3; NULL for artist/library scope, which group by subject).

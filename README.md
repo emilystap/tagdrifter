@@ -159,7 +159,9 @@ uv run ruff format .    # format
 ```
 
 Changes go through pull requests into `main`; the CI and Image workflows must pass, and `main`
-publishes `ghcr.io/emilystap/tagdrifter:latest`.
+publishes `ghcr.io/emilystap/tagdrifter:latest`. Changes that only touch `docs/`, `CLAUDE.md`
+or `LICENSE` skip the tests and the image build (the checks report as skipped), so merging
+them publishes no new image.
 
 ## License
 
