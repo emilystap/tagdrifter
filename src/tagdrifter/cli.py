@@ -109,7 +109,13 @@ def cmd_scan(settings: Settings, args: argparse.Namespace) -> int:
     status = StatusLine()
     with Store(settings.database_path) as store:
         try:
-            result = run_scan(settings, store, _progress_printer(status), full=args.full)
+            result = run_scan(
+                settings,
+                store,
+                _progress_printer(status),
+                full=args.full,
+                reason=getattr(args, "reason", "cli"),
+            )
         except KeyboardInterrupt:
             status.clear()
             print(
@@ -265,7 +271,8 @@ def cmd_rename(settings: Settings, args: argparse.Namespace) -> int:
             f"{len(result.skipped):,} not attempted."
         )
     if result.applied and not args.no_scan:
-        return cmd_scan(settings, argparse.Namespace(full=False)) or (1 if result.failed else 0)
+        rescan = argparse.Namespace(full=False, reason="rename")
+        return cmd_scan(settings, rescan) or (1 if result.failed else 0)
     return 1 if result.failed else 0
 
 
@@ -297,7 +304,8 @@ def cmd_refresh(settings: Settings, args: argparse.Namespace) -> int:
     if result.error:
         print(f"error: {result.error}", file=sys.stderr)
     if result.changed and not args.no_scan:
-        return cmd_scan(settings, argparse.Namespace(full=False)) or (1 if result.error else 0)
+        rescan = argparse.Namespace(full=False, reason="musicbrainz")
+        return cmd_scan(settings, rescan) or (1 if result.error else 0)
     return 1 if result.error else 0
 
 
