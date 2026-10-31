@@ -239,3 +239,10 @@ def test_invalid_weekday() -> None:
 
     with pytest.raises(ValueError, match="invalid scan schedule"):
         parse_schedule("0 4 * * 3-9")
+
+
+def test_asset_urls_work_behind_a_tls_proxy(client) -> None:
+    # A reverse proxy terminates HTTPS and forwards plain HTTP with the public Host header.
+    page = client.get("/", headers={"Host": "tags.example.com", "X-Forwarded-Proto": "https"}).text
+    assert 'href="/static/style.css"' in page and 'src="/static/htmx.min.js"' in page
+    assert "http://" not in page

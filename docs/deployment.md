@@ -49,6 +49,12 @@ sudo -u apps find /mnt/POOL/media/music -maxdepth 2 | head
 
 The UI is then at `http://<truenas>:8080`. It has no login, so don't expose it beyond your LAN.
 
+**Behind a reverse proxy** (Nginx Proxy Manager, Caddy, Traefik): proxy a hostname to
+`http://<truenas>:<port>`; plain HTTP to the container is fine, with HTTPS terminated at the
+proxy. The UI uses root-relative links, so it works over HTTPS without extra headers. It must
+be served at the root of its hostname (e.g. `https://tags.example.com/`), not under a path.
+Keep the proxy host LAN-only (e.g. an access list), since the UI has no login.
+
 ## 5. First scan
 
 The first scan reads every file's tags. It only reads the tag blocks at the start of each file
