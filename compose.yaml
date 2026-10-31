@@ -35,3 +35,4 @@ services:
       # TAGDRIFTER_PUBLIC_URL: "https://tagdrifter.example" # links in notifications
       # Optional: compare tags with MusicBrainz (1 request/s, each release cached for weeks)
       # TAGDRIFTER_MUSICBRAINZ: "true"
+      # TAGDRIFTER_MUSICBRAINZ_CONTACT: "you@example.com" # how MusicBrainz can reach you

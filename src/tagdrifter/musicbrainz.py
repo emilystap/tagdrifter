@@ -10,8 +10,11 @@ schedule (https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting). So:
   artist credits, release group, aliases), and the raw response is cached compressed, so
   adding a check never needs a refetch;
 - releases are refreshed after a randomized 45-75 days, so refreshes trickle in;
-- a 503 (rate limited) backs off twice, then ends the run; it resumes at the next sync;
-- responses are requested gzip-compressed.
+- a 503 (rate limited) backs off twice, then ends the run, waiting at least as long as a
+  Retry-After header asks; a run that ends on an error isn't retried for an hour
+  (web/mbsync.py);
+- responses are requested gzip-compressed;
+- the User-Agent names the project and, if configured, the operator's contact address.
 
 `sync_releases` fetches what is missing or due; the checks only ever read the cache
 (`Store.mb_releases`), so scans stay offline.
@@ -27,9 +30,10 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 
 from . import __version__
 from .core import is_mbid
@@ -42,15 +46,57 @@ API_ROOT = "https://musicbrainz.org/ws/2"
 # aliases, which Picard translates track titles from), artist credits (with artist aliases),
 # the release group, and the release's own aliases (translated album titles).
 RELEASE_INC = "recordings+artist-credits+release-groups+aliases"
-USER_AGENT = f"TagDrifter/{__version__} ( https://github.com/emilystap/tagdrifter )"
+PROJECT_URL = "https://github.com/emilystap/tagdrifter"
+USER_AGENT = f"TagDrifter/{__version__} ( {PROJECT_URL} )"
 MIN_INTERVAL = 1.1  # seconds between requests; the documented limit is 1/s
 BACKOFF = (15.0, 60.0)  # waits after a 503 before retrying; then give up for this run
+MAX_RETRY_WAIT = 300.0  # a longer Retry-After ends the run instead of blocking the thread
 REFRESH_DAYS = (45, 75)  # a cached release is looked up again after this many days
 NOT_FOUND_REFRESH_DAYS = (30, 60)
 
 
 class MusicBrainzError(Exception):
-    """A request failed in a way worth stopping for (rate limited, network, server error)."""
+    """A request failed in a way worth stopping for (rate limited, network, server error).
+    `retry_after`: seconds MusicBrainz asked us to wait (Retry-After), if it said."""
+
+    def __init__(self, message: str, *, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+def user_agent(contact: str = "") -> str:
+    """The User-Agent MusicBrainz asks for: application, version and a way to reach whoever
+    runs it. The project URL always; the operator's own address (e.g. an email) if set."""
+    contact = contact.strip()
+    return f"TagDrifter/{__version__} ( {contact} ; {PROJECT_URL} )" if contact else USER_AGENT
+
+
+def validate_contact(contact: str) -> str:
+    """Refuse values that would break the header (control characters, parentheses)."""
+    contact = contact.strip()
+    if len(contact) > 200 or any(c in contact for c in "()") or not contact.isprintable():
+        raise ValueError(
+            "musicbrainz_contact must be a short email address or URL on one line, "
+            f"without parentheses: {contact!r}"
+        )
+    return contact
+
+
+def retry_after_seconds(
+    headers: Mapping[str, str] | None, now: datetime | None = None
+) -> float | None:
+    """A Retry-After header's wait in seconds: delta-seconds or an HTTP date."""
+    value = (headers or {}).get("Retry-After")
+    if not value:
+        return None
+    value = value.strip()
+    if value.isdigit():
+        return float(value)
+    try:
+        when = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, (when - (now or datetime.now(UTC))).total_seconds())
 
 
 class ReleaseNotFound(Exception):
@@ -104,8 +150,10 @@ class MusicBrainzClient:
         timeout: float = 30,
         opener: Opener | None = None,
         backoff: tuple[float, ...] = BACKOFF,
+        contact: str = "",
     ) -> None:
         self.api_root = api_root.rstrip("/")
+        self.user_agent = user_agent(validate_contact(contact) if contact else "")
         self.limiter = limiter
         self.timeout = timeout
         self._open = opener
@@ -123,7 +171,7 @@ class MusicBrainzClient:
         request = urllib.request.Request(
             self.api_root + path,
             headers={
-                "User-Agent": USER_AGENT,
+                "User-Agent": self.user_agent,
                 "Accept": "application/json",
                 "Accept-Encoding": "gzip",
             },
@@ -140,12 +188,23 @@ class MusicBrainzClient:
             except urllib.error.HTTPError as exc:
                 if exc.code == 404:
                     raise ReleaseNotFound(what) from exc
-                if exc.code == 503 and attempt < len(self.backoff):
-                    wait = self.backoff[attempt]
+                retry_after = retry_after_seconds(exc.headers) if exc.code == 503 else None
+                if (
+                    exc.code == 503
+                    and attempt < len(self.backoff)
+                    and (retry_after or 0) <= MAX_RETRY_WAIT
+                ):
+                    wait = max(self.backoff[attempt], retry_after or 0)
                     log.warning("MusicBrainz is rate limiting us; waiting %.0fs", wait)
                     self.limiter.pause(wait)
                     continue
-                raise MusicBrainzError(f"MusicBrainz answered {exc.code} for {what}") from exc
+                if retry_after is not None:
+                    self.limiter.pause(retry_after)  # in case another run starts sooner
+                raise MusicBrainzError(
+                    f"MusicBrainz answered {exc.code} for {what}"
+                    + (f" (retry after {retry_after:.0f}s)" if retry_after else ""),
+                    retry_after=retry_after,
+                ) from exc
             except (urllib.error.URLError, OSError) as exc:
                 reason = getattr(exc, "reason", exc)
                 raise MusicBrainzError(f"Couldn't reach MusicBrainz: {reason}") from exc
@@ -163,6 +222,7 @@ class SyncResult:
     fetched: int = 0
     not_found: int = 0
     error: str | None = None  # why the run stopped early
+    retry_after: float | None = None  # how long MusicBrainz asked us to wait, if it did
 
     @property
     def changed(self) -> bool:
@@ -200,6 +260,7 @@ def sync_releases(
             result.not_found += 1
         except MusicBrainzError as exc:
             result.error = str(exc)
+            result.retry_after = exc.retry_after
             log.warning("MusicBrainz sync stopped after %d of %d: %s", done - 1, len(due), exc)
             break
         else:
