@@ -103,7 +103,8 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
      click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
      with `describe()` and `send(Notification)`.
-   - **Next**: open. Candidates: ntfy/webhook notifiers, the first-run login below, step 6.
+   - **Next**: step 6a below.
+   - Later: ntfy/webhook notifiers.
    - Later: rename across artist folders for `album.placement` issues; a CLI for renames.
    - Later: non-FLAC formats via mutagen.
    - Later (owner's request): a conventional first-run login. On first launch with no
@@ -117,10 +118,55 @@ present, are in the git-ignored `CLAUDE.local.md`.
      printed to the container log, or only allow setup from the LAN); and this changes the
      default for existing deployments from "no login" to "set a password" on upgrade, which
      the release notes must say.
-6. MusicBrainz integration: look up releases by `musicbrainz_albumid` (WS/2 JSON, 1 req/s,
-   descriptive User-Agent), cache them in SQLite, and add checks comparing tags with MusicBrainz
-   (album artist, album, track titles incl. case, numbering). Then Picard-style retagging with
-   preview + approve, and lookups for releases missing MBIDs.
+6. MusicBrainz integration, in PRs. Note Picard's naming: `MUSICBRAINZ_TRACKID` holds the
+   **recording** MBID (what ListenBrainz scrobbles match on, via Navidrome);
+   `MUSICBRAINZ_RELEASETRACKID` is the track MBID. Messages say "recording MBID
+   (`musicbrainz_trackid`)".
+   - **6a: local tag checks** (no network). Split `tags.required` so each concern has its own
+     row, filter and severity:
+     - `tags.recording_mbid` (error): `musicbrainz_trackid` missing; scrobbles fall back to
+       fuzzy artist + title matching.
+     - `tags.mbids` (warning): other MBID tags missing (release, release group, release
+       track, artist, album artist). Not `musicbrainz_workid` (track relationships are off in
+       the owner's Picard, so it's never written).
+     - `tags.naming` (warning): tags the path rules use (album artist, album, title, track /
+       disc numbers, date); the message names the path part that falls back.
+     - `tags.required`: kept for extra user-chosen tags; default empty.
+     - `tags.artist_mbid_count` (warning): number of `ARTISTS` values ≠ number of
+       `MUSICBRAINZ_ARTISTID` values; same for `ALBUMARTISTS` / `MUSICBRAINZ_ALBUMARTISTID`.
+       Needs the multi-valued tags; never guess by splitting `ARTIST` on "feat." / "&".
+     - `album.duplicate_tracks` (error): two files in an album with the same release-track
+       MBID, or the same disc + track number.
+     - `album.missing_tracks` (info): fewer files on a disc than its `TOTALTRACKS`.
+     - Groundwork for 6b: read STREAMINFO in `core/flac.py` (sample rate, total samples →
+       exact duration) and store it in the `files` cache (migration; existing rows need one
+       re-read, since incremental scans only re-read changed files).
+   - **6b: MusicBrainz cache + checks.** One lookup per release:
+     `/ws/2/release/<mbid>?inc=recordings+artist-credits+release-groups` (plus whatever the
+     translation rules below need, e.g. aliases), 1 req/s, descriptive User-Agent. Fetched in
+     the background after a scan (new releases first), cached in SQLite, refreshed ~30 days;
+     checks read only the cache (keeps checks pure and offline), and an uncached release yields
+     no issues. Dashboard shows "MusicBrainz: N / M releases cached".
+     - `mb.release_unknown`: release MBID 404s (deleted) or returns another id (merged).
+     - `mb.track_mismatch`: recording / release-track MBID not on the tagged release, or at a
+       different disc/position. The strongest wrong-version signal for single tracks.
+     - `mb.album`: album title, album artist credit, release group.
+     - `mb.track_title`: title, including letter case.
+     - `mb.artist_credit`: artist MBIDs (set and order) and names vs the track's artist credit,
+       both directions; album artists vs the release credit.
+     - `mb.numbering`: track/disc numbers and totals.
+     - `mb.duration`: track length off by more than a tolerance (default ±3 s); album level,
+       file count and total length vs the release. Catches a whole album consistently tagged
+       as the wrong release (deluxe vs standard, live vs studio, remaster), where the IDs all
+       agree with each other.
+     - Comparison rules follow the owner's Picard 3 settings (personal tool; don't generalize
+       yet): no ASCII punctuation conversion (compare exactly, case-sensitive); artist names
+       standardized for *variations only*, and artist, album and track names translated to
+       the `en` locale when available. So a tag value matches if it equals the credited
+       name, the artist's standard name or its `en` alias (artists), or the MusicBrainz title
+       or its English translation (albums, tracks). How Picard 3 translates titles has to be
+       confirmed before writing `mb.album` / `mb.track_title`.
+   - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
 
 ## Source of truth
 

@@ -24,7 +24,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, later a first-run password setup | ⏳ |
-| 6 | MusicBrainz integration: checks against MusicBrainz, Picard-style retagging | — |
+| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates), then checks against cached MusicBrainz data (titles, artist credits, track versions, durations), then Picard-style retagging | — |
 
 ## Quick start (local)
 
