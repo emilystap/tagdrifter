@@ -129,6 +129,35 @@ is unreachable, the scan or rename carries on and the container log says why the
 wasn't sent. If Gotify runs as another app on the same TrueNAS, use the host's LAN address and
 Gotify's host port; `localhost` inside the container is the container itself.
 
+## Optional: MusicBrainz lookups
+
+With `TAGDRIFTER_MUSICBRAINZ: "true"` in the app's `environment`, Tag Drifter looks up each
+release in the library on [MusicBrainz](https://musicbrainz.org) (by `musicbrainz_albumid`)
+and the `mb.*` checks compare your tags and audio lengths with it: a track tagged with
+another version's recording, track or disc numbers that changed, a release that was merged
+or deleted, a length that doesn't match (live vs studio, edits, the wrong release).
+
+MusicBrainz is a small non-profit, so Tag Drifter is careful with its API:
+
+- **One request per release**, at most **one request a second**, identified with a
+  User-Agent that links to this project.
+- Lookups happen **after a scan**, for releases not looked up yet; each is cached and only
+  looked up again after a random 45-75 days, so refreshes trickle in. After a *scheduled*
+  scan they start a random 1-30 minutes later instead of on the hour.
+- If MusicBrainz answers "slow down" (503), Tag Drifter waits, retries twice, then stops
+  until the next scan.
+
+The first time, looking up ~600 releases takes about 25 minutes in the background (the
+dashboard's *MusicBrainz* panel shows progress); Tag Drifter rescans when it's done, so the
+issues appear without waiting for the next scheduled scan. After that, a scan only looks up
+releases that are new to the library or due for a refresh.
+
+Upgrading to this version re-reads every file once (to record its audio length), so the
+first scan after updating takes about as long as the very first one.
+
+Tolerance for `mb.duration` (default 3 seconds) is set in `config.toml`:
+`[checks."mb.duration"] tolerance_seconds = 5`.
+
 ## Optional: config.toml
 
 Environment variables cover the main settings. For per-check options (required tags, disabled

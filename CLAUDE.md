@@ -103,7 +103,7 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
      click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
      with `describe()` and `send(Notification)`.
-   - **Next**: step 6b below.
+   - **Next**: step 6b-2 below.
    - Later: ntfy/webhook notifiers.
    - Later: rename across artist folders for `album.placement` issues; a CLI for renames.
    - Later: non-FLAC formats via mutagen.
@@ -147,41 +147,58 @@ present, are in the git-ignored `CLAUDE.local.md`.
      - First run on the owner's library: 25 `album.missing_tracks` (mostly singles kept
        without B-sides), 5 `album.artist_mbid_count` (cast recordings and collabs), nothing
        else new.
-   - **6b: MusicBrainz cache + checks.** One lookup per release:
-     `/ws/2/release/<mbid>?inc=recordings+artist-credits+release-groups` (plus whatever the
-     translation rules below need, e.g. aliases), 1 req/s, descriptive User-Agent. Fetched in
-     the background after a scan (new releases first), cached in SQLite, refreshed ~30 days;
-     checks read only the cache (keeps checks pure and offline), and an uncached release yields
-     no issues. Dashboard shows "MusicBrainz: N / M releases cached".
-     - Groundwork (moved from 6a, where nothing used it yet): read STREAMINFO in
-       `core/flac.py` (sample rate, total samples → exact duration) and store it in the
-       `files` cache (migration; existing rows need one re-read, since incremental scans
-       only re-read changed files).
-     - `mb.release_unknown`: release MBID 404s (deleted) or returns another id (merged).
-     - `mb.track_mismatch`: recording / release-track MBID not on the tagged release, or at a
-       different disc/position. The strongest wrong-version signal for single tracks.
+   - 6b ✅ MusicBrainz cache + structural checks. Off unless `musicbrainz_enabled` /
+     `[musicbrainz] enabled` / `TAGDRIFTER_MUSICBRAINZ`. Keep the strain on the API minimal
+     (MusicBrainz is a small non-profit; the owner asked for this explicitly):
+     - `musicbrainz.py`: `MusicBrainzClient` makes one lookup per release,
+       `/ws/2/release/<mbid>?inc=recordings+artist-credits+release-groups+aliases&fmt=json`,
+       which already carries everything 6b-2 needs (release, recording and artist aliases),
+       so adding checks never needs a refetch. Process-wide `RateLimiter` (≥1.1 s between
+       requests), User-Agent with the repo URL, gzip; a 503 backs off 15 s and 60 s, then
+       ends the run. `sync_releases` fetches releases missing from the cache first, then
+       refreshes due (`refresh_after`: random 45-75 days; not found: 30-60), stopping at the
+       first error and keeping what it fetched.
+     - Cache: `mb_releases` (migration 5), the raw response zlib-compressed (3-11 KB each),
+       NULL data = not found. `Store.mb_releases_due` / `mb_releases` / `mb_cache_counts`.
+     - `web/mbsync.py` `MusicBrainzSync`: `ScanRunner` calls `after_scan` when a scan
+       finishes; after a *scheduled* scan it waits a random 1-30 min (MusicBrainz asks
+       background jobs not to fire at fixed times). If anything changed it rescans so the
+       issues show up. Dashboard panel (`_mb_status.html`, polls while running).
+     - Checks only read the cache: the scanner parses it into `core/mbrelease.py`
+       `MbRelease` objects (`AlbumContext.releases`, keyed by lower-case release MBID; a
+       release not looked up yet is absent and skipped). `checks/builtin_musicbrainz.py`,
+       all album scope, reporting per track where it's a track's problem:
+       `mb.release_unknown` (404, or the response id differs = merged), `mb.track_mismatch`
+       (release-track MBID not on the release, else recording MBID differs),
+       `mb.numbering` (track/disc number per track; total tracks/discs once per album),
+       `mb.duration` (file vs MusicBrainz track length, `tolerance_seconds` default 3).
+       Picard's mapping: tracknumber = track `position` (not `number`, which can be "A1"),
+       discnumber = medium `position` (Brat's media are 2 and 3), totaldiscs = number of media.
+     - Audio length: `core/flac.py` reads STREAMINFO; `read_tags` stores it as the `~length`
+       pseudo-tag (ms; "~" can't start a Vorbis comment name), `TrackMeta.length_ms`. Files
+       cached without it are re-read once (about a minute for the owner's 7,179 files).
+     - Tests never call the API: an autouse fixture in `tests/conftest.py` makes real
+       requests fail, and `tests/fixtures/musicbrainz/` holds two recorded lookups. Verify
+       against the live API sparingly (a handful of releases via `sync_releases(limit=...)`).
+     - First sample (20 releases): Songs for the Deaf has 16 tracks in MusicBrainz but 17 in
+       the tags; two CAKE tracks are 7 s and 26 s shorter than MusicBrainz.
+   - **6b-2 next**: text checks against the cache (no new requests needed):
      - `mb.album`: album title, album artist credit, release group.
      - `mb.track_title`: title, including letter case.
      - `mb.artist_credit`: artist MBIDs (set and order) and names vs the track's artist credit,
        both directions; album artists vs the release credit.
-     - `mb.numbering`: track/disc numbers and totals.
-     - `mb.duration`: track length off by more than a tolerance (default ±3 s); album level,
-       file count and total length vs the release. Catches a whole album consistently tagged
-       as the wrong release (deluxe vs standard, live vs studio, remaster), where the IDs all
-       agree with each other.
      - Comparison rules follow the owner's Picard 3 settings (personal tool; don't generalize
        yet): no ASCII punctuation conversion (compare exactly, case-sensitive); artist names
        standardized for *variations only*, and artist, album and track names translated to
-       the `en` locale when available. Artist names match if they equal the credited name,
-       the artist's standard name or its `en` alias (e.g. 新しい学校のリーダーズ tagged as
-       "ATARASHII GAKKO!"). Album and track titles compare exactly with MusicBrainz, but also
-       accept the English translation MusicBrainz offers for the release: the owner's
-       ATARASHII GAKKO! albums are tagged and filed to match the translation shown on the
-       release page; e.g. "マエナラワナイ" becomes "Maenarawanai". Before writing `mb.album` /
-       `mb.track_title`, find where that comes from in the API (likely a linked
-       transliteration/translation pseudo-release, `inc=release-rels`) and how Picard 3
-       builds the tag from it. Spanish and German titles aren't translated (no English
-       version in MusicBrainz), so they compare exactly.
+       the `en` locale when available. Picard (source, master) translates from **aliases**:
+       artist aliases, the release's own aliases (album) and recording aliases (titles),
+       taking the primary alias whose locale matches (`en_*` then `en`), with "Artist name"
+       / "Recording name" types preferred; it doesn't follow pseudo-release relationships.
+       So: artist names match the credited name, the artist's name or its primary `en`
+       alias (新しい学校のリーダーズ → "ATARASHII GAKKO!"); titles match the MusicBrainz track
+       / release title or the primary `en` alias. Maenarawanai's release and track titles
+       are already Latin in MusicBrainz (e.g. track "sekigae Gattuso", recording
+       "席替ガットゥーゾ"), so track titles compare with the *track* title first.
    - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
 
 ## Source of truth
@@ -209,6 +226,8 @@ uv run tagdrifter serve           # web UI on http://127.0.0.1:8080
   `core/sanitize.py` and `tests/`, where the filesystem-safe substitutes
   (∕ ꞉ ∗ ∣ ？ ‹ › ․ ″ “ ”) are intentional. Elsewhere, keep them out of literals (use `sanitize()` or constants such as
   `SLASH_REPLACEMENT`), so the rules still catch accidental lookalikes.
+- Tests never call the MusicBrainz API (blocked in `tests/conftest.py`); use the recorded
+  fixtures in `tests/fixtures/musicbrainz/`.
 - Tests build real FLAC files on the fly (`tests/conftest.py::build_flac`, including
   cover-art blocks); never commit audio fixtures.
 - `.gitattributes` forces LF line endings.

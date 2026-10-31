@@ -6,7 +6,8 @@ Every POST is CSRF-checked, and with a password configured every page needs a lo
 With `fix_enabled`, album cards offer a rename preview + apply, and /renames lists the
 journal with undo (renamer.py); scans are held off while files move. Notifications
 (notify.py) go out from the scan runner and for renames left half-done; the dashboard can
-send a test one.
+send a test one. With `musicbrainz_enabled`, finished scans start MusicBrainz lookups
+(mbsync.py) and the dashboard shows the cache's progress.
 """
 
 from __future__ import annotations
@@ -38,6 +39,7 @@ from ..notify import Notifications, NotifyError
 from ..renamer import RenameError, apply_plan, library_writable, plan_album, undo_batch
 from . import auth
 from . import format as fmt
+from .mbsync import MusicBrainzSync
 from .runner import ScanRunner
 from .scheduler import ScanScheduler
 
@@ -64,6 +66,10 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     runner = runner or ScanRunner(settings)
     if runner.notifications is None:
         runner.notifications = notifications
+    if runner.mb_sync is None:
+        runner.mb_sync = MusicBrainzSync(settings)
+        runner.mb_sync.rescan = runner.start
+    mb_sync = runner.mb_sync
     scheduler = ScanScheduler(runner, settings.scan_schedule)
 
     @asynccontextmanager
@@ -73,6 +79,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             yield
         finally:
             scheduler.shutdown()
+            mb_sync.shutdown()
 
     app = FastAPI(
         title="Tag Drifter", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan
@@ -122,6 +129,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "fix_enabled": settings.fix_enabled,
         "move_labels": fmt.move_labels,
         "notifications": notifications,
+        "mb_sync": mb_sync,
     }
 
     def is_partial(request: Request, target: str) -> bool:
@@ -183,6 +191,8 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             last_scan=scans[0] if scans else None,
             checks=check_rows,
             top_artists=artists[:10],
+            mb_cache=store.mb_cache_counts() if mb_sync.enabled else None,
+            mb_status=mb_sync.status(),
         )
 
     @app.get("/issues", response_class=HTMLResponse)
@@ -407,6 +417,17 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
                 )
         app.state.runner.start()
         return RedirectResponse("/renames", status_code=303)
+
+    # --- MusicBrainz ------------------------------------------------------------------
+
+    @app.get("/musicbrainz/status", response_class=HTMLResponse)
+    def musicbrainz_status(request: Request, store: StoreDep) -> HTMLResponse:
+        return render(
+            request,
+            "_mb_status.html",
+            mb_cache=store.mb_cache_counts() if mb_sync.enabled else None,
+            mb_status=mb_sync.status(),
+        )
 
     # --- Notifications ----------------------------------------------------------------
 

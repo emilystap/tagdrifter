@@ -1,0 +1,1635 @@
+{
+ "release-events": [
+  {
+   "date": "2024-10",
+   "area": {
+    "name": "United States",
+    "disambiguation": "",
+    "type-id": null,
+    "id": "489ce91b-6658-3307-9877-795b68554c98",
+    "type": null,
+    "sort-name": "United States",
+    "iso-3166-1-codes": [
+     "US"
+    ]
+   }
+  }
+ ],
+ "artist-credit": [
+  {
+   "artist": {
+    "aliases": [
+     {
+      "end": null,
+      "name": "Charli xcx",
+      "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+      "type": "Artist name",
+      "locale": "en",
+      "sort-name": "Charli xcx",
+      "begin": "2024",
+      "ended": false,
+      "primary": true
+     },
+     {
+      "name": "Charlotte Aitchison",
+      "end": null,
+      "sort-name": "Aitchison, Charlotte",
+      "locale": "en",
+      "type": "Artist name",
+      "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+      "begin": null,
+      "primary": false,
+      "ended": false
+     },
+     {
+      "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+      "locale": "en",
+      "type": "Legal name",
+      "sort-name": "Aitchison, Charlotte Emma",
+      "end": null,
+      "name": "Charlotte Emma Aitchison",
+      "primary": false,
+      "ended": false,
+      "begin": null
+     }
+    ],
+    "country": "GB",
+    "name": "Charli xcx",
+    "disambiguation": "",
+    "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+    "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+    "type": "Person",
+    "sort-name": "Charli xcx"
+   },
+   "name": "Charli xcx",
+   "joinphrase": ""
+  }
+ ],
+ "packaging-id": "e724a489-a7e8-30a1-a17c-30dfd6831202",
+ "packaging": "Gatefold Cover",
+ "barcode": "075678603983",
+ "title": "Brat and it’s the same but there’s three more songs so it’s not",
+ "disambiguation": "",
+ "media": [
+  {
+   "tracks": [
+    {
+     "id": "53a73e85-da3b-4189-a349-b6fc02d30900",
+     "position": 1,
+     "title": "360",
+     "length": 134000,
+     "artist-credit": [
+      {
+       "artist": {
+        "disambiguation": "",
+        "name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "sort-name": "Charli xcx",
+        "type": "Person",
+        "aliases": [
+         {
+          "ended": false,
+          "primary": true,
+          "begin": "2024",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "locale": "en",
+          "sort-name": "Charli xcx",
+          "type": "Artist name",
+          "end": null,
+          "name": "Charli xcx"
+         },
+         {
+          "begin": null,
+          "primary": false,
+          "ended": false,
+          "name": "Charlotte Aitchison",
+          "end": null,
+          "type": "Artist name",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc"
+         },
+         {
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "locale": "en",
+          "type": "Legal name",
+          "end": null,
+          "name": "Charlotte Emma Aitchison",
+          "ended": false,
+          "primary": false,
+          "begin": null
+         }
+        ],
+        "country": "GB"
+       },
+       "joinphrase": "",
+       "name": "Charli xcx"
+      }
+     ],
+     "recording": {
+      "artist-credit": [
+       {
+        "artist": {
+         "country": "GB",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "disambiguation": "",
+         "name": "Charli xcx"
+        },
+        "name": "Charli xcx",
+        "joinphrase": ""
+       }
+      ],
+      "aliases": [],
+      "first-release-date": "2024-05-10",
+      "title": "360",
+      "disambiguation": "explicit",
+      "length": 133805,
+      "video": false,
+      "id": "9e687f51-1fa6-4374-b9e0-2e3df630bcd5"
+     },
+     "number": "A1"
+    },
+    {
+     "artist-credit": [
+      {
+       "artist": {
+        "sort-name": "Charli xcx",
+        "type": "Person",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "disambiguation": "",
+        "name": "Charli xcx",
+        "country": "GB",
+        "aliases": [
+         {
+          "ended": false,
+          "primary": true,
+          "begin": "2024",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "type": "Artist name",
+          "locale": "en",
+          "sort-name": "Charli xcx",
+          "end": null,
+          "name": "Charli xcx"
+         },
+         {
+          "begin": null,
+          "ended": false,
+          "primary": false,
+          "name": "Charlotte Aitchison",
+          "end": null,
+          "sort-name": "Aitchison, Charlotte",
+          "locale": "en",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc"
+         },
+         {
+          "ended": false,
+          "primary": false,
+          "begin": null,
+          "sort-name": "Aitchison, Charlotte Emma",
+          "locale": "en",
+          "type": "Legal name",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "name": "Charlotte Emma Aitchison",
+          "end": null
+         }
+        ]
+       },
+       "joinphrase": "",
+       "name": "Charli xcx"
+      }
+     ],
+     "recording": {
+      "artist-credit": [
+       {
+        "joinphrase": "",
+        "name": "Charli xcx",
+        "artist": {
+         "country": "GB",
+         "name": "Charli xcx",
+         "disambiguation": "",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "type": "Person",
+         "sort-name": "Charli xcx"
+        }
+       }
+      ],
+      "aliases": [],
+      "first-release-date": "2024-04-03",
+      "id": "0a88e1e3-f8b3-434a-9289-a2828a00241a",
+      "title": "Club classics",
+      "disambiguation": "",
+      "video": false,
+      "length": 153000
+     },
+     "number": "A2",
+     "title": "Club classics",
+     "length": 153000,
+     "id": "cf5f3bae-05ec-415a-a6df-e0f38ab74f67",
+     "position": 2
+    },
+    {
+     "id": "711cff8e-b1d3-46db-9c01-a29dbfdc1514",
+     "position": 3,
+     "title": "Sympathy is a knife",
+     "length": 151000,
+     "artist-credit": [
+      {
+       "artist": {
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "disambiguation": "",
+        "name": "Charli xcx",
+        "country": "GB",
+        "aliases": [
+         {
+          "begin": "2024",
+          "ended": false,
+          "primary": true,
+          "name": "Charli xcx",
+          "end": null,
+          "sort-name": "Charli xcx",
+          "locale": "en",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc"
+         },
+         {
+          "end": null,
+          "name": "Charlotte Aitchison",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "locale": "en",
+          "type": "Artist name",
+          "sort-name": "Aitchison, Charlotte",
+          "begin": null,
+          "ended": false,
+          "primary": false
+         },
+         {
+          "name": "Charlotte Emma Aitchison",
+          "end": null,
+          "type": "Legal name",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "begin": null,
+          "ended": false,
+          "primary": false
+         }
+        ]
+       },
+       "joinphrase": "",
+       "name": "Charli xcx"
+      }
+     ],
+     "recording": {
+      "title": "Sympathy is a knife",
+      "disambiguation": "explicit",
+      "video": false,
+      "length": 151000,
+      "id": "75fbda47-954c-4a9d-b6a8-e28ad376313a",
+      "artist-credit": [
+       {
+        "artist": {
+         "country": "GB",
+         "name": "Charli xcx",
+         "disambiguation": "",
+         "type": "Person",
+         "sort-name": "Charli xcx",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+        },
+        "joinphrase": "",
+        "name": "Charli xcx"
+       }
+      ],
+      "aliases": [],
+      "first-release-date": "2024-06-07"
+     },
+     "number": "A3"
+    },
+    {
+     "artist-credit": [
+      {
+       "name": "Charli xcx",
+       "joinphrase": "",
+       "artist": {
+        "country": "GB",
+        "aliases": [
+         {
+          "end": null,
+          "name": "Charli xcx",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "type": "Artist name",
+          "sort-name": "Charli xcx",
+          "locale": "en",
+          "begin": "2024",
+          "ended": false,
+          "primary": true
+         },
+         {
+          "name": "Charlotte Aitchison",
+          "end": null,
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "begin": null,
+          "primary": false,
+          "ended": false
+         },
+         {
+          "name": "Charlotte Emma Aitchison",
+          "end": null,
+          "sort-name": "Aitchison, Charlotte Emma",
+          "locale": "en",
+          "type": "Legal name",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "begin": null,
+          "ended": false,
+          "primary": false
+         }
+        ],
+        "name": "Charli xcx",
+        "disambiguation": "",
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca"
+       }
+      }
+     ],
+     "number": "A4",
+     "recording": {
+      "first-release-date": "2024-06-07",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "name": "Charli xcx",
+        "joinphrase": "",
+        "artist": {
+         "country": "GB",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "disambiguation": "",
+         "name": "Charli xcx"
+        }
+       }
+      ],
+      "id": "5d43269f-4c7d-40cb-893d-35b51b6dc078",
+      "length": 109000,
+      "video": false,
+      "disambiguation": "",
+      "title": "I might say something stupid"
+     },
+     "id": "c21fc940-2815-46ca-937c-14d11a5eb33c",
+     "position": 4,
+     "title": "I might say something stupid",
+     "length": 109000
+    },
+    {
+     "position": 5,
+     "id": "55de0833-cc84-4fee-a748-2f209e3a8de1",
+     "length": 161000,
+     "title": "Talk talk",
+     "recording": {
+      "id": "351af27b-2581-4f27-a75f-1ae5200db4f2",
+      "title": "Talk talk",
+      "video": false,
+      "length": 161760,
+      "disambiguation": "",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "artist": {
+         "name": "Charli xcx",
+         "disambiguation": "",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "type": "Person",
+         "sort-name": "Charli xcx",
+         "country": "GB"
+        },
+        "joinphrase": "",
+        "name": "Charli xcx"
+       }
+      ],
+      "first-release-date": "2024-06-07"
+     },
+     "number": "A5",
+     "artist-credit": [
+      {
+       "joinphrase": "",
+       "name": "Charli xcx",
+       "artist": {
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "name": "Charli xcx",
+        "disambiguation": "",
+        "aliases": [
+         {
+          "ended": false,
+          "primary": true,
+          "begin": "2024",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "sort-name": "Charli xcx",
+          "locale": "en",
+          "type": "Artist name",
+          "end": null,
+          "name": "Charli xcx"
+         },
+         {
+          "begin": null,
+          "ended": false,
+          "primary": false,
+          "end": null,
+          "name": "Charlotte Aitchison",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "type": "Artist name",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte"
+         },
+         {
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type": "Legal name",
+          "end": null,
+          "name": "Charlotte Emma Aitchison",
+          "ended": false,
+          "primary": false,
+          "begin": null
+         }
+        ],
+        "country": "GB"
+       }
+      }
+     ]
+    },
+    {
+     "length": 164000,
+     "title": "Von dutch",
+     "position": 6,
+     "id": "984e0f2a-e980-41a8-b9ab-e1596842b441",
+     "recording": {
+      "aliases": [],
+      "artist-credit": [
+       {
+        "artist": {
+         "disambiguation": "",
+         "name": "Charli xcx",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "country": "GB"
+        },
+        "joinphrase": "",
+        "name": "Charli xcx"
+       }
+      ],
+      "first-release-date": "2024-02-29",
+      "id": "93e4875c-8a06-4b7d-96cb-8cb27f142c7d",
+      "title": "Von dutch",
+      "video": false,
+      "length": 164000,
+      "disambiguation": "explicit"
+     },
+     "number": "B1",
+     "artist-credit": [
+      {
+       "artist": {
+        "name": "Charli xcx",
+        "disambiguation": "",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "aliases": [
+         {
+          "name": "Charli xcx",
+          "end": null,
+          "type": "Artist name",
+          "locale": "en",
+          "sort-name": "Charli xcx",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "begin": "2024",
+          "ended": false,
+          "primary": true
+         },
+         {
+          "ended": false,
+          "primary": false,
+          "begin": null,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "type": "Artist name",
+          "sort-name": "Aitchison, Charlotte",
+          "locale": "en",
+          "end": null,
+          "name": "Charlotte Aitchison"
+         },
+         {
+          "end": null,
+          "name": "Charlotte Emma Aitchison",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "type": "Legal name",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "locale": "en",
+          "begin": null,
+          "primary": false,
+          "ended": false
+         }
+        ],
+        "country": "GB"
+       },
+       "joinphrase": "",
+       "name": "Charli xcx"
+      }
+     ]
+    },
+    {
+     "artist-credit": [
+      {
+       "name": "Charli xcx",
+       "joinphrase": "",
+       "artist": {
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "name": "Charli xcx",
+        "disambiguation": "",
+        "country": "GB",
+        "aliases": [
+         {
+          "ended": false,
+          "primary": true,
+          "begin": "2024",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "type": "Artist name",
+          "locale": "en",
+          "sort-name": "Charli xcx",
+          "end": null,
+          "name": "Charli xcx"
+         },
+         {
+          "begin": null,
+          "ended": false,
+          "primary": false,
+          "name": "Charlotte Aitchison",
+          "end": null,
+          "sort-name": "Aitchison, Charlotte",
+          "locale": "en",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc"
+         },
+         {
+          "ended": false,
+          "primary": false,
+          "begin": null,
+          "type": "Legal name",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "name": "Charlotte Emma Aitchison",
+          "end": null
+         }
+        ]
+       }
+      }
+     ],
+     "recording": {
+      "aliases": [],
+      "artist-credit": [
+       {
+        "joinphrase": "",
+        "name": "Charli xcx",
+        "artist": {
+         "country": "GB",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "name": "Charli xcx",
+         "disambiguation": ""
+        }
+       }
+      ],
+      "first-release-date": "2024-06-07",
+      "id": "92f108ea-4a03-4469-8bc3-be46ffa331e0",
+      "title": "Everything is romantic",
+      "length": 203000,
+      "video": false,
+      "disambiguation": ""
+     },
+     "number": "B2",
+     "title": "Everything is romantic",
+     "length": 203000,
+     "id": "c73df176-34d6-4911-bb84-39b0e4eb79fa",
+     "position": 7
+    },
+    {
+     "number": "B3",
+     "recording": {
+      "artist-credit": [
+       {
+        "name": "Charli xcx",
+        "joinphrase": "",
+        "artist": {
+         "country": "GB",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "disambiguation": "",
+         "name": "Charli xcx"
+        }
+       }
+      ],
+      "aliases": [],
+      "first-release-date": "2024-06-07",
+      "id": "ff1b50b4-b05c-4d65-836d-8ae4685ece42",
+      "title": "Rewind",
+      "disambiguation": "",
+      "length": 168000,
+      "video": false
+     },
+     "artist-credit": [
+      {
+       "artist": {
+        "disambiguation": "",
+        "name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "aliases": [
+         {
+          "locale": "en",
+          "sort-name": "Charli xcx",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charli xcx",
+          "end": null,
+          "ended": false,
+          "primary": true,
+          "begin": "2024"
+         },
+         {
+          "ended": false,
+          "primary": false,
+          "begin": null,
+          "sort-name": "Aitchison, Charlotte",
+          "locale": "en",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charlotte Aitchison",
+          "end": null
+         },
+         {
+          "name": "Charlotte Emma Aitchison",
+          "end": null,
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type": "Legal name",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "begin": null,
+          "ended": false,
+          "primary": false
+         }
+        ],
+        "country": "GB"
+       },
+       "name": "Charli xcx",
+       "joinphrase": ""
+      }
+     ],
+     "length": 168000,
+     "title": "Rewind",
+     "position": 8,
+     "id": "a3156b6a-57a9-48c9-8b2a-cfce5eae45bc"
+    },
+    {
+     "artist-credit": [
+      {
+       "artist": {
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "disambiguation": "",
+        "name": "Charli xcx",
+        "country": "GB",
+        "aliases": [
+         {
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "locale": "en",
+          "sort-name": "Charli xcx",
+          "type": "Artist name",
+          "end": null,
+          "name": "Charli xcx",
+          "ended": false,
+          "primary": true,
+          "begin": "2024"
+         },
+         {
+          "ended": false,
+          "primary": false,
+          "begin": null,
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charlotte Aitchison",
+          "end": null
+         },
+         {
+          "name": "Charlotte Emma Aitchison",
+          "end": null,
+          "type": "Legal name",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "begin": null,
+          "ended": false,
+          "primary": false
+         }
+        ]
+       },
+       "joinphrase": "",
+       "name": "Charli xcx"
+      }
+     ],
+     "recording": {
+      "title": "So I",
+      "length": 211000,
+      "video": false,
+      "disambiguation": "",
+      "id": "90962800-c819-47bc-b1df-97ed3ff2bd08",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "joinphrase": "",
+        "name": "Charli xcx",
+        "artist": {
+         "country": "GB",
+         "disambiguation": "",
+         "name": "Charli xcx",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca"
+        }
+       }
+      ],
+      "first-release-date": "2024-06-07"
+     },
+     "number": "B4",
+     "id": "5a888a86-85ed-4e84-b0b7-33d632190ffc",
+     "position": 9,
+     "title": "So I",
+     "length": 211000
+    },
+    {
+     "recording": {
+      "artist-credit": [
+       {
+        "joinphrase": "",
+        "name": "Charli xcx",
+        "artist": {
+         "disambiguation": "",
+         "name": "Charli xcx",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "country": "GB"
+        }
+       }
+      ],
+      "aliases": [],
+      "first-release-date": "2024-06-07",
+      "id": "01a70574-fcf4-4292-a29b-bd5dc6892cfa",
+      "title": "Girl, so confusing",
+      "disambiguation": "",
+      "video": false,
+      "length": 175000
+     },
+     "number": "B5",
+     "artist-credit": [
+      {
+       "artist": {
+        "country": "GB",
+        "aliases": [
+         {
+          "name": "Charli xcx",
+          "end": null,
+          "type": "Artist name",
+          "sort-name": "Charli xcx",
+          "locale": "en",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "begin": "2024",
+          "ended": false,
+          "primary": true
+         },
+         {
+          "begin": null,
+          "primary": false,
+          "ended": false,
+          "name": "Charlotte Aitchison",
+          "end": null,
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc"
+         },
+         {
+          "end": null,
+          "name": "Charlotte Emma Aitchison",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "locale": "en",
+          "type": "Legal name",
+          "begin": null,
+          "ended": false,
+          "primary": false
+         }
+        ],
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "disambiguation": "",
+        "name": "Charli xcx"
+       },
+       "name": "Charli xcx",
+       "joinphrase": ""
+      }
+     ],
+     "position": 10,
+     "id": "e12b4386-b5aa-4208-b33c-02024d1a5cfc",
+     "length": 174000,
+     "title": "Girl, so confusing"
+    }
+   ],
+   "format": "12\" Vinyl",
+   "position": 2,
+   "format-id": "3e9080b0-5e6c-34ab-bd15-f526b6306a64",
+   "track-count": 10,
+   "id": "9ed303c5-be20-3822-8763-3c6f48cb8ab8",
+   "track-offset": 0,
+   "title": ""
+  },
+  {
+   "format-id": "3e9080b0-5e6c-34ab-bd15-f526b6306a64",
+   "track-count": 8,
+   "id": "ddd77d74-134f-3e71-a565-1aaf0e1da564",
+   "position": 3,
+   "title": "",
+   "track-offset": 0,
+   "format": "12\" Vinyl",
+   "tracks": [
+    {
+     "title": "Apple",
+     "length": 151000,
+     "id": "1e6551e9-ed84-493b-957c-873f1ab75617",
+     "position": 1,
+     "artist-credit": [
+      {
+       "joinphrase": "",
+       "name": "Charli xcx",
+       "artist": {
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "disambiguation": "",
+        "name": "Charli xcx",
+        "country": "GB",
+        "aliases": [
+         {
+          "sort-name": "Charli xcx",
+          "type": "Artist name",
+          "locale": "en",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charli xcx",
+          "end": null,
+          "ended": false,
+          "primary": true,
+          "begin": "2024"
+         },
+         {
+          "begin": null,
+          "ended": false,
+          "primary": false,
+          "end": null,
+          "name": "Charlotte Aitchison",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "type": "Artist name",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte"
+         },
+         {
+          "end": null,
+          "name": "Charlotte Emma Aitchison",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type": "Legal name",
+          "begin": null,
+          "ended": false,
+          "primary": false
+         }
+        ]
+       }
+      }
+     ],
+     "number": "C1",
+     "recording": {
+      "aliases": [],
+      "artist-credit": [
+       {
+        "artist": {
+         "country": "GB",
+         "name": "Charli xcx",
+         "disambiguation": "",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "sort-name": "Charli xcx",
+         "type": "Person"
+        },
+        "joinphrase": "",
+        "name": "Charli xcx"
+       }
+      ],
+      "first-release-date": "2024-06-07",
+      "id": "85cc72aa-2e66-45fc-bc02-ce2ec036f82b",
+      "title": "Apple",
+      "video": false,
+      "length": 151739,
+      "disambiguation": ""
+     }
+    },
+    {
+     "number": "C2",
+     "recording": {
+      "aliases": [],
+      "artist-credit": [
+       {
+        "joinphrase": "",
+        "name": "Charli xcx",
+        "artist": {
+         "country": "GB",
+         "disambiguation": "",
+         "name": "Charli xcx",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type": "Person",
+         "sort-name": "Charli xcx"
+        }
+       }
+      ],
+      "first-release-date": "2024-04-03",
+      "id": "316274e2-6043-41c3-97dd-0f570822b319",
+      "title": "B2b",
+      "video": false,
+      "length": 178000,
+      "disambiguation": ""
+     },
+     "artist-credit": [
+      {
+       "joinphrase": "",
+       "name": "Charli xcx",
+       "artist": {
+        "country": "GB",
+        "aliases": [
+         {
+          "begin": "2024",
+          "ended": false,
+          "primary": true,
+          "end": null,
+          "name": "Charli xcx",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "type": "Artist name",
+          "locale": "en",
+          "sort-name": "Charli xcx"
+         },
+         {
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charlotte Aitchison",
+          "end": null,
+          "ended": false,
+          "primary": false,
+          "begin": null
+         },
+         {
+          "ended": false,
+          "primary": false,
+          "begin": null,
+          "type": "Legal name",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "name": "Charlotte Emma Aitchison",
+          "end": null
+         }
+        ],
+        "sort-name": "Charli xcx",
+        "type": "Person",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "name": "Charli xcx",
+        "disambiguation": ""
+       }
+      }
+     ],
+     "position": 2,
+     "id": "e082d30a-d371-4e37-bc75-bbda6630813a",
+     "length": 178000,
+     "title": "B2b"
+    },
+    {
+     "artist-credit": [
+      {
+       "artist": {
+        "country": "GB",
+        "aliases": [
+         {
+          "sort-name": "Charli xcx",
+          "type": "Artist name",
+          "locale": "en",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charli xcx",
+          "end": null,
+          "ended": false,
+          "primary": true,
+          "begin": "2024"
+         },
+         {
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "type": "Artist name",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte",
+          "end": null,
+          "name": "Charlotte Aitchison",
+          "ended": false,
+          "primary": false,
+          "begin": null
+         },
+         {
+          "ended": false,
+          "primary": false,
+          "begin": null,
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type": "Legal name",
+          "end": null,
+          "name": "Charlotte Emma Aitchison"
+         }
+        ],
+        "sort-name": "Charli xcx",
+        "type": "Person",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "disambiguation": "",
+        "name": "Charli xcx"
+       },
+       "joinphrase": "",
+       "name": "Charli xcx"
+      }
+     ],
+     "number": "C3",
+     "recording": {
+      "first-release-date": "2024-06-07",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "artist": {
+         "disambiguation": "",
+         "name": "Charli xcx",
+         "type": "Person",
+         "sort-name": "Charli xcx",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "country": "GB"
+        },
+        "joinphrase": "",
+        "name": "Charli xcx"
+       }
+      ],
+      "video": false,
+      "length": 189000,
+      "disambiguation": "explicit",
+      "title": "Mean girls",
+      "id": "058b79d3-1023-4c75-9bf4-96491ec8fdc1"
+     },
+     "id": "53e212a2-ebff-45c3-aa3d-c59b9c662c30",
+     "position": 3,
+     "title": "Mean girls",
+     "length": 189000
+    },
+    {
+     "number": "C4",
+     "recording": {
+      "artist-credit": [
+       {
+        "artist": {
+         "disambiguation": "",
+         "name": "Charli xcx",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "country": "GB"
+        },
+        "name": "Charli xcx",
+        "joinphrase": ""
+       }
+      ],
+      "aliases": [],
+      "first-release-date": "2024-06-07",
+      "title": "I think about it all the time",
+      "disambiguation": "",
+      "length": 136000,
+      "video": false,
+      "id": "4d8939a9-a11e-464c-8816-4447472df358"
+     },
+     "artist-credit": [
+      {
+       "name": "Charli xcx",
+       "joinphrase": "",
+       "artist": {
+        "aliases": [
+         {
+          "ended": false,
+          "primary": true,
+          "begin": "2024",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "locale": "en",
+          "sort-name": "Charli xcx",
+          "type": "Artist name",
+          "end": null,
+          "name": "Charli xcx"
+         },
+         {
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charlotte Aitchison",
+          "end": null,
+          "primary": false,
+          "ended": false,
+          "begin": null
+         },
+         {
+          "begin": null,
+          "ended": false,
+          "primary": false,
+          "name": "Charlotte Emma Aitchison",
+          "end": null,
+          "type": "Legal name",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "locale": "en",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf"
+         }
+        ],
+        "country": "GB",
+        "disambiguation": "",
+        "name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "type": "Person",
+        "sort-name": "Charli xcx"
+       }
+      }
+     ],
+     "length": 135000,
+     "title": "I think about it all the time",
+     "position": 4,
+     "id": "d7782975-3f73-44ed-9aeb-0c3c1ff0afa8"
+    },
+    {
+     "position": 5,
+     "id": "c8737482-631d-4db8-9ad6-5a399ebb3703",
+     "length": 203000,
+     "title": "365",
+     "recording": {
+      "first-release-date": "2024-06-07",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "artist": {
+         "name": "Charli xcx",
+         "disambiguation": "",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "country": "GB"
+        },
+        "joinphrase": "",
+        "name": "Charli xcx"
+       }
+      ],
+      "id": "bd9fd6a1-d41b-4b82-9ead-a4f958749a77",
+      "length": 204000,
+      "video": false,
+      "disambiguation": "explicit",
+      "title": "365"
+     },
+     "number": "C5",
+     "artist-credit": [
+      {
+       "artist": {
+        "name": "Charli xcx",
+        "disambiguation": "",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "aliases": [
+         {
+          "begin": "2024",
+          "ended": false,
+          "primary": true,
+          "name": "Charli xcx",
+          "end": null,
+          "sort-name": "Charli xcx",
+          "locale": "en",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc"
+         },
+         {
+          "begin": null,
+          "ended": false,
+          "primary": false,
+          "end": null,
+          "name": "Charlotte Aitchison",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte",
+          "type": "Artist name"
+         },
+         {
+          "begin": null,
+          "ended": false,
+          "primary": false,
+          "name": "Charlotte Emma Aitchison",
+          "end": null,
+          "type": "Legal name",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "locale": "en",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf"
+         }
+        ],
+        "country": "GB"
+       },
+       "joinphrase": "",
+       "name": "Charli xcx"
+      }
+     ]
+    },
+    {
+     "recording": {
+      "artist-credit": [
+       {
+        "artist": {
+         "country": "GB",
+         "name": "Charli xcx",
+         "disambiguation": "",
+         "type": "Person",
+         "sort-name": "Charli xcx",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+        },
+        "joinphrase": "",
+        "name": "Charli xcx"
+       }
+      ],
+      "aliases": [],
+      "first-release-date": "2024-06-10",
+      "title": "Hello goodbye",
+      "disambiguation": "",
+      "video": false,
+      "length": 219470,
+      "id": "26f0dc0e-69d5-4f44-8262-09a20ac7afec"
+     },
+     "number": "D1",
+     "artist-credit": [
+      {
+       "artist": {
+        "country": "GB",
+        "aliases": [
+         {
+          "ended": false,
+          "primary": true,
+          "begin": "2024",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "locale": "en",
+          "type": "Artist name",
+          "sort-name": "Charli xcx",
+          "end": null,
+          "name": "Charli xcx"
+         },
+         {
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charlotte Aitchison",
+          "end": null,
+          "ended": false,
+          "primary": false,
+          "begin": null
+         },
+         {
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type": "Legal name",
+          "end": null,
+          "name": "Charlotte Emma Aitchison",
+          "ended": false,
+          "primary": false,
+          "begin": null
+         }
+        ],
+        "disambiguation": "",
+        "name": "Charli xcx",
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca"
+       },
+       "joinphrase": "",
+       "name": "Charli xcx"
+      }
+     ],
+     "length": 219000,
+     "title": "Hello goodbye",
+     "position": 6,
+     "id": "78257d63-9c98-4e29-ac87-fc3074e4ba14"
+    },
+    {
+     "recording": {
+      "id": "1f007f75-2629-46e8-9dd3-e22067bb1d43",
+      "video": false,
+      "length": 142265,
+      "disambiguation": "",
+      "title": "Guess",
+      "first-release-date": "2024-06-10",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "artist": {
+         "country": "GB",
+         "name": "Charli xcx",
+         "disambiguation": "",
+         "sort-name": "Charli xcx",
+         "type": "Person",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df"
+        },
+        "joinphrase": "",
+        "name": "Charli xcx"
+       }
+      ]
+     },
+     "number": "D2",
+     "artist-credit": [
+      {
+       "artist": {
+        "type": "Person",
+        "sort-name": "Charli xcx",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "disambiguation": "",
+        "name": "Charli xcx",
+        "country": "GB",
+        "aliases": [
+         {
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "locale": "en",
+          "sort-name": "Charli xcx",
+          "type": "Artist name",
+          "end": null,
+          "name": "Charli xcx",
+          "primary": true,
+          "ended": false,
+          "begin": "2024"
+         },
+         {
+          "ended": false,
+          "primary": false,
+          "begin": null,
+          "sort-name": "Aitchison, Charlotte",
+          "locale": "en",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charlotte Aitchison",
+          "end": null
+         },
+         {
+          "begin": null,
+          "ended": false,
+          "primary": false,
+          "end": null,
+          "name": "Charlotte Emma Aitchison",
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type": "Legal name"
+         }
+        ]
+       },
+       "joinphrase": "",
+       "name": "Charli xcx"
+      }
+     ],
+     "length": 142000,
+     "title": "Guess",
+     "position": 7,
+     "id": "e63dd8bc-619a-4134-af2c-add7b629d74e"
+    },
+    {
+     "id": "8a42976f-2abc-4f20-8904-a16d9af1e43c",
+     "position": 8,
+     "title": "Spring breakers",
+     "length": 142000,
+     "artist-credit": [
+      {
+       "joinphrase": "",
+       "name": "Charli xcx",
+       "artist": {
+        "sort-name": "Charli xcx",
+        "type": "Person",
+        "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+        "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+        "name": "Charli xcx",
+        "disambiguation": "",
+        "country": "GB",
+        "aliases": [
+         {
+          "ended": false,
+          "primary": true,
+          "begin": "2024",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "sort-name": "Charli xcx",
+          "locale": "en",
+          "type": "Artist name",
+          "end": null,
+          "name": "Charli xcx"
+         },
+         {
+          "sort-name": "Aitchison, Charlotte",
+          "locale": "en",
+          "type": "Artist name",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Charlotte Aitchison",
+          "end": null,
+          "ended": false,
+          "primary": false,
+          "begin": null
+         },
+         {
+          "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+          "locale": "en",
+          "sort-name": "Aitchison, Charlotte Emma",
+          "type": "Legal name",
+          "end": null,
+          "name": "Charlotte Emma Aitchison",
+          "ended": false,
+          "primary": false,
+          "begin": null
+         }
+        ]
+       }
+      }
+     ],
+     "recording": {
+      "aliases": [],
+      "artist-credit": [
+       {
+        "artist": {
+         "country": "GB",
+         "name": "Charli xcx",
+         "disambiguation": "",
+         "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+         "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+         "type": "Person",
+         "sort-name": "Charli xcx"
+        },
+        "name": "Charli xcx",
+        "joinphrase": ""
+       }
+      ],
+      "first-release-date": "2024-06-10",
+      "title": "Spring breakers",
+      "video": false,
+      "length": 142522,
+      "disambiguation": "",
+      "id": "21c5e2dc-5165-4937-a03c-24a6e2b36ec9"
+     },
+     "number": "D3"
+    }
+   ]
+  }
+ ],
+ "release-group": {
+  "secondary-type-ids": [],
+  "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+  "artist-credit": [
+   {
+    "artist": {
+     "disambiguation": "",
+     "name": "Charli xcx",
+     "type": "Person",
+     "sort-name": "Charli xcx",
+     "id": "260b6184-8828-48eb-945c-bc4cb6fc34ca",
+     "type-id": "b6e035f4-3ce9-331c-97df-83397230b0df",
+     "country": "GB",
+     "aliases": [
+      {
+       "ended": false,
+       "primary": true,
+       "begin": "2024",
+       "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+       "type": "Artist name",
+       "sort-name": "Charli xcx",
+       "locale": "en",
+       "end": null,
+       "name": "Charli xcx"
+      },
+      {
+       "ended": false,
+       "primary": false,
+       "begin": null,
+       "sort-name": "Aitchison, Charlotte",
+       "locale": "en",
+       "type": "Artist name",
+       "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+       "name": "Charlotte Aitchison",
+       "end": null
+      },
+      {
+       "type-id": "d4dcd0c0-b341-3612-a332-c0ce797b25cf",
+       "type": "Legal name",
+       "sort-name": "Aitchison, Charlotte Emma",
+       "locale": "en",
+       "end": null,
+       "name": "Charlotte Emma Aitchison",
+       "ended": false,
+       "primary": false,
+       "begin": null
+      }
+     ]
+    },
+    "name": "Charli xcx",
+    "joinphrase": ""
+   }
+  ],
+  "primary-type": "Album",
+  "aliases": [],
+  "first-release-date": "2024-06-07",
+  "title": "BRAT",
+  "disambiguation": "",
+  "id": "e0fdb431-0109-420d-8a37-f99eaeb4d671",
+  "secondary-types": []
+ },
+ "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+ "text-representation": {
+  "script": "Latn",
+  "language": "eng"
+ },
+ "status": "Official",
+ "asin": null,
+ "aliases": [],
+ "date": "2024-10",
+ "country": "US",
+ "cover-art-archive": {
+  "darkened": false,
+  "front": false,
+  "back": false,
+  "count": 0,
+  "artwork": false
+ },
+ "quality": "normal",
+ "id": "b2176814-eccb-4652-9de2-d719e17f6952"
+}

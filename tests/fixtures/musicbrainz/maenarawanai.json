@@ -1,0 +1,897 @@
+{
+ "media": [
+  {
+   "track-count": 10,
+   "format": "Digital Media",
+   "position": 1,
+   "title": "",
+   "id": "17dd7c43-7a23-3296-9785-0266c3f7835d",
+   "tracks": [
+    {
+     "recording": {
+      "id": "7ae71066-7148-41c8-97e2-c354063abaa0",
+      "length": 189000,
+      "video": false,
+      "title": "席替ガットゥーゾ",
+      "first-release-date": "2018-03-21",
+      "disambiguation": "",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "name": "新しい学校のリーダーズ",
+        "joinphrase": "",
+        "artist": {
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+         "type": "Group",
+         "sort-name": "Atarashii Gakkou no Leaders",
+         "disambiguation": "",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "country": "JP",
+         "name": "新しい学校のリーダーズ"
+        }
+       }
+      ]
+     },
+     "artist-credit": [
+      {
+       "artist": {
+        "type": "Group",
+        "sort-name": "Atarashii Gakkou no Leaders",
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+        "country": "JP",
+        "aliases": [
+         {
+          "locale": "en",
+          "end": null,
+          "primary": true,
+          "sort-name": "Atarashii Gakko",
+          "type": "Artist name",
+          "begin": null,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "ended": false,
+          "name": "ATARASHII GAKKO!"
+         },
+         {
+          "end": null,
+          "primary": false,
+          "locale": "en",
+          "sort-name": "Atarashii Gakkou no Leaders",
+          "type": "Artist name",
+          "begin": null,
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Atarashii Gakkou no Leaders"
+         }
+        ],
+        "name": "新しい学校のリーダーズ",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "disambiguation": ""
+       },
+       "name": "ATARASHII GAKKO!",
+       "joinphrase": ""
+      }
+     ],
+     "length": 189000,
+     "id": "df4b5965-575f-474e-9aef-009c8342aba0",
+     "number": "1",
+     "title": "sekigae Gattuso",
+     "position": 1
+    },
+    {
+     "position": 2,
+     "id": "5434b917-4a99-4f43-abb3-ec2c066f8d3e",
+     "number": "2",
+     "length": 248000,
+     "title": "kimiwaina’17",
+     "artist-credit": [
+      {
+       "artist": {
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+        "sort-name": "Atarashii Gakkou no Leaders",
+        "type": "Group",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "disambiguation": "",
+        "name": "新しい学校のリーダーズ",
+        "country": "JP",
+        "aliases": [
+         {
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "ended": false,
+          "begin": null,
+          "name": "ATARASHII GAKKO!",
+          "primary": true,
+          "end": null,
+          "locale": "en",
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakko"
+         },
+         {
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "ended": false,
+          "begin": null,
+          "name": "Atarashii Gakkou no Leaders",
+          "locale": "en",
+          "end": null,
+          "primary": false,
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakkou no Leaders"
+         }
+        ]
+       },
+       "joinphrase": "",
+       "name": "ATARASHII GAKKO!"
+      }
+     ],
+     "recording": {
+      "first-release-date": "2017-10-25",
+      "id": "e03b335b-2977-467b-a0f7-df6107afde86",
+      "length": 248667,
+      "title": "キミワイナ’17",
+      "video": false,
+      "aliases": [],
+      "artist-credit": [
+       {
+        "joinphrase": "",
+        "name": "新しい学校のリーダーズ",
+        "artist": {
+         "sort-name": "Atarashii Gakkou no Leaders",
+         "type": "Group",
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+         "name": "新しい学校のリーダーズ",
+         "country": "JP",
+         "disambiguation": "",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b"
+        }
+       }
+      ],
+      "disambiguation": ""
+     }
+    },
+    {
+     "artist-credit": [
+      {
+       "joinphrase": " feat. ",
+       "name": "ATARASHII GAKKO!",
+       "artist": {
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+        "type": "Group",
+        "sort-name": "Atarashii Gakkou no Leaders",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "disambiguation": "",
+        "country": "JP",
+        "aliases": [
+         {
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "ended": false,
+          "begin": null,
+          "name": "ATARASHII GAKKO!",
+          "locale": "en",
+          "end": null,
+          "primary": true,
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakko"
+         },
+         {
+          "locale": "en",
+          "end": null,
+          "primary": false,
+          "sort-name": "Atarashii Gakkou no Leaders",
+          "type": "Artist name",
+          "begin": null,
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Atarashii Gakkou no Leaders"
+         }
+        ],
+        "name": "新しい学校のリーダーズ"
+       }
+      },
+      {
+       "artist": {
+        "type": "Group",
+        "sort-name": "H ZETTRIO",
+        "id": "91fe3bfa-8209-434a-9584-51e47557cf73",
+        "country": "JP",
+        "aliases": [],
+        "name": "H ZETTRIO",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "disambiguation": "Japanese jazz trio"
+       },
+       "name": "H ZETTRIO",
+       "joinphrase": ""
+      }
+     ],
+     "recording": {
+      "length": 255600,
+      "id": "df0a0833-b6a6-49c7-9345-f01f781ec505",
+      "title": "恋の遮断機",
+      "video": false,
+      "first-release-date": "2018-01-24",
+      "disambiguation": "",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "joinphrase": " feat. ",
+        "name": "新しい学校のリーダーズ",
+        "artist": {
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+         "sort-name": "Atarashii Gakkou no Leaders",
+         "type": "Group",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "disambiguation": "",
+         "name": "新しい学校のリーダーズ",
+         "country": "JP"
+        }
+       },
+       {
+        "joinphrase": "",
+        "name": "H ZETTRIO",
+        "artist": {
+         "disambiguation": "Japanese jazz trio",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "name": "H ZETTRIO",
+         "country": "JP",
+         "id": "91fe3bfa-8209-434a-9584-51e47557cf73",
+         "sort-name": "H ZETTRIO",
+         "type": "Group"
+        }
+       }
+      ]
+     },
+     "position": 3,
+     "title": "koinosyadanki",
+     "id": "f2def9d4-6435-4548-b1de-0064e7c7e228",
+     "number": "3",
+     "length": 255000
+    },
+    {
+     "position": 4,
+     "length": 237000,
+     "id": "9f150092-27c0-4d90-92e3-02214f2a73dc",
+     "number": "4",
+     "title": "wakaranai",
+     "recording": {
+      "artist-credit": [
+       {
+        "artist": {
+         "name": "新しい学校のリーダーズ",
+         "country": "JP",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "disambiguation": "",
+         "sort-name": "Atarashii Gakkou no Leaders",
+         "type": "Group",
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c"
+        },
+        "joinphrase": "",
+        "name": "新しい学校のリーダーズ"
+       }
+      ],
+      "aliases": [],
+      "disambiguation": "",
+      "first-release-date": "2017-06-07",
+      "title": "ワカラナイ",
+      "video": false,
+      "length": 237000,
+      "id": "aae609ad-6870-43c5-b363-3e44ef2e1f76"
+     },
+     "artist-credit": [
+      {
+       "joinphrase": "",
+       "name": "ATARASHII GAKKO!",
+       "artist": {
+        "disambiguation": "",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "aliases": [
+         {
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakko",
+          "primary": true,
+          "end": null,
+          "locale": "en",
+          "name": "ATARASHII GAKKO!",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "ended": false,
+          "begin": null
+         },
+         {
+          "sort-name": "Atarashii Gakkou no Leaders",
+          "type": "Artist name",
+          "end": null,
+          "primary": false,
+          "locale": "en",
+          "name": "Atarashii Gakkou no Leaders",
+          "begin": null,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "ended": false
+         }
+        ],
+        "country": "JP",
+        "name": "新しい学校のリーダーズ",
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+        "type": "Group",
+        "sort-name": "Atarashii Gakkou no Leaders"
+       }
+      }
+     ]
+    },
+    {
+     "artist-credit": [
+      {
+       "joinphrase": "",
+       "name": "ATARASHII GAKKO!",
+       "artist": {
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+        "type": "Group",
+        "sort-name": "Atarashii Gakkou no Leaders",
+        "disambiguation": "",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "aliases": [
+         {
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "begin": null,
+          "name": "ATARASHII GAKKO!",
+          "end": null,
+          "locale": "en",
+          "primary": true,
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakko"
+         },
+         {
+          "name": "Atarashii Gakkou no Leaders",
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "ended": false,
+          "begin": null,
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakkou no Leaders",
+          "primary": false,
+          "end": null,
+          "locale": "en"
+         }
+        ],
+        "country": "JP",
+        "name": "新しい学校のリーダーズ"
+       }
+      }
+     ],
+     "recording": {
+      "id": "2b39f7ca-8b82-4cae-95e4-693a25e6233a",
+      "length": 253866,
+      "title": "zzz",
+      "video": false,
+      "first-release-date": "2018-03-21",
+      "disambiguation": "",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "artist": {
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "disambiguation": "",
+         "country": "JP",
+         "name": "新しい学校のリーダーズ",
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+         "type": "Group",
+         "sort-name": "Atarashii Gakkou no Leaders"
+        },
+        "joinphrase": "",
+        "name": "新しい学校のリーダーズ"
+       }
+      ]
+     },
+     "position": 5,
+     "id": "a23aec1d-9bea-40d4-b4b2-f42f82fd1bfa",
+     "number": "5",
+     "length": 253000,
+     "title": "zzz"
+    },
+    {
+     "title": "dokubana",
+     "number": "6",
+     "id": "9acddc61-5aca-4a23-92ca-079451c82d73",
+     "length": 246200,
+     "position": 6,
+     "artist-credit": [
+      {
+       "name": "ATARASHII GAKKO!",
+       "joinphrase": "",
+       "artist": {
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "disambiguation": "",
+        "name": "新しい学校のリーダーズ",
+        "country": "JP",
+        "aliases": [
+         {
+          "locale": "en",
+          "end": null,
+          "primary": true,
+          "sort-name": "Atarashii Gakko",
+          "type": "Artist name",
+          "begin": null,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "ended": false,
+          "name": "ATARASHII GAKKO!"
+         },
+         {
+          "name": "Atarashii Gakkou no Leaders",
+          "begin": null,
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "sort-name": "Atarashii Gakkou no Leaders",
+          "type": "Artist name",
+          "end": null,
+          "primary": false,
+          "locale": "en"
+         }
+        ],
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+        "sort-name": "Atarashii Gakkou no Leaders",
+        "type": "Group"
+       }
+      }
+     ],
+     "recording": {
+      "id": "41866758-e3d0-46d7-bcdf-d967c5091b5a",
+      "length": 246200,
+      "video": false,
+      "title": "毒花",
+      "first-release-date": "2017-05-17",
+      "disambiguation": "",
+      "aliases": [
+       {
+        "type": "Recording name",
+        "sort-name": "dokubana",
+        "end": null,
+        "primary": true,
+        "locale": "en",
+        "name": "dokubana",
+        "ended": false,
+        "type-id": "5d564c8f-97de-3572-94bb-7f40ad661499",
+        "begin": null
+       }
+      ],
+      "artist-credit": [
+       {
+        "artist": {
+         "country": "JP",
+         "name": "新しい学校のリーダーズ",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "disambiguation": "",
+         "type": "Group",
+         "sort-name": "Atarashii Gakkou no Leaders",
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c"
+        },
+        "joinphrase": "",
+        "name": "新しい学校のリーダーズ"
+       }
+      ]
+     }
+    },
+    {
+     "position": 7,
+     "length": 246000,
+     "id": "c09dc4d6-0a98-4f5a-a412-29f2fe84d719",
+     "number": "7",
+     "title": "esuenuesunijyuyoji",
+     "recording": {
+      "disambiguation": "",
+      "artist-credit": [
+       {
+        "joinphrase": "",
+        "name": "新しい学校のリーダーズ",
+        "artist": {
+         "name": "新しい学校のリーダーズ",
+         "country": "JP",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "disambiguation": "",
+         "sort-name": "Atarashii Gakkou no Leaders",
+         "type": "Group",
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c"
+        }
+       }
+      ],
+      "aliases": [],
+      "video": false,
+      "title": "SNS24時",
+      "id": "4545e30f-b781-4ac0-b460-9516335cfe20",
+      "length": 246867,
+      "first-release-date": "2017-10-25"
+     },
+     "artist-credit": [
+      {
+       "joinphrase": "",
+       "name": "ATARASHII GAKKO!",
+       "artist": {
+        "type": "Group",
+        "sort-name": "Atarashii Gakkou no Leaders",
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+        "country": "JP",
+        "aliases": [
+         {
+          "sort-name": "Atarashii Gakko",
+          "type": "Artist name",
+          "locale": "en",
+          "end": null,
+          "primary": true,
+          "name": "ATARASHII GAKKO!",
+          "begin": null,
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc"
+         },
+         {
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "ended": false,
+          "begin": null,
+          "name": "Atarashii Gakkou no Leaders",
+          "locale": "en",
+          "end": null,
+          "primary": false,
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakkou no Leaders"
+         }
+        ],
+        "name": "新しい学校のリーダーズ",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "disambiguation": ""
+       }
+      }
+     ]
+    },
+    {
+     "position": 8,
+     "length": 259066,
+     "number": "8",
+     "id": "072bce73-e6c6-4907-bcd2-ce85fdc91a63",
+     "title": "toumeigirl (H ZETT M edit ver.)",
+     "recording": {
+      "first-release-date": "2018-03-21",
+      "length": 259066,
+      "id": "3880f5b8-8471-41c2-9508-aff957d7fb61",
+      "video": false,
+      "title": "透明ガール",
+      "aliases": [],
+      "artist-credit": [
+       {
+        "artist": {
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+         "type": "Group",
+         "sort-name": "Atarashii Gakkou no Leaders",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "disambiguation": "",
+         "country": "JP",
+         "name": "新しい学校のリーダーズ"
+        },
+        "name": "新しい学校のリーダーズ",
+        "joinphrase": ""
+       }
+      ],
+      "disambiguation": ""
+     },
+     "artist-credit": [
+      {
+       "name": "ATARASHII GAKKO!",
+       "joinphrase": "",
+       "artist": {
+        "name": "新しい学校のリーダーズ",
+        "aliases": [
+         {
+          "primary": true,
+          "end": null,
+          "locale": "en",
+          "sort-name": "Atarashii Gakko",
+          "type": "Artist name",
+          "begin": null,
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "ATARASHII GAKKO!"
+         },
+         {
+          "primary": false,
+          "end": null,
+          "locale": "en",
+          "sort-name": "Atarashii Gakkou no Leaders",
+          "type": "Artist name",
+          "begin": null,
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "name": "Atarashii Gakkou no Leaders"
+         }
+        ],
+        "country": "JP",
+        "disambiguation": "",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "sort-name": "Atarashii Gakkou no Leaders",
+        "type": "Group",
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c"
+       }
+      }
+     ]
+    },
+    {
+     "artist-credit": [
+      {
+       "joinphrase": "",
+       "name": "ATARASHII GAKKO!",
+       "artist": {
+        "country": "JP",
+        "aliases": [
+         {
+          "sort-name": "Atarashii Gakko",
+          "type": "Artist name",
+          "locale": "en",
+          "end": null,
+          "primary": true,
+          "name": "ATARASHII GAKKO!",
+          "begin": null,
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc"
+         },
+         {
+          "name": "Atarashii Gakkou no Leaders",
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "begin": null,
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakkou no Leaders",
+          "primary": false,
+          "end": null,
+          "locale": "en"
+         }
+        ],
+        "name": "新しい学校のリーダーズ",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "disambiguation": "",
+        "type": "Group",
+        "sort-name": "Atarashii Gakkou no Leaders",
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c"
+       }
+      }
+     ],
+     "recording": {
+      "first-release-date": "2018-02-28",
+      "title": "最終人類",
+      "video": false,
+      "id": "3690fce1-8e51-4ac4-9327-edcec9403d08",
+      "length": 259333,
+      "artist-credit": [
+       {
+        "name": "新しい学校のリーダーズ",
+        "joinphrase": "",
+        "artist": {
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+         "type": "Group",
+         "sort-name": "Atarashii Gakkou no Leaders",
+         "disambiguation": "",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "country": "JP",
+         "name": "新しい学校のリーダーズ"
+        }
+       }
+      ],
+      "aliases": [
+       {
+        "type-id": "5d564c8f-97de-3572-94bb-7f40ad661499",
+        "ended": false,
+        "begin": null,
+        "name": "saisyu jinrui",
+        "primary": false,
+        "end": null,
+        "locale": "en",
+        "type": "Recording name",
+        "sort-name": "saisyu jinrui"
+       }
+      ],
+      "disambiguation": ""
+     },
+     "number": "9",
+     "id": "f2533f30-8a15-47f7-a40a-1fd001896e89",
+     "length": 259333,
+     "title": "saisyu jinrui",
+     "position": 9
+    },
+    {
+     "position": 10,
+     "number": "10",
+     "id": "ca8960ce-4bbf-4c56-8bcc-b5c7bb7b8a32",
+     "length": 299400,
+     "title": "Pilotis",
+     "artist-credit": [
+      {
+       "joinphrase": "",
+       "name": "ATARASHII GAKKO!",
+       "artist": {
+        "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+        "type": "Group",
+        "sort-name": "Atarashii Gakkou no Leaders",
+        "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+        "disambiguation": "",
+        "country": "JP",
+        "aliases": [
+         {
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakko",
+          "locale": "en",
+          "end": null,
+          "primary": true,
+          "name": "ATARASHII GAKKO!",
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "begin": null
+         },
+         {
+          "ended": false,
+          "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+          "begin": null,
+          "name": "Atarashii Gakkou no Leaders",
+          "locale": "en",
+          "end": null,
+          "primary": false,
+          "type": "Artist name",
+          "sort-name": "Atarashii Gakkou no Leaders"
+         }
+        ],
+        "name": "新しい学校のリーダーズ"
+       }
+      }
+     ],
+     "recording": {
+      "first-release-date": "2018-03-21",
+      "video": false,
+      "title": "ピロティ",
+      "length": 299400,
+      "id": "fc103e06-f738-4a19-a8ed-eb2e18eb58a2",
+      "artist-credit": [
+       {
+        "artist": {
+         "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+         "sort-name": "Atarashii Gakkou no Leaders",
+         "type": "Group",
+         "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+         "disambiguation": "",
+         "name": "新しい学校のリーダーズ",
+         "country": "JP"
+        },
+        "name": "新しい学校のリーダーズ",
+        "joinphrase": ""
+       }
+      ],
+      "aliases": [],
+      "disambiguation": ""
+     }
+    }
+   ],
+   "track-offset": 0,
+   "format-id": "907a28d9-b3b2-3ef6-89a8-7b18d91d4794"
+  }
+ ],
+ "title": "Maenarawanai",
+ "cover-art-archive": {
+  "back": false,
+  "front": true,
+  "artwork": true,
+  "count": 1,
+  "darkened": false
+ },
+ "artist-credit": [
+  {
+   "artist": {
+    "sort-name": "Atarashii Gakkou no Leaders",
+    "type": "Group",
+    "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c",
+    "name": "新しい学校のリーダーズ",
+    "aliases": [
+     {
+      "name": "ATARASHII GAKKO!",
+      "begin": null,
+      "ended": false,
+      "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+      "sort-name": "Atarashii Gakko",
+      "type": "Artist name",
+      "end": null,
+      "locale": "en",
+      "primary": true
+     },
+     {
+      "name": "Atarashii Gakkou no Leaders",
+      "begin": null,
+      "ended": false,
+      "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+      "sort-name": "Atarashii Gakkou no Leaders",
+      "type": "Artist name",
+      "end": null,
+      "primary": false,
+      "locale": "en"
+     }
+    ],
+    "country": "JP",
+    "disambiguation": "",
+    "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b"
+   },
+   "name": "ATARASHII GAKKO!",
+   "joinphrase": ""
+  }
+ ],
+ "packaging": "None",
+ "aliases": [],
+ "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+ "packaging-id": "119eba76-b343-3e02-a292-f0f00644bb9b",
+ "date": "2018-03-21",
+ "release-events": [
+  {
+   "area": null,
+   "date": "2018-03-21"
+  }
+ ],
+ "text-representation": {
+  "script": "Latn",
+  "language": "jpn"
+ },
+ "status": "Official",
+ "id": "bbbc8eb5-c0ed-4497-8418-ba851f18d328",
+ "country": null,
+ "quality": "normal",
+ "barcode": "4573556790412",
+ "release-group": {
+  "primary-type": "Album",
+  "artist-credit": [
+   {
+    "artist": {
+     "name": "新しい学校のリーダーズ",
+     "aliases": [
+      {
+       "begin": null,
+       "ended": false,
+       "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+       "name": "ATARASHII GAKKO!",
+       "locale": "en",
+       "end": null,
+       "primary": true,
+       "sort-name": "Atarashii Gakko",
+       "type": "Artist name"
+      },
+      {
+       "type-id": "894afba6-2816-3c24-8072-eadb66bd04bc",
+       "ended": false,
+       "begin": null,
+       "name": "Atarashii Gakkou no Leaders",
+       "primary": false,
+       "end": null,
+       "locale": "en",
+       "type": "Artist name",
+       "sort-name": "Atarashii Gakkou no Leaders"
+      }
+     ],
+     "country": "JP",
+     "disambiguation": "",
+     "type-id": "e431f5f6-b5d2-343d-8b36-72607fffb74b",
+     "sort-name": "Atarashii Gakkou no Leaders",
+     "type": "Group",
+     "id": "12a43a61-e31a-4cac-92a6-c95ce9cdfe3c"
+    },
+    "name": "新しい学校のリーダーズ",
+    "joinphrase": ""
+   }
+  ],
+  "primary-type-id": "f529b476-6e62-324f-b0aa-1f3e33d313fc",
+  "aliases": [
+   {
+    "end": null,
+    "locale": "en",
+    "primary": true,
+    "sort-name": "Maenarawanai",
+    "type": "Release group name",
+    "begin": null,
+    "type-id": "156e24ca-8746-3cfc-99ae-0a867c765c67",
+    "ended": false,
+    "name": "Maenarawanai"
+   }
+  ],
+  "disambiguation": "",
+  "secondary-types": [],
+  "first-release-date": "2018-03-21",
+  "secondary-type-ids": [],
+  "title": "マエナラワナイ",
+  "id": "83bd4df3-898e-496d-bef9-46981e008da5"
+ },
+ "asin": null,
+ "disambiguation": ""
+}

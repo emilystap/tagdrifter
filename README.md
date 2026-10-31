@@ -24,7 +24,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, later a first-run password setup | ⏳ |
-| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, then checks against cached MusicBrainz data (titles, artist credits, track versions, durations), then Picard-style retagging | ⏳ |
+| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, then titles and artist credits, then Picard-style retagging | ⏳ |
 
 ## Quick start (local)
 
@@ -77,6 +77,11 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   summary by album, and a failed scan or a rename left half-done sends an alert. Quiet scans
   send nothing. Tapping one opens the matching page if `TAGDRIFTER_PUBLIC_URL` is set; the
   dashboard has *Send test notification*. See [docs/deployment.md](docs/deployment.md#optional-notifications).
+- **MusicBrainz lookups (optional)**: with `TAGDRIFTER_MUSICBRAINZ=true`, each release in the
+  library is looked up once after a scan (at most one request a second, as MusicBrainz asks)
+  and cached for 45-75 days; the `mb.*` checks compare tags and audio lengths with it. The
+  dashboard shows how many releases are cached. See
+  [docs/deployment.md](docs/deployment.md#optional-musicbrainz-lookups).
 - **Login (optional)**: set a password hash and every page needs a login; sessions last 30
   days. Generate the hash with `tagdrifter hash-password` and set it as
   `TAGDRIFTER_PASSWORD_HASH` or `[web] password_hash`. Without one, there's no login (rely on
@@ -124,6 +129,10 @@ docker run -p 8080:8080 -v /path/to/music:/music:ro -v tagdrifter-data:/data tag
 | `album.artist_mbid_count` | album | Same for `ALBUMARTISTS` and album artist MBIDs |
 | `album.duplicate_tracks` | album | Two files are the same track: same release track MBID, or same release, disc and track number (error) |
 | `album.missing_tracks` | album | Fewer tracks or discs than `TOTALTRACKS` / `TOTALDISCS` say (info; e.g. a single kept without its B-side) |
+| `mb.release_unknown` | album | Release MBID MusicBrainz doesn't have (deleted) or has merged into another (error) |
+| `mb.track_mismatch` | album | A track's release-track or recording MBID doesn't match the tagged release (a different version, or a stale tag) |
+| `mb.numbering` | album | Track/disc numbers (per track) or track/disc totals (per album) differ from MusicBrainz |
+| `mb.duration` | album | A track's audio length is off from MusicBrainz by more than 3 s (configurable): live vs studio, edits, the wrong release |
 | `album.placement` | album | Album under the wrong artist folder (v1's placement audit) |
 | `album.inconsistent_tags` | album | Tracks in one folder disagree on album artist, album, release MBID, … |
 | `file.unreadable` | album | Audio files whose tags can't be read |
@@ -155,15 +164,18 @@ Options from `[checks."custom.no_live_albums"]` in `config.toml` are available a
 
 ```
 src/tagdrifter/
-  core/          Pure naming rules (sanitize, metadata, naming, placement, paths) + flac.py reader
+  core/          Pure naming rules (sanitize, metadata, naming, placement, paths), mbrelease.py
+                 (parsed MusicBrainz releases) + flac.py reader
   checks/        Check framework (base.py) and built-in checks
   config.py      Settings: defaults < config.toml < TAGDRIFTER_* env vars < CLI flags
   renamer.py     Rename plans (preview), apply with a journal, undo
   notify.py      Notifications (Gotify): new issues after a scan, failures
+  musicbrainz.py MusicBrainz client (rate-limited) and release cache sync
   db.py          SQLite: file/tag cache, scan history, issue lifecycle
   scanner.py     Discover → read changed → check → save
   cli.py         `tagdrifter` command
-  web/           FastAPI app (app.py), background ScanRunner, cron ScanScheduler, Jinja
+  web/           FastAPI app (app.py), background ScanRunner, cron ScanScheduler,
+                 MusicBrainzSync (mbsync.py), Jinja
                  templates, static/ (CSS, vendored htmx.min.js 2.0.4)
 tests/           pytest suite; builds real FLAC files on the fly (no fixtures to commit)
 docs/            Naming conventions, TrueNAS deployment

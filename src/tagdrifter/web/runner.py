@@ -13,6 +13,7 @@ from ..config import Settings
 from ..db import Store
 from ..notify import Notifications
 from ..scanner import ScanProgress, ScanResult, run_scan
+from .mbsync import MusicBrainzSync
 
 log = logging.getLogger(__name__)
 
@@ -49,9 +50,17 @@ class ScanStatus:
 
 
 class ScanRunner:
-    def __init__(self, settings: Settings, notifications: Notifications | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        notifications: Notifications | None = None,
+        mb_sync: MusicBrainzSync | None = None,
+    ) -> None:
         self.settings = settings
         self.notifications = notifications
+        self.mb_sync = mb_sync
+        if mb_sync is not None:
+            mb_sync.rescan = self.start
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self._progress: ScanProgress | None = None
@@ -77,9 +86,9 @@ class ScanRunner:
             with self._lock:
                 self._paused = False
 
-    def start(self, *, full: bool = False) -> bool:
+    def start(self, *, full: bool = False, scheduled: bool = False) -> bool:
         """Start a scan unless one is already running (or renames are in progress). Returns
-        whether one was started."""
+        whether one was started. `scheduled` delays the MusicBrainz lookups that follow."""
         with self._lock:
             if self._paused or (self._thread is not None and self._thread.is_alive()):
                 return False
@@ -87,7 +96,10 @@ class ScanRunner:
             self._started_at = time.time()
             self._error = None
             self._thread = threading.Thread(
-                target=self._run, kwargs={"full": full}, name="tagdrifter-scan", daemon=True
+                target=self._run,
+                kwargs={"full": full, "scheduled": scheduled},
+                name="tagdrifter-scan",
+                daemon=True,
             )
             self._thread.start()
             return True
@@ -115,7 +127,7 @@ class ScanRunner:
                 self._phase_started = time.monotonic()
             self._progress = progress
 
-    def _run(self, full: bool) -> None:
+    def _run(self, full: bool, scheduled: bool = False) -> None:
         log.info("Scan started (%s)", "full" if full else "incremental")
         try:
             with Store(self.settings.database_path) as store:
@@ -143,3 +155,8 @@ class ScanRunner:
             self.notifications.scan_finished(
                 result.scan_id, result.issues_new, result.issues_resolved
             )
+        if self.mb_sync is not None:
+            try:
+                self.mb_sync.after_scan(scheduled=scheduled)
+            except Exception:
+                log.exception("Couldn't start MusicBrainz lookups")

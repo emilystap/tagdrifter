@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import zlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -15,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from .checks import Issue
+from .core import is_mbid
 
 MIGRATIONS: list[str] = [
     # 1: initial schema
@@ -84,6 +86,16 @@ MIGRATIONS: list[str] = [
         undone   INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX rename_moves_batch ON rename_moves(batch_id);
+    """,
+    # 5: MusicBrainz release cache (musicbrainz.py): the raw lookup response, zlib-compressed
+    # JSON, or NULL when MusicBrainz has no such release
+    """
+    CREATE TABLE mb_releases (
+        mbid          TEXT PRIMARY KEY, -- as looked up, lower-case
+        fetched_at    TEXT NOT NULL,
+        refresh_after TEXT NOT NULL,
+        data          BLOB
+    );
     """,
 ]
 
@@ -463,6 +475,58 @@ class Store:
 
     def file_count(self) -> int:
         return self.conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+
+    # --- MusicBrainz release cache ------------------------------------------------------
+
+    def library_release_ids(self) -> set[str]:
+        """Release MBIDs (lower-case, valid) tagged on the library's files."""
+        rows = self.conn.execute(
+            "SELECT DISTINCT lower(json_extract(tags_json, '$.musicbrainz_albumid[0]'))"
+            " FROM files WHERE tags_json IS NOT NULL"
+        )
+        return {r[0] for r in rows if r[0] and is_mbid(r[0])}
+
+    def mb_releases_due(self, now: str) -> list[str]:
+        """The library's releases to look up: never fetched first, then refreshes due by
+        `now` (oldest first)."""
+        cached = {
+            r["mbid"]: r["refresh_after"]
+            for r in self.conn.execute("SELECT mbid, refresh_after FROM mb_releases")
+        }
+        ids = self.library_release_ids()
+        missing = sorted(ids - cached.keys())
+        due = sorted((cached[m], m) for m in ids & cached.keys() if cached[m] <= now)
+        return missing + [m for _, m in due]
+
+    def save_mb_release(
+        self, mbid: str, data: Mapping[str, Any] | None, refresh_after: str
+    ) -> None:
+        blob = zlib.compress(json.dumps(data, ensure_ascii=False).encode()) if data else None
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO mb_releases (mbid, fetched_at, refresh_after, data)"
+                " VALUES (?, ?, ?, ?) ON CONFLICT(mbid) DO UPDATE SET"
+                " fetched_at=excluded.fetched_at, refresh_after=excluded.refresh_after,"
+                " data=excluded.data",
+                (mbid.lower(), utcnow(), refresh_after, blob),
+            )
+
+    def mb_releases(self, mbids: Iterable[str] | None = None) -> dict[str, dict | None]:
+        """Cached lookups by MBID: the release JSON, or None when MusicBrainz has none.
+        Releases never looked up are absent."""
+        rows = self.conn.execute("SELECT mbid, data FROM mb_releases").fetchall()
+        wanted = None if mbids is None else {m.lower() for m in mbids}
+        return {
+            r["mbid"]: json.loads(zlib.decompress(r["data"])) if r["data"] is not None else None
+            for r in rows
+            if wanted is None or r["mbid"] in wanted
+        }
+
+    def mb_cache_counts(self) -> tuple[int, int]:
+        """(library releases cached, library releases) for the dashboard."""
+        ids = self.library_release_ids()
+        cached = {r[0] for r in self.conn.execute("SELECT mbid FROM mb_releases")}
+        return len(ids & cached), len(ids)
 
     # --- Rename journal -----------------------------------------------------------------
 

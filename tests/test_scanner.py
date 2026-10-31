@@ -149,3 +149,15 @@ def test_issues_record_mbid_status(library, tmp_path) -> None:
         untagged = {i.subject for i in store.open_issues(mbid_tagged=False)}
     assert tagged == {"Pixies/Hits"}
     assert "loose.flac" in untagged and "Pixies/Hits" not in untagged
+
+
+def test_files_cached_without_length_are_reread_once(library, tmp_path) -> None:
+    settings = settings_for(library, tmp_path)
+    scan(settings)
+    with Store(settings.database_path) as store:  # as cached by a version without lengths
+        store.conn.execute("UPDATE files SET tags_json = json_remove(tags_json, '$.\"~length\"')")
+        store.conn.commit()
+    result, _ = scan(settings)
+    assert result.files_read == 4  # every readable file; the unreadable one has no tags
+    result, _ = scan(settings)
+    assert result.files_read == 0

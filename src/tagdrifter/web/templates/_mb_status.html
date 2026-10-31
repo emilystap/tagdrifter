@@ -1,0 +1,21 @@
+{#- MusicBrainz lookups: cache coverage and the background sync. Polls itself while running. -#}
+<div id="mb-status"{% if mb_status.running %} hx-get="/musicbrainz/status" hx-trigger="every 3s" hx-swap="outerHTML"{% endif %}>
+  {% if mb_cache is none %}
+    <p class="muted">Off. Set <code>TAGDRIFTER_MUSICBRAINZ=true</code> to compare tags with MusicBrainz (one lookup per release, at most one request a second, cached for weeks).</p>
+  {% else %}
+    {% set cached, total = mb_cache %}
+    <p>
+      {{ "{:,}".format(cached) }} of {{ "{:,}".format(total) }} release{% if total != 1 %}s{% endif %} cached.
+      {% if mb_status.running and mb_status.waiting %}
+        <span class="muted">Lookups start in a few minutes (spread out, as MusicBrainz asks).</span>
+      {% elif mb_status.running %}
+        <span class="muted">Looking up {{ mb_status.done }} of {{ mb_status.total }}…</span>
+      {% elif cached < total %}
+        <span class="muted">The rest are looked up after the next scan.</span>
+      {% endif %}
+    </p>
+    {% if mb_status.last and mb_status.last.error and not mb_status.running %}
+      <p class="rename-problem small">Last lookups stopped: {{ mb_status.last.error }}. They resume after the next scan.</p>
+    {% endif %}
+  {% endif %}
+</div>

@@ -14,6 +14,7 @@ Environment variables (handy in Docker compose):
     TAGDRIFTER_GOTIFY_URL      Gotify server to send notifications to
     TAGDRIFTER_GOTIFY_TOKEN    Gotify application token
     TAGDRIFTER_NOTIFY_ON       comma-separated events: new_issues, failures (or "none")
+    TAGDRIFTER_MUSICBRAINZ     true/false: look up releases on MusicBrainz for the mb.* checks
 """
 
 from __future__ import annotations
@@ -55,6 +56,10 @@ class Settings:
     gotify_url: str = ""
     gotify_token: str = field(default="", repr=False)
     notify_on: frozenset[str] = frozenset({"new_issues", "failures"})
+    # Look up the library's releases on MusicBrainz (1 request/s, cached for weeks) so the
+    # mb.* checks can compare tags with it. Off by default: it's the only network access
+    # besides notifications.
+    musicbrainz_enabled: bool = False
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -85,6 +90,7 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
     web = data.get("web", {})
     fix = data.get("fix", {})
     notify = data.get("notify", {})
+    musicbrainz = data.get("musicbrainz", {})
     checks = dict(data.get("checks", {}))
     disabled = checks.pop("disabled", [])
 
@@ -110,6 +116,7 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         gotify_url=str(notify.get("gotify_url", base.gotify_url)),
         gotify_token=str(notify.get("gotify_token", base.gotify_token)),
         notify_on=frozenset(notify.get("on", base.notify_on)),
+        musicbrainz_enabled=bool(musicbrainz.get("enabled", base.musicbrainz_enabled)),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -156,6 +163,7 @@ def load_settings(
         "TAGDRIFTER_GOTIFY_URL": ("gotify_url", str),
         "TAGDRIFTER_GOTIFY_TOKEN": ("gotify_token", str),
         "TAGDRIFTER_NOTIFY_ON": ("notify_on", _parse_events),
+        "TAGDRIFTER_MUSICBRAINZ": ("musicbrainz_enabled", _parse_bool),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):
