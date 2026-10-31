@@ -29,6 +29,7 @@ from typing import Any, ClassVar
 
 from ..config import Settings
 from ..core import TrackMeta, TrackTarget
+from ..core.mbrelease import MbRelease
 
 
 class Scope(StrEnum):
@@ -87,6 +88,13 @@ class AlbumContext:
     unreadable: tuple[UnreadableFile, ...]
     other_files: tuple[str, ...]  # names of non-audio files in the folder
     settings: Settings
+    # Cached MusicBrainz lookups by release MBID (lower-case), shared by every album: the
+    # release, or None when MusicBrainz has no such release. Releases not looked up yet (or
+    # lookups off) are absent, and the mb.* checks skip them.
+    releases: Mapping[str, MbRelease | None] = field(default_factory=dict)
+
+    def release_of(self, meta: TrackMeta) -> MbRelease | None:
+        return self.releases.get(meta.release_mbid.lower())
 
     @property
     def artist_folder(self) -> str:

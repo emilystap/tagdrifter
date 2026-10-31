@@ -1,0 +1,368 @@
+"""MusicBrainz client, release cache, sync and mb.* checks. No test touches the network: the
+client gets a fake opener, and releases come from recorded fixtures."""
+
+import gzip
+import io
+import json
+import urllib.error
+from datetime import UTC, datetime, timedelta
+from pathlib import Path, PurePosixPath
+
+import pytest
+from fastapi.testclient import TestClient
+
+from tagdrifter.checks import AlbumContext
+from tagdrifter.checks.builtin_musicbrainz import Duration, Numbering, ReleaseUnknown, TrackMismatch
+from tagdrifter.config import Settings, load_settings
+from tagdrifter.core.mbrelease import MbRelease
+from tagdrifter.db import Store
+from tagdrifter.musicbrainz import (
+    RELEASE_INC,
+    USER_AGENT,
+    MusicBrainzClient,
+    MusicBrainzError,
+    RateLimiter,
+    ReleaseNotFound,
+    sync_releases,
+)
+from tagdrifter.web import ScanRunner, create_app
+from tagdrifter.web.mbsync import MusicBrainzSync
+
+from .conftest import build_flac, good_tags, scan, settings_for
+from .test_checks import track_ctx
+
+FIXTURES = Path(__file__).parent / "fixtures" / "musicbrainz"
+MAENARAWANAI = "bbbc8eb5-c0ed-4497-8418-ba851f18d328"
+BRAT = "b2176814-eccb-4652-9de2-d719e17f6952"
+
+
+def fixture(name: str) -> dict:
+    return json.loads((FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
+
+
+# --- Client -----------------------------------------------------------------------------
+
+
+class FakeClock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+        self.slept: list[float] = []
+
+    def __call__(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.slept.append(round(seconds, 3))
+        self.now += seconds
+
+
+class FakeResponse(io.BytesIO):
+    def __init__(self, body: bytes, gzipped: bool = True) -> None:
+        super().__init__(gzip.compress(body) if gzipped else body)
+        self.headers = {"Content-Encoding": "gzip"} if gzipped else {}
+
+
+class FakeOpener:
+    """Answers queued (status, body) pairs and records the requests."""
+
+    def __init__(self, *answers) -> None:
+        self.answers = list(answers)
+        self.requests = []
+
+    def __call__(self, request, timeout):
+        self.requests.append(request)
+        status, body = self.answers.pop(0)
+        if status != 200:
+            raise urllib.error.HTTPError(request.full_url, status, "x", {}, io.BytesIO(b""))
+        return FakeResponse(json.dumps(body).encode())
+
+
+def client_with(*answers, clock: FakeClock | None = None) -> tuple[MusicBrainzClient, FakeOpener]:
+    clock = clock or FakeClock()
+    opener = FakeOpener(*answers)
+    limiter = RateLimiter(1.1, clock=clock, sleep=clock.sleep)
+    return MusicBrainzClient(limiter=limiter, opener=opener, backoff=(15, 60)), opener
+
+
+def test_release_request() -> None:
+    client, opener = client_with((200, {"id": MAENARAWANAI}))
+    assert client.release(MAENARAWANAI.upper())["id"] == MAENARAWANAI
+    (request,) = opener.requests
+    assert request.full_url == (
+        f"https://musicbrainz.org/ws/2/release/{MAENARAWANAI}?inc={RELEASE_INC}&fmt=json"
+    )
+    assert request.get_header("User-agent") == USER_AGENT
+    assert "( https://github.com/emilystap/tagdrifter )" in USER_AGENT
+    assert request.get_header("Accept-encoding") == "gzip"
+    with pytest.raises(ValueError):
+        client.release("not-an-mbid")  # never sent
+
+
+def test_rate_limiter_spaces_requests() -> None:
+    clock = FakeClock()
+    client, _ = client_with(*[(200, {"id": "x"})] * 3, clock=clock)
+    for _ in range(3):
+        client.release(MAENARAWANAI)
+    assert clock.slept == [1.1, 1.1]  # the first goes at once, then one per 1.1 s
+
+
+def test_not_found_and_errors() -> None:
+    client, _ = client_with((404, None))
+    with pytest.raises(ReleaseNotFound):
+        client.release(MAENARAWANAI)
+    client, _ = client_with((500, None))
+    with pytest.raises(MusicBrainzError, match="answered 500"):
+        client.release(MAENARAWANAI)
+
+
+def test_503_backs_off_then_gives_up() -> None:
+    clock = FakeClock()
+    client, _ = client_with((503, None), (200, {"id": "ok"}), clock=clock)
+    assert client.release(MAENARAWANAI) == {"id": "ok"}
+    assert clock.slept == [15.0]  # the pause, before the retry
+    clock = FakeClock()
+    client, opener = client_with((503, None), (503, None), (503, None), clock=clock)
+    with pytest.raises(MusicBrainzError, match="503"):
+        client.release(MAENARAWANAI)
+    assert len(opener.requests) == 3 and clock.slept == [15.0, 60.0]
+
+
+# --- Cache and sync ---------------------------------------------------------------------
+
+
+def store_with_files(tmp_path, *release_ids: str) -> Store:
+    store = Store(tmp_path / "td.db")
+    rows = [
+        (f"A/{i}/1.flac", 1, 1, {"musicbrainz_albumid": [mbid]}, None)
+        for i, mbid in enumerate(release_ids)
+    ]
+    store.save_files([*rows, ("A/x/2.flac", 1, 1, {"musicbrainz_albumid": ["junk"]}, None)])
+    return store
+
+
+def test_cache_round_trip(tmp_path) -> None:
+    with store_with_files(tmp_path, MAENARAWANAI, BRAT.upper()) as store:
+        assert store.library_release_ids() == {MAENARAWANAI, BRAT}
+        store.save_mb_release(BRAT, fixture("brat"), "2027-01-01")
+        store.save_mb_release(MAENARAWANAI, None, "2027-01-01")  # not found
+        cached = store.mb_releases()
+        assert cached[BRAT]["title"].startswith("Brat") and cached[MAENARAWANAI] is None
+        assert store.mb_cache_counts() == (2, 2)
+        blob = store.conn.execute("SELECT data FROM mb_releases WHERE mbid=?", (BRAT,)).fetchone()
+        assert len(blob[0]) < len(json.dumps(fixture("brat"))) / 3  # stored compressed
+
+
+def test_sync_order_limit_and_refresh(tmp_path) -> None:
+    now = datetime(2026, 11, 1, tzinfo=UTC)
+    ids = [f"11111111-1111-4111-8111-{i:012d}" for i in range(4)]
+    with store_with_files(tmp_path, *ids) as store:
+        store.save_mb_release(ids[0], {"id": ids[0]}, "2026-10-01")  # due
+        store.save_mb_release(ids[1], {"id": ids[1]}, "2027-01-01")  # fresh
+        assert store.mb_releases_due(now.isoformat()) == [ids[2], ids[3], ids[0]]
+
+        client, opener = client_with((200, {"id": ids[2]}), (404, None))
+        result = sync_releases(store, client, limit=2, now=now)
+        assert (result.due, result.fetched, result.not_found) == (2, 1, 1)
+        assert len(opener.requests) == 2
+        assert store.mb_releases_due(now.isoformat()) == [ids[0]]
+        refresh = store.conn.execute(
+            "SELECT refresh_after FROM mb_releases WHERE mbid=?", (ids[2],)
+        ).fetchone()[0]
+        assert (
+            now + timedelta(days=45) <= datetime.fromisoformat(refresh) <= now + timedelta(days=75)
+        )
+
+
+def test_sync_stops_at_first_error_and_keeps_work(tmp_path) -> None:
+    ids = [f"11111111-1111-4111-8111-{i:012d}" for i in range(3)]
+    with store_with_files(tmp_path, *ids) as store:
+        client, opener = client_with((200, {"id": ids[0]}), (500, None))
+        result = sync_releases(store, client)
+        assert result.fetched == 1 and "500" in result.error
+        assert len(opener.requests) == 2  # nothing after the failure
+        assert set(store.mb_releases()) == {ids[0]}
+
+
+# --- Parsing ----------------------------------------------------------------------------
+
+
+def test_parse_real_releases() -> None:
+    brat = MbRelease.from_json(fixture("brat"))
+    assert [m.position for m in brat.media] == [2, 3]
+    first = brat.media[0].tracks[0]
+    assert (first.disc, first.position, first.number, first.title) == (2, 1, "A1", "360")
+    assert brat.medium(3).track_count == 8 and brat.track_at(3, 8).title == "Spring breakers"
+
+    ag = MbRelease.from_json(fixture("maenarawanai"))
+    track = ag.tracks[0]
+    assert track.title == "sekigae Gattuso" and track.recording_title != track.title
+    assert track.length_ms == 189000
+
+
+# --- Checks -----------------------------------------------------------------------------
+
+
+def brat_track(disc: int, position: int, **tags):
+    """A file tagged by Picard from the Brat fixture."""
+    release = MbRelease.from_json(fixture("brat"))
+    t = release.track_at(disc, position)
+    defaults = {
+        "musicbrainz_albumid": BRAT,
+        "musicbrainz_releasetrackid": t.id,
+        "musicbrainz_trackid": t.recording_id,
+        "tracknumber": str(t.position),
+        "discnumber": str(t.disc),
+        "totaltracks": str(release.medium(t.disc).track_count),
+        "totaldiscs": "2",
+        "~length": str(t.length_ms),
+    }
+    return track_ctx(f"Charli xcx/Brat/{disc}-{position:02d}.flac", **(defaults | tags))
+
+
+def brat_album(*tracks, release: dict | None = None) -> AlbumContext:
+    data = fixture("brat") if release is None else release
+    releases = {BRAT: MbRelease.from_json(data)}
+    return AlbumContext(PurePosixPath("Charli xcx/Brat"), tracks, (), (), Settings(), releases)
+
+
+ALL_MB_CHECKS = (ReleaseUnknown(), TrackMismatch(), Numbering(), Duration())
+
+
+def issues(album: AlbumContext) -> list:
+    return [i for check in ALL_MB_CHECKS for i in check.run(album)]
+
+
+def test_picard_tagged_album_has_no_issues() -> None:
+    assert issues(brat_album(brat_track(2, 1), brat_track(2, 2), brat_track(3, 8))) == []
+
+
+def test_unlooked_up_release_is_skipped() -> None:
+    album = AlbumContext(PurePosixPath("X/Y"), (brat_track(2, 1),), (), (), Settings(), {})
+    assert issues(album) == []
+
+
+def test_release_not_found_or_merged() -> None:
+    album = AlbumContext(
+        PurePosixPath("Charli xcx/Brat"), (brat_track(2, 1),), (), (), Settings(), {BRAT: None}
+    )
+    (issue,) = ReleaseUnknown().run(album)
+    assert "isn't in MusicBrainz" in issue.message and issue.severity == "error"
+
+    merged = fixture("brat") | {"id": "99999999-9999-4999-8999-999999999999"}
+    (issue,) = ReleaseUnknown().run(brat_album(brat_track(2, 1), release=merged))
+    assert "was merged into 99999999-9999-4999-8999-999999999999" in issue.message
+
+
+def test_track_mismatch() -> None:
+    wrong_recording = brat_track(2, 1, musicbrainz_trackid="11111111-1111-4111-8111-111111111111")
+    (issue,) = TrackMismatch().run(brat_album(wrong_recording))
+    assert issue.message.startswith("Recording MBID differs: MusicBrainz has")
+    assert "('360') for disc 2 track 1" in issue.message
+
+    other_release = brat_track(
+        2, 1, musicbrainz_releasetrackid="22222222-2222-4222-8222-222222222222"
+    )
+    (issue,) = TrackMismatch().run(brat_album(other_release))
+    assert "Release track MBID isn't on" in issue.message
+    assert "at disc 2 track 1 it has '360'" in issue.message
+
+
+def test_numbering() -> None:
+    album = brat_album(
+        brat_track(2, 1, tracknumber="3", totaldiscs="3"),
+        brat_track(2, 2, totaltracks="11", totaldiscs="3"),
+        brat_track(2, 3, totaltracks="11", totaldiscs="3"),
+    )
+    track, totals = Numbering().run(album)
+    assert track.subject == "Charli xcx/Brat/2-01.flac"
+    assert track.message == "MusicBrainz has track number 1 (tagged 3)"
+    # Totals once, on the album: one disc involved, so just "total tracks".
+    assert totals.subject == "Charli xcx/Brat"
+    assert totals.message == "MusicBrainz has total discs 2 (tagged 3), total tracks 10 (tagged 11)"
+    # Missing tags aren't this check's business.
+    assert not list(Numbering().run(brat_album(brat_track(2, 1, totaltracks=""))))
+
+
+def test_duration_tolerance() -> None:
+    length = MbRelease.from_json(fixture("brat")).track_at(2, 1).length_ms
+    close = brat_track(2, 1, **{"~length": str(length + 2500)})
+    assert not list(Duration().run(brat_album(close)))
+    live = brat_track(2, 1, **{"~length": str(length + 41_000)})
+    (issue,) = Duration().run(brat_album(live))
+    assert issue.message == "Length 2:55 vs 2:14 in MusicBrainz (+41 s)"
+    assert not list(Duration({"tolerance_seconds": 60}).run(brat_album(live)))
+    assert not list(Duration().run(brat_album(brat_track(2, 1, **{"~length": "0"}))))
+
+
+# --- Scan and web -----------------------------------------------------------------------
+
+
+def test_scan_applies_cached_releases_only_when_enabled(tmp_path) -> None:
+    lib = tmp_path / "music"
+    tags = good_tags(musicbrainz_albumid=MAENARAWANAI, TITLE="sekigae Gattuso")
+    build_flac(lib / "ATARASHII GAKKO!/Maenarawanai/a.flac", tags, length_ms=150_000)
+    settings = settings_for(lib, tmp_path)
+    scan(settings)
+    with Store(settings.database_path) as store:
+        store.save_mb_release(MAENARAWANAI, fixture("maenarawanai"), "2099-01-01")
+
+    _, found = scan(settings)
+    assert not [k for k in found if k[0].startswith("mb.")]  # lookups off: cache ignored
+
+    _, found = scan(settings_for(lib, tmp_path, musicbrainz_enabled=True))
+    subject = "ATARASHII GAKKO!/Maenarawanai/a.flac"
+    assert ("mb.duration", subject) in found  # 2:30 vs 3:09
+    assert ("mb.track_mismatch", subject) in found  # the fixture's recording IDs aren't ours
+
+
+def test_setting_from_toml_and_env(tmp_path) -> None:
+    assert Settings().musicbrainz_enabled is False
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("[musicbrainz]\nenabled = true\n", encoding="utf-8")
+    assert load_settings(cfg, env={}).musicbrainz_enabled is True
+    assert load_settings(cfg, env={"TAGDRIFTER_MUSICBRAINZ": "off"}).musicbrainz_enabled is False
+
+
+def test_sync_after_scan_then_rescan(library, tmp_path) -> None:
+    settings = settings_for(library, tmp_path, musicbrainz_enabled=True)
+    release_id = good_tags()["musicbrainz_albumid"]
+    client, opener = client_with((200, {"id": release_id, "title": "Doolittle", "media": []}))
+    sync = MusicBrainzSync(settings, client, scheduled_delay=(0, 0))
+    runner = ScanRunner(settings, mb_sync=sync)
+    assert runner.start()
+    runner.wait(30)
+    sync.wait(30)
+    runner.wait(30)  # the rescan the sync started
+    assert len(opener.requests) == 1  # every fixture track shares one release
+    assert sync.status().last.fetched == 1
+    with Store(settings.database_path) as store:
+        assert store.mb_cache_counts() == (1, 1)
+        scans = store.recent_scans()
+    assert len(scans) == 2
+    assert not sync.after_scan()  # nothing due: no thread, no request
+    assert len(opener.requests) == 1
+
+
+def test_sync_off_by_default(library, tmp_path) -> None:
+    settings = settings_for(library, tmp_path)
+    client, opener = client_with()
+    sync = MusicBrainzSync(settings, client)
+    assert not sync.after_scan()
+    assert opener.requests == []
+
+
+def test_dashboard_panel(library, tmp_path) -> None:
+    off = settings_for(library, tmp_path)
+    with TestClient(create_app(off)) as c:
+        assert "Set <code>TAGDRIFTER_MUSICBRAINZ=true</code>" in c.get("/").text
+    on = settings_for(library, tmp_path, musicbrainz_enabled=True)
+    scan(on)
+    runner = ScanRunner(on, mb_sync=MusicBrainzSync(on, client_with()[0]))
+    with TestClient(create_app(on, runner)) as c:
+        assert "0 of 1 release cached" in " ".join(c.get("/").text.split())
+        assert "0 of 1 release cached" in " ".join(c.get("/musicbrainz/status").text.split())
+
+
+def test_tests_cannot_reach_musicbrainz() -> None:
+    with pytest.raises(AssertionError, match="test tried to call MusicBrainz"):
+        MusicBrainzClient(limiter=RateLimiter(0)).release(MAENARAWANAI)

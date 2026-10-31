@@ -4,7 +4,7 @@ To add a check: write a `Check` subclass decorated with `@register` (see base.py
 here, and import that module below.
 """
 
-from . import builtin_paths, builtin_tags  # noqa: F401  (imported for registration)
+from . import builtin_musicbrainz, builtin_paths, builtin_tags  # noqa: F401  (registration)
 from .base import (
     REGISTRY,
     AlbumContext,

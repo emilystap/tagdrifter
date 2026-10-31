@@ -33,3 +33,5 @@ services:
       # TAGDRIFTER_GOTIFY_URL: "http://gotify.lan:8080"
       # TAGDRIFTER_GOTIFY_TOKEN: "..."
       # TAGDRIFTER_PUBLIC_URL: "https://tagdrifter.example" # links in notifications
+      # Optional: compare tags with MusicBrainz (1 request/s, each release cached for weeks)
+      # TAGDRIFTER_MUSICBRAINZ: "true"

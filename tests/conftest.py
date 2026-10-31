@@ -22,10 +22,10 @@ def _block(block_type: int, data: bytes, *, last: bool) -> bytes:
     return bytes([(0x80 if last else 0) | block_type]) + len(data).to_bytes(3, "big") + data
 
 
-def _streaminfo() -> bytes:
+def _streaminfo(length_ms: int = 0) -> bytes:
     # min/max block size, min/max frame size, then sample rate(20b) channels-1(3b)
     # bps-1(5b) total samples(36b), then 16-byte MD5.
-    packed = (44100 << 44) | (1 << 41) | (15 << 36)
+    packed = (44100 << 44) | (1 << 41) | (15 << 36) | (length_ms * 44100 // 1000)
     return struct.pack(">HH", 4096, 4096) + b"\x00" * 6 + packed.to_bytes(8, "big") + b"\x00" * 16
 
 
@@ -60,12 +60,14 @@ def build_flac(
     picture_bytes: int = 0,
     picture_first: bool = True,
     id3_prefix: bool = False,
+    length_ms: int = 0,
 ) -> Path:
     """Write a structurally valid, audio-less FLAC file.
 
     `picture_bytes` adds a PICTURE block of that size (before or after the comment block).
+    `length_ms` sets the length STREAMINFO reports (0 = unknown).
     """
-    blocks: list[tuple[int, bytes]] = [(0, _streaminfo())]
+    blocks: list[tuple[int, bytes]] = [(0, _streaminfo(length_ms))]
     picture = (6, _picture(picture_bytes)) if picture_bytes else None
     comment = (4, _vorbis_comment(tags)) if tags is not None else None
     ordered = [picture, comment] if picture_first else [comment, picture]
@@ -93,6 +95,17 @@ def flac_factory(tmp_path: Path):
         return build_flac(tmp_path / relative, dict(tags))
 
     return factory
+
+
+@pytest.fixture(autouse=True)
+def _no_musicbrainz_requests(monkeypatch):
+    """Tests must never call the real MusicBrainz API (a small non-profit with strict rate
+    limits): clients without a fake opener fail instead."""
+
+    def refuse(request, timeout=None):
+        raise AssertionError(f"test tried to call MusicBrainz: {request.full_url}")
+
+    monkeypatch.setattr("tagdrifter.musicbrainz._urlopen", refuse)
 
 
 # --- A small library with one example of most issues -----------------------------------

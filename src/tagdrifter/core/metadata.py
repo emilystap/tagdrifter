@@ -44,6 +44,10 @@ TRACK_NUMBER_KEYS = ("tracknumber",)
 DISC_NUMBER_KEYS = ("discnumber",)
 TOTAL_DISCS_KEYS = ("disctotal", "totaldiscs")
 
+# The audio length in ms, stored alongside the tags (0 = unknown). Not a possible Vorbis
+# comment name ("~" is outside the allowed range), so it can't clash with a real tag.
+LENGTH_KEY = "~length"
+
 Tags = Mapping[str, tuple[str, ...]]
 
 
@@ -180,6 +184,12 @@ class TrackMeta:
         return any(v.strip() for v in self.tags.get(key.lower(), ()))
 
     @property
+    def length_ms(self) -> int | None:
+        """The audio length, when the file was read by a version that records it."""
+        value = parse_index(first_tag(self.tags, (LENGTH_KEY,)), 0)
+        return value or None
+
+    @property
     def is_mbid_tagged(self) -> bool:
         """Has valid release and recording MBIDs, i.e. was most likely tagged by Picard.
 
@@ -200,12 +210,13 @@ def read_tags(path: PurePath) -> dict[str, tuple[str, ...]]:
     mutagen.
     """
     if path.suffix.lower() == ".flac":
-        from .flac import FlacError, read_vorbis_comments
+        from .flac import FlacError, read_flac
 
         try:
-            return normalize_tags(read_vorbis_comments(path))
+            info = read_flac(path)
         except (FlacError, OSError) as exc:
             raise MetadataReadError(f"{path}: {exc}") from exc
+        return normalize_tags([*info.comments, (LENGTH_KEY, str(info.length_ms or 0))])
 
     from mutagen import File as MutagenFile  # imported lazily; only needed for non-FLAC
     from mutagen import MutagenError
@@ -219,7 +230,9 @@ def read_tags(path: PurePath) -> dict[str, tuple[str, ...]]:
     # Vorbis comments (Ogg/Opus) are (key, value) pairs; ID3/MP4 will need a key-mapping
     # adapter here when those formats are supported.
     tags = audio.tags or []
-    return normalize_tags(tags if isinstance(tags, list) else list(tags.items()))
+    pairs = tags if isinstance(tags, list) else list(tags.items())
+    length = getattr(getattr(audio, "info", None), "length", 0) or 0
+    return normalize_tags([*pairs, (LENGTH_KEY, str(round(length * 1000)))])
 
 
 def read_metadata(path: PurePath) -> TrackMeta:

@@ -1,6 +1,7 @@
 """Pure naming/tagging rules. Only `metadata.read_metadata` touches the filesystem."""
 
 from .metadata import (
+    LENGTH_KEY,
     MetadataReadError,
     TrackMeta,
     is_mbid,
@@ -25,6 +26,7 @@ from .sanitize import (
 )
 
 __all__ = [
+    "LENGTH_KEY",
     "SLASH_REPLACEMENT",
     "CollisionNotice",
     "MetadataReadError",

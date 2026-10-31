@@ -58,3 +58,22 @@ def test_agrees_with_mutagen(tmp_path) -> None:
     )
     expected = [(k, v) for k, v in mutagen_flac.FLAC(path).tags]
     assert read_vorbis_comments(path) == expected
+
+
+def test_length_from_streaminfo(tmp_path) -> None:
+    from tagdrifter.core.flac import read_flac
+
+    info = read_flac(build_flac(tmp_path / "a.flac", {"TITLE": "x"}, length_ms=189_000))
+    assert info.length_ms == 189_000 and info.comments == [("TITLE", "x")]
+    assert read_flac(build_flac(tmp_path / "b.flac", None)).length_ms is None  # 0 samples
+
+
+def test_read_tags_records_length(tmp_path) -> None:
+    from pathlib import PurePath
+
+    from tagdrifter.core import TrackMeta, read_tags
+
+    path = build_flac(tmp_path / "a.flac", {"TITLE": "x"}, length_ms=61_500, picture_bytes=500)
+    tags = read_tags(path)
+    assert tags["~length"] == ("61500",)
+    assert TrackMeta.from_tags(PurePath("a.flac"), tags).length_ms == 61_500

@@ -1,7 +1,8 @@
 """Library scan: discover files, read changed tags, run checks, persist results.
 
 Incremental: a file's tags are re-read only when its size or modification time changed
-since the last scan (or with full=True). Checks always run over the whole library, because
+since the last scan (or with full=True), or when it was cached before audio lengths were
+recorded (a one-off re-read after upgrading). Checks always run over the whole library, because
 some (release collisions, placement) depend on a file's neighbours; they are cheap.
 """
 
@@ -30,12 +31,14 @@ from .checks import (
 )
 from .config import Settings
 from .core import (
+    LENGTH_KEY,
     MetadataReadError,
     TrackMeta,
     compute_target,
     read_tags,
     resolve_release_collisions,
 )
+from .core.mbrelease import MbRelease
 from .db import Store
 
 SAVE_BATCH = 200  # flush freshly read tags this often, so an interrupted scan keeps its work
@@ -183,7 +186,12 @@ def _scan(
     to_read: list[str] = []
     for rel, (size, mtime) in audio.items():
         cached = cache.get(rel)
-        if full or cached is None or (cached.size, cached.mtime_ns) != (size, mtime):
+        if (
+            full
+            or cached is None
+            or (cached.size, cached.mtime_ns) != (size, mtime)
+            or (cached.tags is not None and LENGTH_KEY not in cached.tags)
+        ):
             to_read.append(rel)
         else:
             tags_by_path[rel] = cached.tags
@@ -214,7 +222,8 @@ def _scan(
             store.save_files(pending)
 
     # 3. Run checks
-    issues = list(_run_checks(settings, dirs, tags_by_path, errors, result, report))
+    releases = _cached_releases(store) if settings.musicbrainz_enabled else {}
+    issues = list(_run_checks(settings, dirs, tags_by_path, errors, result, report, releases))
 
     # 4. Save
     report("save", 0, 1)
@@ -234,6 +243,14 @@ def _scan(
     report("save", 1, 1)
 
 
+def _cached_releases(store: Store) -> dict[str, MbRelease | None]:
+    """The MusicBrainz cache, parsed once per scan for the mb.* checks."""
+    return {
+        mbid: MbRelease.from_json(data) if data is not None else None
+        for mbid, data in store.mb_releases().items()
+    }
+
+
 def _run_checks(
     settings: Settings,
     dirs: dict[PurePosixPath, DirEntryInfo],
@@ -241,6 +258,7 @@ def _run_checks(
     errors: dict[str, str],
     result: ScanResult,
     report: Callable[..., None],
+    releases: dict[str, MbRelease | None] | None = None,
 ) -> Iterable[Issue]:
     checks = build_checks(settings)
     by_scope: dict[Scope, list[Check]] = defaultdict(list)
@@ -311,7 +329,9 @@ def _run_checks(
                 for n in sorted(info.audio)
                 if info.rel / n not in track_ctx
             )
-            album = AlbumContext(info.rel, tracks, unreadable, tuple(info.other_files), settings)
+            album = AlbumContext(
+                info.rel, tracks, unreadable, tuple(info.other_files), settings, releases or {}
+            )
             album_contexts.append(album)
             for track in tracks:
                 yield from run(
