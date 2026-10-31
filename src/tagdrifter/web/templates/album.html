@@ -1,6 +1,6 @@
 {#- One album folder: files, tags, cached MusicBrainz tracklist and open issues. Expects
     `album` (library.AlbumDetail, or None when the folder isn't in the scan), `issues`,
-    `renamable`. -#}
+    `renamable`, `groups` ((release group MBID, library.GroupComparison or None), ...). -#}
 {% extends "base.html" %}
 {% block title %}{{ album.folder if album else "Not found" }} · Library · Tag Drifter{% endblock %}
 {% block content %}
@@ -103,6 +103,9 @@
     {% if rel.title != (first.album if first else "") and rel.title_alias != (first.album if first else "") %}
       <p class="small">Titled <strong>{{ rel.title }}</strong>{% if rel.title_alias %} ({{ rel.title_alias }}){% endif %} in MusicBrainz.</p>
     {% endif %}
+    {% if rel.release_group_id and r.rows | selectattr("length_diff_s") | list %}
+      <p class="small">Some lengths differ from this release: <a href="#group-{{ rel.release_group_id }}">compare with other releases</a> of the album.</p>
+    {% endif %}
     <div class="table-wrap">
       <table class="table tracklist">
         <thead>
@@ -137,6 +140,10 @@
     </div>
   {% endif %}
 </section>
+{% endfor %}
+
+{% for group_id, comparison in groups %}
+  {% if comparison or settings.musicbrainz_enabled %}{% include "_release_group.html" %}{% endif %}
 {% endfor %}
 
 {% if album.readable %}

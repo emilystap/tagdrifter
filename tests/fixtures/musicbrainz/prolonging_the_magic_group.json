@@ -1,0 +1,1092 @@
+{
+ "release-count": 4,
+ "release-offset": 0,
+ "releases": [
+  {
+   "packaging": "None",
+   "disambiguation": "Deluxe Edition",
+   "cover-art-archive": {
+    "artwork": true,
+    "count": 1,
+    "front": true,
+    "back": false,
+    "darkened": false
+   },
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "release-events": [
+    {
+     "date": "2023-03-10",
+     "area": {
+      "type-id": null,
+      "disambiguation": "",
+      "type": null,
+      "id": "525d4e18-3d00-31b9-a58b-a146a916de8f",
+      "name": "[Worldwide]",
+      "sort-name": "[Worldwide]",
+      "iso-3166-1-codes": [
+       "XW"
+      ]
+     }
+    }
+   ],
+   "asin": null,
+   "packaging-id": "119eba76-b343-3e02-a292-f0f00644bb9b",
+   "date": "2023-03-10",
+   "id": "045161e0-16c7-4278-873e-5b649303ac21",
+   "country": "XW",
+   "title": "Prolonging the Magic",
+   "barcode": null,
+   "media": [
+    {
+     "track-count": 15,
+     "format": "Digital Media",
+     "tracks": [
+      {
+       "position": 1,
+       "id": "4bd8f881-6af6-4287-91eb-7e2fa34afb38",
+       "title": "Satan Is My Motor",
+       "length": 192000,
+       "number": "1",
+       "recording": {
+        "id": "0e7e78b3-3575-4f73-848d-931c764c3f19",
+        "title": "Satan Is My Motor",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "length": 192000,
+        "video": false
+       }
+      },
+      {
+       "id": "c916a1c4-c9b3-43d6-a52e-da83cbadd6e2",
+       "title": "Mexico",
+       "position": 2,
+       "length": 206000,
+       "recording": {
+        "id": "8b1fa2c8-40c8-41d8-b50d-c2b4f6009d28",
+        "title": "Mexico",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 206000
+       },
+       "number": "2"
+      },
+      {
+       "recording": {
+        "first-release-date": "1998-09",
+        "video": false,
+        "length": 164000,
+        "title": "Never There",
+        "id": "5b65195a-d447-448e-a7ba-af5f5d4d9e79",
+        "disambiguation": ""
+       },
+       "number": "3",
+       "position": 3,
+       "title": "Never There",
+       "id": "8033b441-8924-438a-b335-60048f0222f2",
+       "length": 164000
+      },
+      {
+       "position": 4,
+       "title": "Guitar",
+       "id": "b494ac7c-5b68-410e-a723-0c3553393171",
+       "length": 220000,
+       "recording": {
+        "disambiguation": "",
+        "id": "2dabc0d9-00ef-4631-99b8-3dc23ac0c744",
+        "title": "Guitar",
+        "video": false,
+        "length": 220933,
+        "first-release-date": "1998-10-06"
+       },
+       "number": "4"
+      },
+      {
+       "number": "5",
+       "recording": {
+        "disambiguation": "",
+        "title": "You Turn the Screws (edit)",
+        "id": "f3f1809d-f5f9-4ef5-84d7-d35d5c550402",
+        "video": false,
+        "length": 241000,
+        "first-release-date": "1998-10-06"
+       },
+       "title": "You Turn the Screws",
+       "id": "9ea1d560-729a-41d9-b5e7-101a9f54d08d",
+       "position": 5,
+       "length": 240000
+      },
+      {
+       "number": "6",
+       "recording": {
+        "disambiguation": "",
+        "title": "Walk on By",
+        "id": "db15df4f-f4c4-480b-b7ac-59debb1c1830",
+        "length": 226000,
+        "video": false,
+        "first-release-date": "1998-10-06"
+       },
+       "position": 6,
+       "id": "90f0bcc4-34c5-4565-892d-6707230f64ad",
+       "title": "Walk On By",
+       "length": 226000
+      },
+      {
+       "recording": {
+        "first-release-date": "1999",
+        "video": false,
+        "length": 227000,
+        "id": "e239435e-d70d-45b8-9f22-9d26a5d5e52b",
+        "title": "Sheep Go to Heaven (radio edit)",
+        "disambiguation": ""
+       },
+       "number": "7",
+       "position": 7,
+       "title": "Sheep Go to Heaven",
+       "id": "ecfd74e1-d16f-4d6c-990a-ceb823d44e5a",
+       "length": 228000
+      },
+      {
+       "recording": {
+        "title": "When You Sleep",
+        "id": "8e71a5cc-6a46-45da-8a1f-592583e82553",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 238000
+       },
+       "number": "8",
+       "title": "When You Sleep",
+       "id": "830eeebf-aa43-4909-af97-e74e5276941c",
+       "position": 8,
+       "length": 238000
+      },
+      {
+       "id": "c9e6daaf-8bba-43d3-b404-54db85e42dbf",
+       "title": "Hem of Your Garment",
+       "position": 9,
+       "length": 223000,
+       "number": "9",
+       "recording": {
+        "length": 216000,
+        "video": false,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "new edit",
+        "id": "196c4732-bf95-4cac-9dac-a56794465958",
+        "title": "Hem of Your Garment"
+       }
+      },
+      {
+       "recording": {
+        "title": "Alpha Beta Parking Lot",
+        "id": "c562f51c-4dbd-4280-95be-7e232dd6e3b8",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 210000
+       },
+       "number": "10",
+       "position": 10,
+       "title": "Alpha Beta Parking Lot",
+       "id": "c7d41bfb-1dc3-4a9f-ae3e-36a197b89102",
+       "length": 210000
+      },
+      {
+       "length": 236000,
+       "position": 11,
+       "id": "c998a827-7c9e-45fb-bf45-762665e82f5a",
+       "title": "Let Me Go",
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 236000,
+        "id": "235efc48-16f8-4b48-8688-bf88010c1a32",
+        "title": "Let Me Go",
+        "disambiguation": ""
+       },
+       "number": "11"
+      },
+      {
+       "length": 207000,
+       "id": "3c2d089a-bbbf-4695-8aed-45fdeb576503",
+       "title": "Cool Blue Reason",
+       "position": 12,
+       "number": "12",
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 207866,
+        "id": "8e7901e5-9d52-4738-bb0c-395d6ca17d59",
+        "title": "Cool Blue Reason",
+        "disambiguation": ""
+       }
+      },
+      {
+       "position": 13,
+       "title": "Where Would I Be?",
+       "id": "ecaf1700-658f-4327-971a-bd8f25976bf6",
+       "length": 233000,
+       "recording": {
+        "disambiguation": "",
+        "id": "c93d771b-a673-451e-ba57-cb7a59d5933f",
+        "title": "Where Would I Be?",
+        "length": 233000,
+        "video": false,
+        "first-release-date": "1998-10-06"
+       },
+       "number": "13"
+      },
+      {
+       "length": 204000,
+       "position": 14,
+       "title": "Never There (Live at WXPN)",
+       "id": "2bca9f6f-a6fa-4024-9d2e-95cd2f5b1dba",
+       "recording": {
+        "title": "Never There (live)",
+        "id": "862b6159-645e-4c28-804a-7be895a2e58a",
+        "disambiguation": "",
+        "first-release-date": "1999",
+        "video": false,
+        "length": 203000
+       },
+       "number": "14"
+      },
+      {
+       "recording": {
+        "disambiguation": "live, KNDD, Seattle, WA, USA",
+        "title": "Sheep Go to Heaven",
+        "id": "30e3c913-0e8e-41f8-bb7c-9b13299497df",
+        "length": 305000,
+        "video": false,
+        "first-release-date": "1998-06-16"
+       },
+       "number": "15",
+       "title": "Sheep Go to Heaven (Live at The End)",
+       "id": "d439a833-344a-42f1-8fc8-0a8d23866a8c",
+       "position": 15,
+       "length": 305000
+      }
+     ],
+     "position": 1,
+     "id": "ec619816-388b-32b1-a932-4abbf8c8de60",
+     "title": "",
+     "format-id": "907a28d9-b3b2-3ef6-89a8-7b18d91d4794",
+     "track-offset": 0
+    }
+   ],
+   "quality": "normal",
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "status": "Official"
+  },
+  {
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "release-events": [
+    {
+     "date": "1998-10-06",
+     "area": {
+      "iso-3166-1-codes": [
+       "US"
+      ],
+      "name": "United States",
+      "sort-name": "United States",
+      "type": null,
+      "disambiguation": "",
+      "id": "489ce91b-6658-3307-9877-795b68554c98",
+      "type-id": null
+     }
+    }
+   ],
+   "cover-art-archive": {
+    "artwork": true,
+    "count": 6,
+    "back": true,
+    "front": true,
+    "darkened": false
+   },
+   "disambiguation": "clean version",
+   "packaging": null,
+   "packaging-id": null,
+   "asin": "B00000DBXO",
+   "quality": "normal",
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "barcode": "731453811423",
+   "media": [
+    {
+     "track-offset": 0,
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "title": "",
+     "id": "70c822cf-fc60-3527-8ba4-1b236b412516",
+     "position": 1,
+     "tracks": [
+      {
+       "recording": {
+        "id": "92e5b06f-4fa4-452e-9b1b-1395d9d33962",
+        "title": "Satan Is My Motor",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "length": 192000,
+        "video": false
+       },
+       "number": "1",
+       "length": 192000,
+       "title": "Motor",
+       "id": "0263bf51-52f9-3f4a-b603-5138ed8f827a",
+       "position": 1
+      },
+      {
+       "length": 206000,
+       "position": 2,
+       "id": "5c6e30f2-da1e-3f50-850f-ab5205dbef1e",
+       "title": "Mexico",
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 206000,
+        "id": "8b1fa2c8-40c8-41d8-b50d-c2b4f6009d28",
+        "title": "Mexico",
+        "disambiguation": ""
+       },
+       "number": "2"
+      },
+      {
+       "id": "4b165e6f-feb7-399a-bf1a-e11e65cc890e",
+       "title": "Never There",
+       "position": 3,
+       "length": 164000,
+       "recording": {
+        "id": "5b65195a-d447-448e-a7ba-af5f5d4d9e79",
+        "title": "Never There",
+        "disambiguation": "",
+        "first-release-date": "1998-09",
+        "length": 164000,
+        "video": false
+       },
+       "number": "3"
+      },
+      {
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "length": 220933,
+        "video": false,
+        "title": "Guitar",
+        "id": "2dabc0d9-00ef-4631-99b8-3dc23ac0c744",
+        "disambiguation": ""
+       },
+       "number": "4",
+       "position": 4,
+       "title": "Guitar",
+       "id": "8560ab94-e90a-301b-bb18-b2db15a5bd6d",
+       "length": 220000
+      },
+      {
+       "title": "You Turn the Screws",
+       "id": "6a89660f-298a-3da7-a645-cbdf6c807651",
+       "position": 5,
+       "length": 253000,
+       "recording": {
+        "length": 253333,
+        "video": false,
+        "first-release-date": "1998-09-09",
+        "disambiguation": "original edit",
+        "title": "You Turn the Screws",
+        "id": "457121ac-9948-4ef8-950b-67bdf4e90eb9"
+       },
+       "number": "5"
+      },
+      {
+       "length": 226000,
+       "title": "Walk On By",
+       "id": "e7e87e58-aa48-3970-95a7-8b072d7de69e",
+       "position": 6,
+       "recording": {
+        "length": 226000,
+        "video": false,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "",
+        "title": "Walk on By",
+        "id": "db15df4f-f4c4-480b-b7ac-59debb1c1830"
+       },
+       "number": "6"
+      },
+      {
+       "length": 284000,
+       "position": 7,
+       "title": "Sheep Go to Heaven",
+       "id": "52d4c592-c7b6-3d85-862b-4c879926f638",
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "length": 284000,
+        "video": false,
+        "id": "d3921495-0b5f-4402-91a4-09e875e92da8",
+        "title": "Sheep Go to Heaven",
+        "disambiguation": "original edit"
+       },
+       "number": "7"
+      },
+      {
+       "recording": {
+        "length": 238000,
+        "video": false,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "",
+        "id": "8e71a5cc-6a46-45da-8a1f-592583e82553",
+        "title": "When You Sleep"
+       },
+       "number": "8",
+       "id": "9ae8b574-8e94-3344-b742-46cbf0d6ecca",
+       "title": "When You Sleep",
+       "position": 8,
+       "length": 238000
+      },
+      {
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 223000,
+        "id": "8655ca26-f1ea-4a82-829f-674aa9b78aca",
+        "title": "Hem of Your Garment",
+        "disambiguation": "clean edit"
+       },
+       "number": "9",
+       "title": "Hem of Your Garment",
+       "id": "40b8cd84-bb5f-369e-ae3d-e12066ae2e1b",
+       "position": 9,
+       "length": 223000
+      },
+      {
+       "position": 10,
+       "title": "Alpha Beta Parking Lot",
+       "id": "8952b6fc-17b3-3de7-bc4a-59c7f23b5632",
+       "length": 210000,
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "length": 210000,
+        "video": false,
+        "title": "Alpha Beta Parking Lot",
+        "id": "c562f51c-4dbd-4280-95be-7e232dd6e3b8",
+        "disambiguation": ""
+       },
+       "number": "10"
+      },
+      {
+       "length": 236000,
+       "id": "eb652b2b-00c5-3b2a-929c-b637bc500bce",
+       "title": "Let Me Go",
+       "position": 11,
+       "number": "11",
+       "recording": {
+        "id": "235efc48-16f8-4b48-8688-bf88010c1a32",
+        "title": "Let Me Go",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 236000
+       }
+      },
+      {
+       "position": 12,
+       "title": "Cool Blue Reason",
+       "id": "79a7f3fc-9fdc-371a-86b8-bea3ec572b83",
+       "length": 207000,
+       "recording": {
+        "id": "42c1bf1b-4fa3-4e0b-a8a7-81e155b88269",
+        "title": "Cool Blue Reason",
+        "disambiguation": "clean edit",
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 207000
+       },
+       "number": "12"
+      },
+      {
+       "position": 13,
+       "title": "Where Would I Be?",
+       "id": "25245dcc-da8c-3b49-86ae-0f63dc0336e6",
+       "length": 233000,
+       "recording": {
+        "disambiguation": "",
+        "id": "c93d771b-a673-451e-ba57-cb7a59d5933f",
+        "title": "Where Would I Be?",
+        "length": 233000,
+        "video": false,
+        "first-release-date": "1998-10-06"
+       },
+       "number": "13"
+      }
+     ],
+     "format": "CD",
+     "track-count": 13
+    }
+   ],
+   "title": "Prolonging the Magic",
+   "country": "US",
+   "date": "1998-10-06",
+   "id": "8312c0bf-27be-415d-a268-c3f2da42557e",
+   "status": "Official"
+  },
+  {
+   "status": "Official",
+   "quality": "normal",
+   "text-representation": {
+    "script": "Latn",
+    "language": "eng"
+   },
+   "barcode": "4988011360510",
+   "media": [
+    {
+     "track-offset": 0,
+     "position": 1,
+     "id": "6eef97a1-85cd-49ac-bcae-f9444e05e450",
+     "title": "",
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "track-count": 17,
+     "format": "CD",
+     "tracks": [
+      {
+       "position": 1,
+       "title": "Satan Is My Motor",
+       "id": "767c6821-810d-437d-9951-848a6d21eae4",
+       "length": 192066,
+       "recording": {
+        "title": "Satan Is My Motor",
+        "id": "0e7e78b3-3575-4f73-848d-931c764c3f19",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 192000
+       },
+       "number": "1"
+      },
+      {
+       "recording": {
+        "disambiguation": "",
+        "title": "Mexico",
+        "id": "8b1fa2c8-40c8-41d8-b50d-c2b4f6009d28",
+        "video": false,
+        "length": 206000,
+        "first-release-date": "1998-10-06"
+       },
+       "number": "2",
+       "length": 206400,
+       "position": 2,
+       "title": "Mexico",
+       "id": "5bbc077e-ec3c-47b1-b54a-82c59e771fa1"
+      },
+      {
+       "length": 164266,
+       "title": "Never There",
+       "id": "05701d24-3688-4c4d-a70f-ac629dba33b5",
+       "position": 3,
+       "recording": {
+        "first-release-date": "1998-09",
+        "video": false,
+        "length": 164000,
+        "title": "Never There",
+        "id": "5b65195a-d447-448e-a7ba-af5f5d4d9e79",
+        "disambiguation": ""
+       },
+       "number": "3"
+      },
+      {
+       "number": "4",
+       "recording": {
+        "disambiguation": "",
+        "title": "Guitar",
+        "id": "2dabc0d9-00ef-4631-99b8-3dc23ac0c744",
+        "length": 220933,
+        "video": false,
+        "first-release-date": "1998-10-06"
+       },
+       "length": 220933,
+       "id": "2575c5f7-e301-4e9d-bff4-cf7a0a9fb9f9",
+       "title": "Guitar",
+       "position": 4
+      },
+      {
+       "length": 254000,
+       "id": "e8523fa3-2fff-4316-9c0d-60341024d467",
+       "title": "You Turn the Screws",
+       "position": 5,
+       "number": "5",
+       "recording": {
+        "disambiguation": "original edit",
+        "title": "You Turn the Screws",
+        "id": "457121ac-9948-4ef8-950b-67bdf4e90eb9",
+        "video": false,
+        "length": 253333,
+        "first-release-date": "1998-09-09"
+       }
+      },
+      {
+       "recording": {
+        "video": false,
+        "length": 226000,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "",
+        "id": "db15df4f-f4c4-480b-b7ac-59debb1c1830",
+        "title": "Walk on By"
+       },
+       "number": "6",
+       "position": 6,
+       "title": "Walk on By",
+       "id": "0fdd224c-1af5-4bf5-9a4f-6c0db54abefb",
+       "length": 226026
+      },
+      {
+       "length": 284533,
+       "id": "3ae9497a-2c86-495e-aecd-6ea3bda17b5e",
+       "title": "Sheep Go to Heaven",
+       "position": 7,
+       "number": "7",
+       "recording": {
+        "disambiguation": "original edit",
+        "title": "Sheep Go to Heaven",
+        "id": "d3921495-0b5f-4402-91a4-09e875e92da8",
+        "video": false,
+        "length": 284000,
+        "first-release-date": "1998-10-06"
+       }
+      },
+      {
+       "length": 238306,
+       "title": "When You Sleep",
+       "id": "e623c204-eb6e-49e2-b66c-da03c643861b",
+       "position": 8,
+       "recording": {
+        "disambiguation": "",
+        "title": "When You Sleep",
+        "id": "8e71a5cc-6a46-45da-8a1f-592583e82553",
+        "video": false,
+        "length": 238000,
+        "first-release-date": "1998-10-06"
+       },
+       "number": "8"
+      },
+      {
+       "length": 223893,
+       "position": 9,
+       "id": "a4662fc4-7554-4a6c-bc77-8571552ad180",
+       "title": "Hem of Your Garment",
+       "recording": {
+        "id": "151cd5b2-c5ee-4cc9-b35e-f9fb95ac4d4c",
+        "title": "Hem of Your Garment",
+        "disambiguation": "original edit",
+        "first-release-date": "1998-10-06",
+        "length": 223893,
+        "video": false
+       },
+       "number": "9"
+      },
+      {
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "length": 210000,
+        "video": false,
+        "id": "c562f51c-4dbd-4280-95be-7e232dd6e3b8",
+        "title": "Alpha Beta Parking Lot",
+        "disambiguation": ""
+       },
+       "number": "10",
+       "length": 210106,
+       "position": 10,
+       "id": "cd5f3525-b1e0-4084-8932-0f137672ff42",
+       "title": "Alpha Beta Parking Lot"
+      },
+      {
+       "recording": {
+        "title": "Let Me Go",
+        "id": "235efc48-16f8-4b48-8688-bf88010c1a32",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "length": 236000,
+        "video": false
+       },
+       "number": "11",
+       "length": 236000,
+       "id": "cd8b353d-326c-47c1-b674-91e4e99aa2e1",
+       "title": "Let Me Go",
+       "position": 11
+      },
+      {
+       "recording": {
+        "video": false,
+        "length": 207866,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "",
+        "title": "Cool Blue Reason",
+        "id": "8e7901e5-9d52-4738-bb0c-395d6ca17d59"
+       },
+       "number": "12",
+       "length": 207866,
+       "position": 12,
+       "title": "Cool Blue Reason",
+       "id": "cf572a29-a591-4f58-b8d2-3ab858272c5b"
+      },
+      {
+       "length": 233026,
+       "id": "8543000e-5924-4e52-9834-ca15df6b02ee",
+       "title": "Where Would I Be?",
+       "position": 13,
+       "recording": {
+        "video": false,
+        "length": 233000,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "",
+        "id": "c93d771b-a673-451e-ba57-cb7a59d5933f",
+        "title": "Where Would I Be?"
+       },
+       "number": "13"
+      },
+      {
+       "position": 14,
+       "title": "Satan Is My Motor (karaoke)",
+       "id": "c82e44ec-ebe7-4df9-a365-08a59900add6",
+       "length": 194000,
+       "recording": {
+        "title": "Satan Is My Motor (karaoke)",
+        "id": "9ada8924-885f-4b8f-8b2e-822aa400f03c",
+        "disambiguation": "",
+        "first-release-date": "1998",
+        "video": false,
+        "length": 194000
+       },
+       "number": "14"
+      },
+      {
+       "length": 167000,
+       "id": "55694330-6fd7-41cc-8f73-4e82bc93ab57",
+       "title": "Never There (karaoke)",
+       "position": 15,
+       "number": "15",
+       "recording": {
+        "disambiguation": "",
+        "title": "Never There (karaoke)",
+        "id": "b9e516fb-5a40-403c-982c-52102f704e65",
+        "video": false,
+        "length": 167000,
+        "first-release-date": "1998"
+       }
+      },
+      {
+       "length": 289000,
+       "position": 16,
+       "title": "Sheep Go to Heaven (karaoke)",
+       "id": "ea34ce37-fc26-4251-bd5a-a00311593f5e",
+       "recording": {
+        "first-release-date": "1998",
+        "video": false,
+        "length": 289000,
+        "title": "Sheep Go to Heaven (karaoke)",
+        "id": "59d703ad-548e-4198-ba6a-2603cbbfc86c",
+        "disambiguation": ""
+       },
+       "number": "16"
+      },
+      {
+       "title": "When You Sleep (karaoke)",
+       "id": "6369ba87-872e-4949-a666-e32f161af778",
+       "position": 17,
+       "length": 239000,
+       "recording": {
+        "video": false,
+        "length": 239000,
+        "first-release-date": "1998",
+        "disambiguation": "",
+        "title": "When You Sleep (karaoke)",
+        "id": "b52321c0-2590-4a25-931c-026e982da185"
+       },
+       "number": "17"
+      }
+     ]
+    }
+   ],
+   "id": "a1b7265b-7fad-4e10-9077-cb2fe177b476",
+   "date": "1998",
+   "title": "Prolonging The Magic",
+   "country": "JP",
+   "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+   "asin": null,
+   "release-events": [
+    {
+     "date": "1998",
+     "area": {
+      "id": "2db42837-c832-3c27-b4a3-08198f75693c",
+      "type": null,
+      "disambiguation": "",
+      "type-id": null,
+      "iso-3166-1-codes": [
+       "JP"
+      ],
+      "sort-name": "Japan",
+      "name": "Japan"
+     }
+    }
+   ],
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "disambiguation": "",
+   "cover-art-archive": {
+    "darkened": false,
+    "front": false,
+    "back": false,
+    "count": 0,
+    "artwork": false
+   },
+   "packaging": "Jewel Case"
+  },
+  {
+   "packaging": null,
+   "cover-art-archive": {
+    "front": true,
+    "back": true,
+    "darkened": false,
+    "artwork": true,
+    "count": 5
+   },
+   "disambiguation": "",
+   "release-events": [
+    {
+     "date": "1998-10-06",
+     "area": {
+      "name": "United States",
+      "sort-name": "United States",
+      "iso-3166-1-codes": [
+       "US"
+      ],
+      "type-id": null,
+      "type": null,
+      "disambiguation": "",
+      "id": "489ce91b-6658-3307-9877-795b68554c98"
+     }
+    }
+   ],
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "asin": "B00005ABIP",
+   "packaging-id": null,
+   "title": "Prolonging the Magic",
+   "country": "US",
+   "id": "d0c81325-1494-4afe-84be-3466f3858ccc",
+   "date": "1998-10-06",
+   "barcode": "614223809229",
+   "media": [
+    {
+     "track-count": 13,
+     "format": "CD",
+     "tracks": [
+      {
+       "id": "c33c1a21-0e41-3b77-8128-8707ba14eb98",
+       "title": "Satan Is My Motor",
+       "position": 1,
+       "length": 192000,
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "video": false,
+        "length": 192000,
+        "id": "0e7e78b3-3575-4f73-848d-931c764c3f19",
+        "title": "Satan Is My Motor",
+        "disambiguation": ""
+       },
+       "number": "1"
+      },
+      {
+       "length": 206000,
+       "position": 2,
+       "title": "Mexico",
+       "id": "43f180c2-c135-3f2d-8cd0-df126f3bab72",
+       "recording": {
+        "disambiguation": "",
+        "id": "8b1fa2c8-40c8-41d8-b50d-c2b4f6009d28",
+        "title": "Mexico",
+        "length": 206000,
+        "video": false,
+        "first-release-date": "1998-10-06"
+       },
+       "number": "2"
+      },
+      {
+       "number": "3",
+       "recording": {
+        "video": false,
+        "length": 164000,
+        "first-release-date": "1998-09",
+        "disambiguation": "",
+        "title": "Never There",
+        "id": "5b65195a-d447-448e-a7ba-af5f5d4d9e79"
+       },
+       "length": 164000,
+       "title": "Never There",
+       "id": "19d16c3b-6d8b-3ecb-ae83-c3db5a9d194a",
+       "position": 3
+      },
+      {
+       "position": 4,
+       "id": "3d50e86c-82bd-3ba2-b051-8d4f9bcbad7d",
+       "title": "Guitar",
+       "length": 221000,
+       "recording": {
+        "id": "2dabc0d9-00ef-4631-99b8-3dc23ac0c744",
+        "title": "Guitar",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "length": 220933,
+        "video": false
+       },
+       "number": "4"
+      },
+      {
+       "recording": {
+        "disambiguation": "",
+        "title": "You Turn the Screws (edit)",
+        "id": "f3f1809d-f5f9-4ef5-84d7-d35d5c550402",
+        "length": 241000,
+        "video": false,
+        "first-release-date": "1998-10-06"
+       },
+       "number": "5",
+       "title": "You Turn the Screws",
+       "id": "81226c54-615f-35db-9e21-29c48a19785a",
+       "position": 5,
+       "length": 241000
+      },
+      {
+       "recording": {
+        "first-release-date": "1998-10-06",
+        "length": 226000,
+        "video": false,
+        "title": "Walk on By",
+        "id": "db15df4f-f4c4-480b-b7ac-59debb1c1830",
+        "disambiguation": ""
+       },
+       "number": "6",
+       "length": 226000,
+       "position": 6,
+       "id": "286d801c-fa52-38ea-8ee4-b23561dbac2a",
+       "title": "Walk On By"
+      },
+      {
+       "number": "7",
+       "recording": {
+        "disambiguation": "",
+        "title": "Sheep Go to Heaven",
+        "id": "69c16901-2fc6-4995-a8a9-0784e5ee861e",
+        "length": 228000,
+        "video": false,
+        "first-release-date": "1998-10-06"
+       },
+       "id": "0a8d65dd-6e29-305f-973b-0e9991f2adbe",
+       "title": "Sheep Go to Heaven",
+       "position": 7,
+       "length": 228000
+      },
+      {
+       "recording": {
+        "id": "8e71a5cc-6a46-45da-8a1f-592583e82553",
+        "title": "When You Sleep",
+        "disambiguation": "",
+        "first-release-date": "1998-10-06",
+        "length": 238000,
+        "video": false
+       },
+       "number": "8",
+       "length": 238000,
+       "position": 8,
+       "id": "afce76e2-d631-343d-83a6-2460af4d6085",
+       "title": "When You Sleep"
+      },
+      {
+       "recording": {
+        "disambiguation": "new edit",
+        "title": "Hem of Your Garment",
+        "id": "196c4732-bf95-4cac-9dac-a56794465958",
+        "video": false,
+        "length": 216000,
+        "first-release-date": "1998-10-06"
+       },
+       "number": "9",
+       "position": 9,
+       "title": "Hem of Your Garment",
+       "id": "8cc05d99-a32c-31fa-86a6-9722e5962e6f",
+       "length": 216000
+      },
+      {
+       "recording": {
+        "length": 210000,
+        "video": false,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "",
+        "title": "Alpha Beta Parking Lot",
+        "id": "c562f51c-4dbd-4280-95be-7e232dd6e3b8"
+       },
+       "number": "10",
+       "position": 10,
+       "id": "58199811-8cfc-3822-96f6-aa0a6a0f3473",
+       "title": "Alpha Beta Parking Lot",
+       "length": 210000
+      },
+      {
+       "id": "cfaee72d-267f-30eb-9417-1cee00d1e997",
+       "title": "Let Me Go",
+       "position": 11,
+       "length": 210000,
+       "number": "11",
+       "recording": {
+        "length": 210000,
+        "video": false,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "",
+        "title": "Let Me Go",
+        "id": "bbd1b7ad-01b0-469f-8ac6-667040a3051d"
+       }
+      },
+      {
+       "length": 208000,
+       "position": 12,
+       "id": "4c09b20c-80ee-3bd7-801f-105bbba15793",
+       "title": "Cool Blue Reason",
+       "recording": {
+        "length": 207866,
+        "video": false,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "",
+        "id": "8e7901e5-9d52-4738-bb0c-395d6ca17d59",
+        "title": "Cool Blue Reason"
+       },
+       "number": "12"
+      },
+      {
+       "position": 13,
+       "title": "Where Would I Be?",
+       "id": "bbe7167d-dbf6-3ec3-aa01-da8a848ed10d",
+       "length": 233000,
+       "recording": {
+        "length": 233000,
+        "video": false,
+        "first-release-date": "1998-10-06",
+        "disambiguation": "",
+        "id": "c93d771b-a673-451e-ba57-cb7a59d5933f",
+        "title": "Where Would I Be?"
+       },
+       "number": "13"
+      }
+     ],
+     "position": 1,
+     "id": "f2e308f8-9d9d-3180-ac4d-cd89a0356375",
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "title": "",
+     "track-offset": 0
+    }
+   ],
+   "text-representation": {
+    "script": "Latn",
+    "language": "eng"
+   },
+   "quality": "normal",
+   "status": "Official"
+  }
+ ]
+}

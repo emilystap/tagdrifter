@@ -18,6 +18,7 @@ from tagdrifter.config import Settings, load_settings
 from tagdrifter.core.mbrelease import MbRelease
 from tagdrifter.db import Store
 from tagdrifter.musicbrainz import (
+    MAX_BROWSE_PAGES,
     MIN_INTERVAL,
     RELEASE_INC,
     USER_AGENT,
@@ -589,3 +590,28 @@ def test_rescan_after_background_lookups_doesnt_fetch_the_rest(library, tmp_path
     with Store(settings.database_path) as store:
         assert len(store.recent_scans()) == 2
     assert len(opener.requests) == 1  # the rescan didn't look up the other three
+
+
+def test_release_group_browse_pages_and_stops() -> None:
+    group = "34cc7616-0e7e-34aa-a42d-bc9c17755f18"
+
+    def page(count: int, n: int, start: int = 0) -> tuple:
+        return (
+            200,
+            {"release-count": count, "releases": [{"id": str(start + i)} for i in range(n)]},
+        )
+
+    client, opener = client_with(page(150, 100), page(150, 50, 100))
+    data = client.release_group_releases(group)
+    assert (data["release-count"], len(data["releases"])) == (150, 150)
+    assert ["offset=0" in r.full_url for r in opener.requests] == [True, False]
+    assert "offset=100" in opener.requests[1].full_url
+
+    # A huge release group: at most MAX_BROWSE_PAGES requests.
+    client, opener = client_with(*(page(5000, 100, 100 * i) for i in range(MAX_BROWSE_PAGES)))
+    data = client.release_group_releases(group)
+    assert len(opener.requests) == MAX_BROWSE_PAGES
+    assert (data["release-count"], len(data["releases"])) == (5000, 100 * MAX_BROWSE_PAGES)
+
+    client, _ = client_with((404, None))
+    assert client.release_group_releases(group) == {"release-count": 0, "releases": []}

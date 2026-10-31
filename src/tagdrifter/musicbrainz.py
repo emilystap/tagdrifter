@@ -18,7 +18,8 @@ schedule (https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting). So:
 - the User-Agent names the project and, if configured, the operator's contact address.
 
 `sync_releases` fetches what is missing or due; the checks only ever read the cache
-(`Store.mb_releases`), so scans stay offline.
+(`Store.mb_releases`), so scans stay offline. `release_group_releases` is only ever called
+when someone asks (the release page's *Compare with other releases*, roadmap 6d).
 """
 
 from __future__ import annotations
@@ -54,6 +55,10 @@ BACKOFF = (15.0, 60.0)  # waits after a 503 before retrying; then give up for th
 MAX_RETRY_WAIT = 300.0  # a longer Retry-After ends the run instead of blocking the thread
 REFRESH_DAYS = (45, 75)  # a cached release is looked up again after this many days
 NOT_FOUND_REFRESH_DAYS = (30, 60)
+# Browsing a release group's releases with their tracklists: 100 releases per request (the
+# API's maximum), and no more than this many requests, so a huge release group stays cheap.
+BROWSE_LIMIT = 100
+MAX_BROWSE_PAGES = 3
 
 
 class MusicBrainzError(Exception):
@@ -173,6 +178,31 @@ class MusicBrainzClient:
         if not is_mbid(mbid):
             raise ValueError(f"not an MBID: {mbid!r}")
         return self._get(f"/release/{mbid.lower()}?inc={RELEASE_INC}&fmt=json", mbid)
+
+    def release_group_releases(self, mbid: str) -> dict:
+        """Every release in a release group with its tracklists (track lengths, recordings):
+        `{"release-count": N, "releases": [...]}`, at most `MAX_BROWSE_PAGES` requests of
+        `BROWSE_LIMIT` releases, so `releases` can be shorter than the count. An unknown
+        release group has no releases. Raises MusicBrainzError when MusicBrainz fails."""
+        if not is_mbid(mbid):
+            raise ValueError(f"not an MBID: {mbid!r}")
+        releases: list[dict] = []
+        count = 0
+        for _ in range(MAX_BROWSE_PAGES):
+            try:
+                data = self._get(
+                    f"/release?release-group={mbid.lower()}&inc=recordings+media"
+                    f"&limit={BROWSE_LIMIT}&offset={len(releases)}&fmt=json",
+                    mbid,
+                )
+            except ReleaseNotFound:
+                break
+            page = data.get("releases") or []
+            releases += page
+            count = int(data.get("release-count") or len(releases))
+            if not page or len(releases) >= count:
+                break
+        return {"release-count": max(count, len(releases)), "releases": releases}
 
     def _get(self, path: str, what: str) -> dict:
         request = urllib.request.Request(

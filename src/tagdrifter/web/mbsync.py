@@ -15,6 +15,10 @@ ways (both via musicbrainz.sync_releases, at most 1 request/s):
 
 A run that stopped on an error (MusicBrainz overloaded or unreachable) pauses all lookups
 for an hour, or longer if MusicBrainz asked (Retry-After). Only one run happens at a time.
+
+The release page's *Compare with other releases* (`lookup_release_group`) is the one other
+kind of request: one click, one release group (1-3 requests), through the same rate limiter
+and pause, and never repeated within `GROUP_REFETCH_AFTER` of the last lookup.
 When anything was fetched, a rescan applies it to the mb.* checks (cheap: tags come from the
 cache).
 """
@@ -31,13 +35,19 @@ from datetime import UTC, datetime
 
 from ..config import Settings
 from ..db import Store
-from ..musicbrainz import MusicBrainzClient, SyncResult, sync_releases
+from ..musicbrainz import MusicBrainzClient, MusicBrainzError, SyncResult, sync_releases
+from .format import parse_ts
 
 log = logging.getLogger(__name__)
 
 TRICKLE_INTERVAL = (1800.0, 9000.0)  # seconds between background wake-ups, drawn each time
 TRICKLE_BATCH = 5  # releases looked up per wake-up (~50-80 a day; a library needs ~20)
 ERROR_COOLDOWN = 3600.0  # seconds without lookups after a run stopped on an error
+GROUP_REFETCH_AFTER = 600.0  # seconds before a release group can be looked up again
+
+
+class LookupRefused(Exception):
+    """A requested lookup didn't happen; the message says why."""
 
 
 @dataclass(frozen=True)
@@ -85,6 +95,7 @@ class MusicBrainzSync:
         self._thread: threading.Thread | None = None  # the last run after a scan
         self._trickle: threading.Thread | None = None
         self._next_background: float | None = None
+        self._group_lock = threading.Lock()  # one release group lookup at a time
         self._paused_until: float | None = None
         self._done = 0
         self._total = 0
@@ -135,6 +146,46 @@ class MusicBrainzSync:
             return False
         self._run(self.trickle_batch)
         return True
+
+    def lookup_release_group(self, mbid: str) -> bool:
+        """Look up a release group's releases now, because someone asked, into the cache.
+        Returns False when it was looked up less than `GROUP_REFETCH_AFTER` ago (nothing
+        sent). Raises LookupRefused when lookups are off or paused, another lookup of a
+        release group is running, or MusicBrainz failed (which pauses lookups, as a failed
+        run does)."""
+        if not self.enabled:
+            raise LookupRefused("MusicBrainz lookups are off.")
+        paused = self.status().paused_until_time
+        if paused is not None:
+            raise LookupRefused(
+                f"MusicBrainz lookups are paused after an error, until {paused:%H:%M} UTC."
+            )
+        if not self._group_lock.acquire(blocking=False):
+            raise LookupRefused("Another release group is being looked up; try again shortly.")
+        try:
+            with Store(self.settings.database_path) as store:
+                cached = store.mb_release_group(mbid)
+            fetched = parse_ts(cached[1]) if cached else None
+            if fetched and (datetime.now(UTC) - fetched).total_seconds() < GROUP_REFETCH_AFTER:
+                return False
+            try:
+                data = self.client.release_group_releases(mbid)
+            except MusicBrainzError as exc:
+                with self._lock:
+                    wait = max(self.error_cooldown, exc.retry_after or 0)
+                    self._paused_until = self._clock() + wait
+                log.info("MusicBrainz lookups paused for %.0f min: %s", wait / 60, exc)
+                raise LookupRefused(f"{exc}. Lookups are paused for a while.") from exc
+            with Store(self.settings.database_path) as store:
+                store.save_mb_release_group(mbid, data)
+            log.info(
+                "MusicBrainz: looked up release group %s (%d releases)",
+                mbid,
+                len(data["releases"]),
+            )
+            return True
+        finally:
+            self._group_lock.release()
 
     # --- Status -------------------------------------------------------------------------
 

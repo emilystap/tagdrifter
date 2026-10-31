@@ -61,6 +61,7 @@ TAG_ORDER = (
     "totaltracks",
 )
 MUSICBRAINZ_URL = "https://musicbrainz.org"
+TIMES = chr(0xD7)  # multiplication sign, for "2xCD" as MusicBrainz writes it
 
 
 def tag_sort_key(key: str) -> tuple[int, str]:
@@ -286,6 +287,132 @@ def album_detail(store: Store, folder: str) -> AlbumDetail | None:
         releases=tuple(releases),
         release_group_ids=tuple(sorted(g for g in group_ids if is_mbid(g))),
         covers=tuple(covers.most_common()),
+    )
+
+
+# --- Other releases in the release group (6d) ------------------------------------------
+
+
+@dataclass(frozen=True)
+class ReleaseFit:
+    """How well one release's tracklist fits an album's files, by track length."""
+
+    release: MbRelease
+    fits: int  # files matched to a track whose length is within the tolerance
+    off: int  # files matched to a track whose length differs by more
+    unknown: int  # files matched to a track MusicBrainz has no length for
+    unmatched: int  # files with no track on this release
+    no_file: int  # tracks on this release with no file
+    worst_ms: int  # largest difference among matched files (0 if none)
+    mean_ms: float  # mean absolute difference among matched files
+    tagged: bool  # the files are tagged with this release
+
+    @property
+    def url(self) -> str:
+        return f"{MUSICBRAINZ_URL}/release/{self.release.id}"
+
+    @property
+    def track_count(self) -> int:
+        return len(self.release.tracks)
+
+    def raw(self, key: str) -> str:
+        return str(self.release.raw.get(key) or "")
+
+    @property
+    def formats(self) -> str:
+        """Media formats, e.g. "CD", "2xCD" (with a multiplication sign) or "CD + DVD"."""
+        counts = Counter(m.format or "(unknown format)" for m in self.release.media)
+        return " + ".join(f"{n}{TIMES}{f}" if n > 1 else f for f, n in counts.items())
+
+    @property
+    def sort_key(self) -> tuple:
+        return (-self.fits, self.off, self.unmatched, self.no_file, self.mean_ms)
+
+
+@dataclass(frozen=True)
+class GroupComparison:
+    release_group_id: str
+    fetched_at: str
+    release_count: int  # releases in the group (more than `fits` when the browse was cut off)
+    fits: tuple[ReleaseFit, ...]  # best fit first
+    tolerance_ms: int
+    files: int  # readable files compared
+
+    @property
+    def url(self) -> str:
+        return f"{MUSICBRAINZ_URL}/release-group/{self.release_group_id}"
+
+    @property
+    def tolerance_s(self) -> str:
+        return f"{self.tolerance_ms / 1000:g}"
+
+
+def compare_release_group(
+    store: Store, album: AlbumDetail, release_group_id: str, tolerance_ms: int
+) -> GroupComparison | None:
+    """Rank the cached releases of a release group by how well their track lengths fit the
+    album's files; None if the group hasn't been looked up."""
+    cached = store.mb_release_group(release_group_id)
+    if cached is None:
+        return None
+    data, fetched_at = cached
+    tagged = {r.id for r in album.releases}
+    files = album.readable
+    fits = sorted(
+        (
+            fit_release(MbRelease.from_json(r), files, tolerance_ms, r["id"].lower() in tagged)
+            for r in data.get("releases", ())
+        ),
+        key=lambda f: f.sort_key,
+    )
+    return GroupComparison(
+        release_group_id=release_group_id,
+        fetched_at=fetched_at,
+        release_count=int(data.get("release-count") or len(fits)),
+        fits=tuple(fits),
+        tolerance_ms=tolerance_ms,
+        files=len(files),
+    )
+
+
+def fit_release(
+    release: MbRelease, files: Sequence[TrackFile], tolerance_ms: int, tagged: bool = False
+) -> ReleaseFit:
+    """Match each file to one of the release's tracks (by release track MBID, else by
+    recording MBID when it's on the release once, else by disc and track number) and compare
+    lengths."""
+    recordings = Counter(t.recording_id for t in release.tracks)
+    by_recording = {t.recording_id: t for t in release.tracks if recordings[t.recording_id] == 1}
+    used: set[str] = set()
+    diffs: list[int] = []
+    unknown = unmatched = 0
+    for f in files:
+        candidates = (
+            release.track_by_id(f.tag("musicbrainz_releasetrackid")),
+            by_recording.get(f.tag("musicbrainz_trackid").lower()),
+            release.track_at(f.meta.disc_number, f.meta.track_number)
+            if f.meta.has_tag("tracknumber")
+            else None,
+        )
+        track = next((t for t in candidates if t is not None and t.id not in used), None)
+        if track is None:
+            unmatched += 1
+            continue
+        used.add(track.id)
+        if not track.length_ms or not f.meta.length_ms:
+            unknown += 1
+        else:
+            diffs.append(abs(f.meta.length_ms - track.length_ms))
+    return ReleaseFit(
+        release=release,
+        fits=sum(d <= tolerance_ms for d in diffs),
+        off=sum(d > tolerance_ms for d in diffs),
+        unknown=unknown,
+        unmatched=unmatched,
+        no_file=len(release.tracks) - len(used),
+        worst_ms=max(diffs, default=0),
+        mean_ms=sum(diffs) / len(diffs) if diffs else 0.0,
+        tagged=tagged,
     )
 
 

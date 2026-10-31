@@ -36,6 +36,7 @@ from fastapi.templating import Jinja2Templates
 
 from .. import __version__, library
 from ..checks import REGISTRY, Severity
+from ..checks.builtin_musicbrainz import DEFAULT_TOLERANCE_SECONDS
 from ..config import Settings
 from ..db import IssueFilter, Store
 from ..notify import Notifications, NotifyError
@@ -50,7 +51,7 @@ from ..renamer import (
 from . import auth
 from . import format as fmt
 from .bulk import BulkRenamer
-from .mbsync import MusicBrainzSync
+from .mbsync import LookupRefused, MusicBrainzSync
 from .runner import ScanRunner
 from .scheduler import ScanScheduler
 
@@ -337,6 +338,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         renamable = settings.fix_enabled and album.folder in store.rename_candidates(
             IssueFilter(path_prefix=album.folder)
         )
+        tolerance = duration_tolerance_ms()
         return render(
             request,
             "album.html",
@@ -344,7 +346,43 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             album=album,
             issues=issues,
             renamable=renamable,
+            groups=[
+                (g, library.compare_release_group(store, album, g, tolerance))
+                for g in album.release_group_ids
+            ],
         )
+
+    @app.post("/library/release-group", response_class=HTMLResponse)
+    async def release_group_lookup(request: Request, folder: str = "", id: str = "") -> Response:
+        """*Compare with other releases*: look up the release group's releases (unless
+        looked up minutes ago), then show how each fits the album's files."""
+        with Store(settings.database_path) as store:
+            album = library.album_detail(store, folder)
+        if album is None or id.lower() not in album.release_group_ids:
+            raise HTTPException(404, "No such album or release group.")
+        message, refused = "", False
+        try:
+            if not await asyncio.to_thread(mb_sync.lookup_release_group, id.lower()):
+                message = "Looked up a few minutes ago; showing that."
+        except LookupRefused as exc:
+            message, refused = str(exc), True
+        with Store(settings.database_path) as store:
+            comparison = library.compare_release_group(
+                store, album, id.lower(), duration_tolerance_ms()
+            )
+        return render(
+            request,
+            "_release_group.html",
+            album=album,
+            group_id=id.lower(),
+            comparison=comparison,
+            message=message,
+            refused=refused,
+        )
+
+    def duration_tolerance_ms() -> int:
+        options = settings.options_for("mb.duration")
+        return round(1000 * float(options.get("tolerance_seconds", DEFAULT_TOLERANCE_SECONDS)))
 
     @app.get("/scans", response_class=HTMLResponse)
     def scans(request: Request, store: StoreDep) -> HTMLResponse:

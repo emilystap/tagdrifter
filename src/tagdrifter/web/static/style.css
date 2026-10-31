@@ -372,8 +372,17 @@ details summary { cursor: pointer; }
 .track-tags { margin: 0; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .track-tags:last-child { border-bottom: 0; }
 .track-tags .table { margin-top: 6px; }
+.release-fits tr.fit-all td { background: var(--ok-bg); }
+.release-fits .badge { margin-left: 6px; }
+.release-group form { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.lookup-busy { display: none; }
+.release-group form.htmx-request .lookup-busy { display: inline; }
+.more-releases { margin-top: 8px; }
+.release-fits .nowrap { white-space: nowrap; }
+.release-fits .mobile-only { display: none; }
 .mobile-only { display: none; }
 @media (max-width: 760px) {
   .album-section .col-file { display: none; }
   .album-section .mobile-only { display: inline; }
+  .release-fits .mobile-only { display: block; }
 }
