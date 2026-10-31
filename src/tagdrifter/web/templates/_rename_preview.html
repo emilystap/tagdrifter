@@ -1,4 +1,5 @@
-{#- Rename preview for one album card, swapped into its .rename box. Expects `plan`, `writable`. -#}
+{#- Rename preview for one album card, swapped into its .rename box. Expects `plan`, `writable`;
+    with `bare` (an album expanded in a bulk preview), just the moves or problems. -#}
 <div class="rename-preview">
   {% if plan.problems %}
     <p class="rename-problem"><strong>Can’t rename this folder:</strong></p>
@@ -19,7 +20,8 @@
         </li>
       {% endfor %}
     </ul>
-    {% if not writable %}
+    {% if bare %}
+    {% elif not writable %}
       <p class="rename-problem small">The library is mounted read-only, so nothing can be renamed. Mount it read-write to apply this.</p>
     {% else %}
       <form class="rename-actions" hx-post="/rename/apply" hx-target="closest .rename" hx-swap="innerHTML">

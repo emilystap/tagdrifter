@@ -89,6 +89,14 @@ To turn it on:
 3. On the *Issues* page, album cards with proposed renames get a *Preview renames* button. It
    lists every move (folder, tracks, `.lrc`/`.txt` sidecars) and why an album can't be renamed,
    if it can't. *Rename* applies it, and a scan runs afterwards to update the issues.
+4. To rename many albums at once, tick their cards, or "all albums with renames matching these
+   filters" (filter by artist first to do one artist), then *Preview together*. Albums that
+   can't be renamed are listed with the reason and skipped; expand any album to see its moves.
+   *Rename N albums* runs in the background with progress and a *Stop* button (it finishes the
+   album in progress), then rescans once. Each album gets its own entry on the *Renames* page,
+   so you can undo one album without the others. From a shell:
+   `docker exec -it tagdrifter tagdrifter rename --artist "Pixies" --dry-run` lists the plan;
+   without `--dry-run` it asks before renaming. Avoid running it while the web UI is scanning.
 
 Safeguards: nothing is ever overwritten; each file must be unchanged since the last scan (size
 and modification time) or the album is refused until you scan again; renames stay inside the

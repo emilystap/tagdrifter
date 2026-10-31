@@ -4,7 +4,8 @@ Server-rendered Jinja templates; HTMX (vendored in static/) swaps partials for f
 paging and scan progress. Each request opens its own Store; scans run in a ScanRunner thread.
 Every POST is CSRF-checked, and with a password configured every page needs a login (auth.py).
 With `fix_enabled`, album cards offer a rename preview + apply, and /renames lists the
-journal with undo (renamer.py); scans are held off while files move. Notifications
+journal with undo (renamer.py); scans are held off while files move. Several albums can be
+selected and renamed together in the background (bulk.py). Notifications
 (notify.py) go out from the scan runner and for renames left half-done; the dashboard can
 send a test one. With `musicbrainz_enabled`, MusicBrainz lookups trickle in at random times
 in the background and run at once after a scan someone started (mbsync.py); the dashboard
@@ -37,9 +38,17 @@ from ..checks import REGISTRY, Severity
 from ..config import Settings
 from ..db import IssueFilter, Store
 from ..notify import Notifications, NotifyError
-from ..renamer import RenameError, apply_plan, library_writable, plan_album, undo_batch
+from ..renamer import (
+    RenameError,
+    apply_plan,
+    library_writable,
+    plan_album,
+    plan_albums,
+    undo_batch,
+)
 from . import auth
 from . import format as fmt
+from .bulk import BulkRenamer
 from .mbsync import MusicBrainzSync
 from .runner import ScanRunner
 from .scheduler import ScanScheduler
@@ -72,6 +81,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         runner.mb_sync.rescan = runner.rescan
     mb_sync = runner.mb_sync
     scheduler = ScanScheduler(runner, settings.scan_schedule)
+    bulk = BulkRenamer(settings, runner, notifications)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -91,6 +101,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     app.state.scheduler = scheduler
     app.state.auth = authenticator
     app.state.notifications = notifications
+    app.state.bulk = bulk
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
     @app.middleware("http")
@@ -132,6 +143,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "move_labels": fmt.move_labels,
         "notifications": notifications,
         "mb_sync": mb_sync,
+        "bulk": bulk,
     }
 
     def is_partial(request: Request, target: str) -> bool:
@@ -210,14 +222,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         view: str = "album",
         page: Annotated[int, Query(ge=1)] = 1,
     ) -> HTMLResponse:
-        filters = IssueFilter(
-            check_id=check or None,
-            severity=severity or None,
-            path_prefix=artist or None,
-            mbid_tagged={"yes": True, "no": False}.get(mbid),
-            text=q.strip() or None,
-            first_seen_scan=int(scan) if scan.isdigit() else None,
-        )
+        filters = _issue_filter(check, severity, artist, mbid, q, scan)
         view = "list" if view == "list" else "album"
         total = store.count_open_issues(filters)
         if view == "album":
@@ -267,6 +272,12 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             "page_url": page_url,
             "first_index": offset + 1 if entries else 0,
             "params": params,
+            # Albums matching the filters that "select all" would preview.
+            "candidates": (
+                len(store.rename_candidates(filters))
+                if settings.fix_enabled and view == "album"
+                else 0
+            ),
         }
         if is_partial(request, "results"):
             return render(request, "_issue_results.html", **context)
@@ -351,11 +362,18 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         return response
 
     @app.get("/rename/preview", response_class=HTMLResponse)
-    def rename_preview(request: Request, store: StoreDep, album: str) -> HTMLResponse:
+    def rename_preview(
+        request: Request, store: StoreDep, album: str, bare: bool = False
+    ) -> HTMLResponse:
+        """One album's preview; `bare`: just its moves (expanded in a bulk preview)."""
         require_fix()
         plan = plan_album(settings, store, album)
         return render(
-            request, "_rename_preview.html", plan=plan, writable=library_writable(settings)
+            request,
+            "_rename_preview.html",
+            plan=plan,
+            writable=library_writable(settings),
+            bare=bare,
         )
 
     @app.post("/rename/apply", response_class=HTMLResponse)
@@ -383,6 +401,62 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         return renamed(
             request, "_rename_result.html", album=album, result=result, error=None, partial=False
         )
+
+    @app.post("/rename/bulk/preview", response_class=HTMLResponse)
+    async def bulk_preview(request: Request) -> HTMLResponse:
+        """Preview the selected albums (`album` fields), or with `all`, every album matching
+        the issue filters (`f_<name>` fields) that has proposed renames."""
+        require_fix()
+        form = await _form_lists(request)
+
+        def plan():
+            with Store(settings.database_path) as store:
+                if _first(form, "all"):
+                    filters = _issue_filter(*(_first(form, f"f_{k}") for k in FILTER_FIELDS))
+                    albums = store.rename_candidates(filters)
+                else:
+                    albums = form.get("album", [])
+                return plan_albums(settings, store, albums)
+
+        plans = await asyncio.to_thread(plan)
+        return render(
+            request,
+            "_bulk_preview.html",
+            ok=[p for p in plans if p.ok],
+            refused=[p for p in plans if not p.ok],
+            writable=library_writable(settings),
+        )
+
+    @app.post("/rename/bulk/apply", response_class=HTMLResponse)
+    async def bulk_apply(request: Request) -> HTMLResponse:
+        """Start renaming the previewed plans (`plan` fields: "<fingerprint> <album>")."""
+        require_fix()
+        form = await _form_lists(request)
+        plans = [tuple(v.split(" ", 1)[::-1]) for v in form.get("plan", []) if " " in v]
+        error = None
+        if not plans:
+            error = "Nothing selected to rename."
+        else:
+            try:
+                bulk.start(plans)
+            except RuntimeError as exc:
+                error = str(exc)
+        return render(request, "_bulk_status.html", status=bulk.status(), error=error)
+
+    @app.get("/rename/bulk/status", response_class=HTMLResponse)
+    def bulk_status(request: Request, watching: bool = False) -> HTMLResponse:
+        require_fix()
+        status = bulk.status()
+        response = render(request, "_bulk_status.html", status=status, error=None)
+        if watching and not status.running:
+            response.headers["HX-Trigger"] = "scan-started"  # its rescan; show progress
+        return response
+
+    @app.post("/rename/bulk/stop", response_class=HTMLResponse)
+    def bulk_stop(request: Request) -> HTMLResponse:
+        require_fix()
+        bulk.stop()
+        return render(request, "_bulk_status.html", status=bulk.status(), error=None)
 
     @app.get("/renames", response_class=HTMLResponse)
     def renames(request: Request, store: StoreDep) -> HTMLResponse:
@@ -454,6 +528,32 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         )
 
     return app
+
+
+FILTER_FIELDS = ("check", "severity", "artist", "mbid", "q", "scan")
+
+
+def _issue_filter(
+    check: str, severity: str, artist: str, mbid: str, q: str, scan: str
+) -> IssueFilter:
+    """The /issues filters from their query parameters (empty = any)."""
+    return IssueFilter(
+        check_id=check or None,
+        severity=severity or None,
+        path_prefix=artist or None,
+        mbid_tagged={"yes": True, "no": False}.get(mbid),
+        text=q.strip() or None,
+        first_seen_scan=int(scan) if scan.isdigit() else None,
+    )
+
+
+async def _form_lists(request: Request) -> dict[str, list[str]]:
+    """A urlencoded form's fields with every value, in order (e.g. repeated checkboxes)."""
+    return parse_qs((await request.body()).decode(errors="replace"))
+
+
+def _first(form: dict[str, list[str]], name: str) -> str:
+    return form.get(name, [""])[0]
 
 
 async def _form(request: Request) -> dict[str, str]:

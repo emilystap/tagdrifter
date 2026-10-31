@@ -1,4 +1,5 @@
-"""Command line interface: `tagdrifter scan | issues | checks | scans | serve | hash-password`."""
+"""Command line interface: `tagdrifter scan | issues | rename | checks | scans | serve |
+hash-password`."""
 
 from __future__ import annotations
 
@@ -6,7 +7,9 @@ import argparse
 import json
 import logging
 import os
+import signal
 import sys
+import threading
 import time
 from collections import Counter
 from dataclasses import replace
@@ -15,7 +18,8 @@ from pathlib import Path
 from . import __version__
 from .checks import REGISTRY
 from .config import Settings, load_settings
-from .db import Store
+from .db import IssueFilter, Store
+from .renamer import apply_albums, library_writable, plan_albums
 from .scanner import ScanProgress, run_scan
 
 
@@ -190,6 +194,79 @@ def cmd_issues(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_rename(settings: Settings, args: argparse.Namespace) -> int:
+    """Preview, then apply, the proposed renames of many albums: the same plans as the web
+    UI's bulk rename, one journal batch per album (undo them on the Renames page)."""
+    with Store(settings.database_path) as store:
+        albums = args.album or store.rename_candidates(
+            IssueFilter(check_id=args.check, path_prefix=args.artist)
+        )
+        if not albums:
+            print("No albums with proposed renames match.")
+            return 0
+        print(f"Planning {len(albums):,} album{'s' * (len(albums) != 1)}…", file=sys.stderr)
+        plans = plan_albums(settings, store, albums)
+        ok = [p for p in plans if p.ok]
+        for plan in plans:
+            if not plan.ok:
+                print(f"skip  {plan.album}")
+                for problem in plan.problems:
+                    print(f"        {problem}")
+        for plan in ok:
+            folder = f" -> {plan.moves[0].dst}" if plan.moves[0].kind == "folder" else ""
+            n = plan.track_count
+            print(f"ok    {plan.album}{folder} ({n} track{'s' * (n != 1)})")
+            if args.dry_run:
+                for m in plan.moves:
+                    print(f"        {m.kind:<7} {m.src}\n                -> {m.dst}")
+        tracks = sum(p.track_count for p in ok)
+        print(
+            f"\n{len(ok):,} album{'s' * (len(ok) != 1)} to rename ({tracks:,} tracks), "
+            f"{len(plans) - len(ok):,} skipped."
+        )
+        if args.dry_run or not ok:
+            return 0
+        if not settings.fix_enabled:
+            print("error: renaming is off; set TAGDRIFTER_FIX=true or [fix] enabled = true.",
+                  file=sys.stderr)  # fmt: skip
+            return 2
+        if not library_writable(settings):
+            print(f"error: {settings.library_path} is read-only.", file=sys.stderr)
+            return 2
+        if not args.yes:
+            if not sys.stdin.isatty():
+                print("error: pass --yes to rename without a prompt.", file=sys.stderr)
+                return 2
+            if input("Rename them? [y/N] ").strip().lower() not in ("y", "yes"):
+                return 1
+        status = StatusLine()
+        stop = threading.Event()
+        previous = signal.signal(signal.SIGINT, lambda *_: stop.set())  # finish the album
+        try:
+            result = apply_albums(
+                settings,
+                store,
+                [(p.album, p.fingerprint) for p in ok],
+                progress=lambda done, total, album: status.update(
+                    f"Renaming {min(done + 1, total)}/{total} · {album}", force=True
+                ),
+                stop=stop,
+            )
+        finally:
+            signal.signal(signal.SIGINT, previous)
+            status.clear()
+        for album, why in result.failed:
+            print(f"failed  {album}: {why}", file=sys.stderr)
+        print(
+            f"Renamed {len(result.applied):,} album{'s' * (len(result.applied) != 1)} "
+            f"({result.moved:,} changes); {len(result.failed):,} failed, "
+            f"{len(result.skipped):,} not attempted."
+        )
+    if result.applied and not args.no_scan:
+        return cmd_scan(settings, argparse.Namespace(full=False)) or (1 if result.failed else 0)
+    return 1 if result.failed else 0
+
+
 def cmd_checks(settings: Settings, args: argparse.Namespace) -> int:
     width = max(len(c) for c in REGISTRY)
     for check_id, cls in sorted(REGISTRY.items()):
@@ -295,6 +372,25 @@ def build_parser() -> argparse.ArgumentParser:
     issues.add_argument("--limit", type=int, default=100, help="max rows (0 = all)")
     issues.add_argument("--json", action="store_true", help="machine-readable output")
     issues.set_defaults(func=cmd_issues)
+
+    rename = sub.add_parser(
+        "rename",
+        help="rename albums to their expected paths (bulk; needs [fix] enabled)",
+        description=(
+            "Rename albums with proposed renames (path.track_location) to their expected "
+            "paths, after showing the plan. Each album is planned and applied on its own and "
+            "journaled for undo in the web UI. Don't run it while the web UI is scanning."
+        ),
+    )
+    rename.add_argument("--artist", help="only albums under this artist folder")
+    rename.add_argument("--check", help="only albums with open issues of this check")
+    rename.add_argument(
+        "--album", action="append", help="this album folder (repeatable; overrides filters)"
+    )
+    rename.add_argument("--dry-run", action="store_true", help="show every move, change nothing")
+    rename.add_argument("--yes", "-y", action="store_true", help="don't ask for confirmation")
+    rename.add_argument("--no-scan", action="store_true", help="don't rescan afterwards")
+    rename.set_defaults(func=cmd_rename)
 
     checks = sub.add_parser("checks", help="list available checks")
     checks.set_defaults(func=cmd_checks)

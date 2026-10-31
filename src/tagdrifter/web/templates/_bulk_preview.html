@@ -1,0 +1,63 @@
+{#- Preview of several albums' renames, swapped into #bulk. Each album's moves load when it
+    is expanded. Expects `ok` and `refused` (RenamePlans) and `writable`. -#}
+<div class="panel bulk-preview">
+  {% if not ok and not refused %}
+    <p class="muted">No albums selected. Tick the albums to rename, or “all albums matching these filters”.</p>
+  {% endif %}
+  {% if ok %}
+    {% set tracks = ok | sum(attribute="track_count") %}
+    {% set folders = ok | selectattr("moves.0.kind", "equalto", "folder") | list | length %}
+    <h3 class="bulk-title">
+      {{ ok | length }} album{% if ok | length != 1 %}s{% endif %} ready to rename
+    </h3>
+    <p class="muted small">
+      {{ tracks }} track{% if tracks != 1 %}s{% endif %}{% if folders %}, {{ folders }} folder{% if folders != 1 %}s{% endif %} renamed{% endif %}.
+      Each album is renamed on its own and listed separately on the Renames page, where it can be
+      undone; one that fails is put back and skipped. Expand an album to see its changes.
+    </p>
+    <ul class="bulk-albums">
+      {% for p in ok %}
+        <li>
+          <details>
+            <summary hx-get="/rename/preview?bare=1&amp;album={{ p.album | urlencode }}" hx-target="next .bulk-moves" hx-trigger="click once">
+              <span class="path">{{ p.album }}</span>
+              <span class="muted small">
+                {% if p.moves[0].kind == "folder" %}→ <span class="path">{{ p.moves[0].dst }}</span> · {% endif %}
+                {{ p.track_count }} track{% if p.track_count != 1 %}s{% endif %}
+              </span>
+            </summary>
+            <div class="bulk-moves"></div>
+          </details>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if not writable %}
+      <p class="rename-problem small">The library is mounted read-only, so nothing can be renamed. Mount it read-write to apply this.</p>
+    {% else %}
+      <form class="rename-actions" hx-post="/rename/bulk/apply" hx-target="#bulk" hx-swap="innerHTML">
+        {% for p in ok %}<input type="hidden" name="plan" value="{{ p.fingerprint }} {{ p.album }}">{% endfor %}
+        <button type="submit" class="button primary">
+          Rename {{ ok | length }} album{% if ok | length != 1 %}s{% endif %}
+        </button>
+        <button type="button" class="button" onclick="this.closest('#bulk').innerHTML = ''">Cancel</button>
+        <span class="muted small">Scans wait until it’s done; one rescan follows.</span>
+      </form>
+    {% endif %}
+  {% endif %}
+  {% if refused %}
+    <details class="bulk-refused-list"{% if not ok %} open{% endif %}>
+      <summary>{{ refused | length }} album{% if refused | length != 1 %}s{% endif %} can’t be renamed{% if ok %} and will be skipped{% endif %}</summary>
+      <ul class="bulk-refused small">
+        {% for p in refused %}
+          <li>
+            <span class="path">{{ p.album }}</span>
+            {% for problem in p.problems %}<div class="rename-problem">{{ problem }}</div>{% endfor %}
+          </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% if not ok %}
+      <button type="button" class="button" onclick="this.closest('#bulk').innerHTML = ''">Close</button>
+    {% endif %}
+  {% endif %}
+</div>

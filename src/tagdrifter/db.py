@@ -429,6 +429,23 @@ class Store:
             f"SELECT COUNT(DISTINCT {GROUP_KEY}) FROM issues WHERE {where}", params
         ).fetchone()[0]
 
+    def rename_candidates(self, filters: IssueFilter | None = None) -> list[str]:
+        """Album folders matching `filters` that have proposed renames (open
+        path.track_location issues), all on MBID-tagged files: the albums whose cards offer
+        *Preview renames*. Ordered like the album cards."""
+        where, params = (filters or IssueFilter()).where()
+        return [
+            r[0]
+            for r in self.conn.execute(
+                "SELECT album FROM issues WHERE resolved_scan IS NULL"
+                " AND check_id = 'path.track_location' AND album IS NOT NULL"
+                f" AND album IN (SELECT {GROUP_KEY} FROM issues WHERE {where})"
+                " GROUP BY album HAVING SUM(CASE WHEN mbid_tagged = 0 THEN 1 ELSE 0 END) = 0"
+                " ORDER BY album COLLATE NOCASE, album",
+                params,
+            )
+        ]
+
     def open_issues_in_groups(
         self, keys: Sequence[str], filters: IssueFilter | None = None
     ) -> dict[str, list[IssueRow]]:
