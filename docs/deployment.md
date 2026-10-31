@@ -47,13 +47,34 @@ sudo -u apps find /mnt/POOL/media/music -maxdepth 2 | head
   `minute hour day month weekday`, e.g. `0 4 * * 1` for Mondays only, or `off`.
 - the published port (`8080:8080`) if 8080 is taken; Navidrome's default is 4533.
 
-The UI is then at `http://<truenas>:8080`. It has no login, so don't expose it beyond your LAN.
+The UI is then at `http://<truenas>:8080`. Don't expose it beyond your LAN.
 
 **Behind a reverse proxy** (Nginx Proxy Manager, Caddy, Traefik): proxy a hostname to
 `http://<truenas>:<port>`; plain HTTP to the container is fine, with HTTPS terminated at the
 proxy. The UI uses root-relative links, so it works over HTTPS without extra headers. It must
 be served at the root of its hostname (e.g. `https://tags.example.com/`), not under a path.
-Keep the proxy host LAN-only (e.g. an access list), since the UI has no login.
+Keep the proxy host LAN-only (e.g. an access list). If the proxy sends `X-Forwarded-Proto:
+https` (NPM does), the login cookie is marked HTTPS-only.
+
+## Optional: a login
+
+Without a password the UI has no login. To require one:
+
+1. Generate a hash. In the TrueNAS shell, with the app running (type the password twice):
+
+   ```bash
+   sudo docker exec -it tagdrifter tagdrifter hash-password
+   ```
+
+   It prints a line starting `scrypt:`. The password itself is never stored.
+2. Edit the app's YAML and add it under `environment`:
+   `TAGDRIFTER_PASSWORD_HASH: "scrypt:16384:8:1:..."` (the whole line, in quotes). The hash
+   contains no `$`, so compose won't try to expand it.
+3. Save. The app restarts and every page asks for the password; *Log out* is in the top bar.
+
+Sessions last 30 days and are signed with a key generated in `/data/secret_key`. Delete that
+file (or set `TAGDRIFTER_SECRET_KEY`) to log every browser out. `/healthz` never needs a login.
+To forget the password, remove the variable and restart.
 
 ## 5. First scan
 

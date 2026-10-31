@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in · Tag Drifter</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-body">
+  <main class="login">
+    <form class="panel login-panel" method="post" action="/login">
+      <h1 class="brand">Tag Drifter</h1>
+      <input type="hidden" name="next" value="{{ next }}">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password"
+             required autofocus {% if failed %}aria-invalid="true" aria-describedby="login-error"{% endif %}>
+      {% if failed %}<p id="login-error" class="login-error" role="alert">Wrong password.</p>{% endif %}
+      <button type="submit" class="button primary">Log in</button>
+    </form>
+  </main>
+</body>
+</html>

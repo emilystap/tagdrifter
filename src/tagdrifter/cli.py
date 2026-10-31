@@ -1,4 +1,4 @@
-"""Command line interface: `tagdrifter scan | issues | checks | scans | serve`."""
+"""Command line interface: `tagdrifter scan | issues | checks | scans | serve | hash-password`."""
 
 from __future__ import annotations
 
@@ -226,6 +226,30 @@ def cmd_serve(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_hash_password(settings: Settings, args: argparse.Namespace) -> int:
+    import getpass
+
+    from .web.auth import hash_password
+
+    if args.stdin:  # e.g. `echo -n secret | tagdrifter hash-password --stdin`
+        # Windows PowerShell 5.1 prefixes piped text with a byte-order mark.
+        password = sys.stdin.readline().rstrip("\r\n").removeprefix("﻿")
+    else:
+        password = getpass.getpass("Password: ")
+        if password != getpass.getpass("Again: "):
+            print("error: the passwords don't match", file=sys.stderr)
+            return 1
+    if len(password) < 8:
+        print("error: use at least 8 characters", file=sys.stderr)
+        return 1
+    print(hash_password(password))
+    print(
+        "Set this as TAGDRIFTER_PASSWORD_HASH (or [web] password_hash in config.toml).",
+        file=sys.stderr,
+    )
+    return 0
+
+
 def cmd_scans(settings: Settings, args: argparse.Namespace) -> int:
     with Store(settings.database_path) as store:
         rows = store.recent_scans(args.limit)
@@ -286,6 +310,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--log-level", default="info", choices=["critical", "error", "warning", "info", "debug"]
     )
     serve.set_defaults(func=cmd_serve)
+
+    hashpw = sub.add_parser("hash-password", help="print a password hash for the web UI login")
+    hashpw.add_argument("--stdin", action="store_true", help="read the password from stdin")
+    hashpw.set_defaults(func=cmd_hash_password)
     return parser
 
 

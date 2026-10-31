@@ -10,9 +10,9 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 > **A personal project, shared as-is.** Tag Drifter is built around one library's conventions:
 > FLAC files tagged with [Picard](https://picard.musicbrainz.org/) / MusicBrainz, on a
 > case-sensitive ZFS dataset served over SMB. The naming rules are opinionated and not
-> configurable yet. It only reports for now; it never changes your files. The web UI has no
-> login, so keep it on your LAN. AI relied on heavily during development - use at your
-> own peril.
+> configurable yet. It only reports for now; it never changes your files. The web UI's
+> login is optional and basic, so keep it on your LAN. AI relied on heavily during
+> development - use at your own peril.
 
 ## Status
 
@@ -23,7 +23,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
-| 5 | Album grouping ✅, login + CSRF protection, fix actions, Navidrome rescan, notifications | ⏳ |
+| 5 | Album grouping ✅, login + CSRF protection ✅, fix actions, Navidrome rescan, notifications | ⏳ |
 | 6 | MusicBrainz integration: checks against MusicBrainz, Picard-style retagging | — |
 
 ## Quick start (local)
@@ -66,8 +66,15 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   scheduled scan that comes due while another is running is skipped. The footer shows the
   next one.
 
-`GET /healthz` returns `{"status": "ok", ...}` for container health checks. The UI has no
-login; keep it on your LAN.
+- **Login (optional)**: set a password hash and every page needs a login; sessions last 30
+  days. Generate the hash with `tagdrifter hash-password` and set it as
+  `TAGDRIFTER_PASSWORD_HASH` or `[web] password_hash`. Without one, there's no login (rely on
+  your network or your proxy's authentication).
+- **CSRF protection** (always on): a POST is refused when the browser says it came from
+  another site, so a web page elsewhere can't act on the UI through your browser.
+
+`GET /healthz` returns `{"status": "ok", ...}` for container health checks and never needs a
+login. Keep the UI on your LAN either way.
 
 ## Docker / TrueNAS SCALE
 
