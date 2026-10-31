@@ -54,6 +54,9 @@ class Issue:
     # Set by the scanner: whether the subject's track (or every track of its album) has valid
     # release and recording MBIDs. None when that doesn't apply (artist/library scope).
     mbid_tagged: bool | None = None
+    # Set by the scanner: the album folder the issue belongs to (track and album scope), used
+    # to group issues per album. None for artist/library scope.
+    album: str | None = None
 
     @property
     def key(self) -> tuple[str, str]:

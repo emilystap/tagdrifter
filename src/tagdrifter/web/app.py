@@ -27,7 +27,8 @@ from .runner import ScanRunner
 from .scheduler import ScanScheduler
 
 HERE = Path(__file__).parent
-PAGE_SIZE = 100
+PAGE_SIZE = 100  # issues per page in the flat list
+GROUP_PAGE_SIZE = 50  # albums per page when grouped
 SEVERITY_ORDER = {Severity.ERROR: 0, Severity.WARNING: 1, Severity.INFO: 2}
 
 
@@ -147,6 +148,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         artist: str = "",
         mbid: str = "",
         q: str = "",
+        view: str = "album",
         page: Annotated[int, Query(ge=1)] = 1,
     ) -> HTMLResponse:
         filters = IssueFilter(
@@ -156,11 +158,38 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             mbid_tagged={"yes": True, "no": False}.get(mbid),
             text=q.strip() or None,
         )
+        view = "list" if view == "list" else "album"
         total = store.count_open_issues(filters)
-        pages = max(1, ceil(total / PAGE_SIZE))
+        if view == "album":
+            # One entry per album folder; the page size counts albums, not issues.
+            entries = store.count_open_issue_groups(filters)
+            page_size = GROUP_PAGE_SIZE
+        else:
+            entries, page_size = total, PAGE_SIZE
+        pages = max(1, ceil(entries / page_size))
         page = min(page, pages)
-        rows = store.open_issues(filters, limit=PAGE_SIZE, offset=(page - 1) * PAGE_SIZE)
-        params = {"check": check, "severity": severity, "artist": artist, "mbid": mbid, "q": q}
+        offset = (page - 1) * page_size
+        if view == "album":
+            groups = store.open_issue_groups(filters, limit=page_size, offset=offset)
+            by_key = store.open_issues_in_groups([g.key for g in groups], filters)
+            rows = [
+                {
+                    "group": g,
+                    "issues": by_key[g.key],
+                    "changes": fmt.album_changes(g.key, by_key[g.key]),
+                }
+                for g in groups
+            ]
+        else:
+            rows = store.open_issues(filters, limit=page_size, offset=offset)
+        params = {
+            "check": check,
+            "severity": severity,
+            "artist": artist,
+            "mbid": mbid,
+            "q": q,
+            "view": "" if view == "album" else view,
+        }
 
         def page_url(n: int) -> str:
             query = {k: v for k, v in params.items() if v} | ({"page": n} if n > 1 else {})
@@ -168,12 +197,14 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
 
         context = {
             "page": "issues",
+            "view": view,
             "rows": rows,
             "total": total,
+            "entries": entries,
             "page_no": page,
             "pages": pages,
             "page_url": page_url,
-            "first_index": (page - 1) * PAGE_SIZE + 1 if total else 0,
+            "first_index": offset + 1 if entries else 0,
             "params": params,
         }
         if is_partial(request, "results"):

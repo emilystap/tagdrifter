@@ -59,6 +59,12 @@ MIGRATIONS: list[str] = [
     """
     ALTER TABLE issues ADD COLUMN mbid_tagged INTEGER;
     """,
+    # 3: the album folder an issue belongs to (NULL for artist/library scope, and for issues
+    # recorded before this migration until the next scan updates them)
+    """
+    ALTER TABLE issues ADD COLUMN album TEXT;
+    CREATE INDEX issues_album ON issues(album);
+    """,
 ]
 
 
@@ -86,6 +92,18 @@ class IssueRow:
     last_seen_scan: int
     resolved_scan: int | None
     mbid_tagged: bool | None
+    album: str | None
+
+
+@dataclass(frozen=True)
+class IssueGroup:
+    """Open issues of one album folder (or, without one, of one subject)."""
+
+    key: str  # the album folder, else the subject
+    count: int
+    worst_severity: str
+    checks: dict[str, int]  # check id -> issues
+    untagged: int  # issues on files without valid MBIDs
 
 
 def _like_escape(text: str) -> str:
@@ -125,6 +143,26 @@ class IssueFilter:
             pattern = f"%{_like_escape(self.text)}%"
             params += [pattern, pattern]
         return sql, params
+
+
+# Issues group by album folder; issues without one (artist/library scope) stand alone.
+GROUP_KEY = "COALESCE(album, subject)"
+
+
+def _issue_row(r: sqlite3.Row) -> IssueRow:
+    return IssueRow(
+        id=r["id"],
+        check_id=r["check_id"],
+        subject=r["subject"],
+        severity=r["severity"],
+        message=r["message"],
+        details=json.loads(r["details_json"]),
+        first_seen_scan=r["first_seen_scan"],
+        last_seen_scan=r["last_seen_scan"],
+        resolved_scan=r["resolved_scan"],
+        mbid_tagged=None if r["mbid_tagged"] is None else bool(r["mbid_tagged"]),
+        album=r["album"],
+    )
 
 
 class Store:
@@ -257,21 +295,22 @@ class Store:
                     issue.message,
                     json.dumps(issue.details, ensure_ascii=False, default=str),
                     issue.mbid_tagged,
+                    issue.album,
                     scan_id,
                 )
                 if key in existing:
                     self.conn.execute(
                         "UPDATE issues SET severity=?, message=?, details_json=?, mbid_tagged=?,"
-                        " last_seen_scan=? WHERE id=?",
+                        " album=?, last_seen_scan=? WHERE id=?",
                         (*params, existing[key]),
                     )
                 else:
                     new += 1
                     self.conn.execute(
                         "INSERT INTO issues (check_id, subject, severity, message, details_json,"
-                        " mbid_tagged, first_seen_scan, last_seen_scan)"
-                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        (issue.check_id, issue.subject, *params[:4], scan_id, scan_id),
+                        " mbid_tagged, album, first_seen_scan, last_seen_scan)"
+                        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        (issue.check_id, issue.subject, *params[:5], scan_id, scan_id),
                     )
             gone = [issue_id for key, issue_id in existing.items() if key not in current]
             self.conn.executemany(
@@ -294,21 +333,62 @@ class Store:
         if limit:
             sql += " LIMIT ? OFFSET ?"
             params += [limit, offset]
-        return [
-            IssueRow(
-                id=r["id"],
-                check_id=r["check_id"],
-                subject=r["subject"],
-                severity=r["severity"],
-                message=r["message"],
-                details=json.loads(r["details_json"]),
-                first_seen_scan=r["first_seen_scan"],
-                last_seen_scan=r["last_seen_scan"],
-                resolved_scan=r["resolved_scan"],
-                mbid_tagged=None if r["mbid_tagged"] is None else bool(r["mbid_tagged"]),
+        return [_issue_row(r) for r in self.conn.execute(sql, params)]
+
+    def open_issue_groups(
+        self, filters: IssueFilter | None = None, *, limit: int | None = None, offset: int = 0
+    ) -> list[IssueGroup]:
+        """Open issues grouped by album folder, ordered by folder name (case-insensitive)."""
+        where, params = (filters or IssueFilter()).where()
+        sql = (
+            f"SELECT {GROUP_KEY} AS grp, COUNT(*) AS n,"
+            " MIN(CASE severity WHEN 'error' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END) AS sev,"
+            " SUM(CASE WHEN mbid_tagged = 0 THEN 1 ELSE 0 END) AS untagged,"
+            " group_concat(check_id, char(31)) AS checks"
+            f" FROM issues WHERE {where} GROUP BY grp ORDER BY grp COLLATE NOCASE, grp"
+        )
+        if limit:
+            sql += " LIMIT ? OFFSET ?"
+            params += [limit, offset]
+        groups = []
+        for r in self.conn.execute(sql, params):
+            checks: dict[str, int] = {}
+            for check_id in sorted(r["checks"].split(chr(31))):
+                checks[check_id] = checks.get(check_id, 0) + 1
+            groups.append(
+                IssueGroup(
+                    key=r["grp"],
+                    count=r["n"],
+                    worst_severity=("error", "warning", "info")[r["sev"]],
+                    checks=checks,
+                    untagged=r["untagged"],
+                )
             )
-            for r in self.conn.execute(sql, params)
-        ]
+        return groups
+
+    def count_open_issue_groups(self, filters: IssueFilter | None = None) -> int:
+        where, params = (filters or IssueFilter()).where()
+        return self.conn.execute(
+            f"SELECT COUNT(DISTINCT {GROUP_KEY}) FROM issues WHERE {where}", params
+        ).fetchone()[0]
+
+    def open_issues_in_groups(
+        self, keys: Sequence[str], filters: IssueFilter | None = None
+    ) -> dict[str, list[IssueRow]]:
+        """The open issues (matching `filters`) of the given groups, by group key."""
+        if not keys:
+            return {}
+        where, params = (filters or IssueFilter()).where()
+        marks = ",".join("?" * len(keys))
+        rows = self.conn.execute(
+            f"SELECT * FROM issues WHERE {where} AND {GROUP_KEY} IN ({marks})"
+            " ORDER BY check_id, subject",
+            [*params, *keys],
+        )
+        out: dict[str, list[IssueRow]] = {key: [] for key in keys}
+        for r in rows:
+            out[r["album"] or r["subject"]].append(_issue_row(r))
+        return out
 
     def count_open_issues(self, filters: IssueFilter | None = None, **filter_kwargs: Any) -> int:
         where, params = (filters or IssueFilter(**filter_kwargs)).where()

@@ -1,17 +1,19 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from tagdrifter.db import Store
+from tagdrifter.db import IssueFilter, Store
 from tagdrifter.web import ScanRunner, create_app
 from tagdrifter.web.format import diff_marks, expected_location
 
-from .conftest import scan, settings_for
+from .conftest import build_flac, good_tags, scan, settings_for
 
 HX = {"HX-Request": "true"}
 
 
 def results(client, **params) -> str:
-    """The issue list partial (what the filter form swaps in), whitespace collapsed."""
+    """The issue list partial (what the filter form swaps in), whitespace collapsed.
+    Defaults to the flat list (view=list); pass view="album" for the grouped view."""
+    params.setdefault("view", "list")
     response = client.get("/issues", params=params, headers=HX | {"HX-Target": "results"})
     assert response.status_code == 200
     return " ".join(response.text.split())
@@ -83,7 +85,7 @@ def test_paging(client, settings, monkeypatch) -> None:
     scan(settings)
     with TestClient(web_app.create_app(settings)) as c:
         first = results(c)
-        assert "Page 1 of 3" in first and "/issues?page=2" in first
+        assert "Page 1 of 3" in first and "/issues?view=list&amp;page=2" in first
         last = results(c, page=99)
         assert "Page 3 of 3" in last and "7–7 of 7" in last
 
@@ -246,3 +248,48 @@ def test_asset_urls_work_behind_a_tls_proxy(client) -> None:
     page = client.get("/", headers={"Host": "tags.example.com", "X-Forwarded-Proto": "https"}).text
     assert 'href="/static/style.css"' in page and 'src="/static/htmx.min.js"' in page
     assert "http://" not in page
+
+
+def test_issues_grouped_by_album(client, settings) -> None:
+    scan(settings)
+    grouped = results(client, view="album")
+    # Doolittle (track + album issues), Hits (placement) and the loose file (library scope).
+    assert "1–3 of 3 albums · 7 issues" in grouped
+    assert grouped.index("Pixies/Doolittle") < grouped.index("Pixies/Hits")
+    assert "path.track_location" in grouped and "file.unreadable" in grouped
+    assert "1 filename changes" in grouped  # 02 Tame.flac -> Pixies_Doolittle_02_Tame.flac
+    assert "no MBIDs" in grouped  # 02 Tame has a malformed recording MBID
+    # The default view is grouped; filters still apply.
+    assert "3 albums" in " ".join(client.get("/issues").text.split())
+    assert "1–1 of 1 album · 1 issue" in results(client, view="album", check="album.placement")
+
+
+def test_grouped_view_shows_album_folder_rename(tmp_path) -> None:
+    lib = tmp_path / "music"
+    for n in (1, 2):
+        tags = good_tags(TITLE=f"T{n}", TRACKNUMBER=str(n), ALBUM="Surfer Rosa")
+        build_flac(lib / f"Pixies/Surfer Rosa Old/Pixies_Surfer Rosa_0{n}_T{n}.flac", tags)
+    settings = settings_for(lib, tmp_path)
+    scan(settings)
+    with TestClient(create_app(settings)) as c:
+        grouped = results(c, view="album")
+    assert "1–1 of 1 album · 2 issues" in grouped
+    assert "<dt>Folder</dt>" in grouped and "Surfer Rosa<mark> Old</mark>" in grouped
+    assert "filename change" not in grouped  # only the folder differs
+
+
+def test_group_store_queries(settings) -> None:
+    scan(settings)
+    with Store(settings.database_path) as store:
+        groups = store.open_issue_groups()
+        assert [g.key for g in groups] == ["loose.flac", "Pixies/Doolittle", "Pixies/Hits"]
+        doolittle = groups[1]
+        assert doolittle.count == 5 and doolittle.worst_severity == "error"
+        assert doolittle.checks["path.track_location"] == 1 and doolittle.untagged == 5
+        assert store.count_open_issue_groups() == 3
+        assert store.count_open_issue_groups(IssueFilter(check_id="tags.required")) == 1
+        issues = store.open_issues_in_groups(["Pixies/Hits"])
+        assert [i.check_id for i in issues["Pixies/Hits"]] == ["album.placement"]
+        assert all(
+            i.album == "Pixies/Doolittle" for i in store.open_issues(path_prefix="Pixies/Doolittle")
+        )

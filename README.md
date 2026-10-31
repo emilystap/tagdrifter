@@ -23,7 +23,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
-| 5 | Fix actions, Navidrome rescan, notifications | — |
+| 5 | Album grouping ✅, login + CSRF protection, fix actions, Navidrome rescan, notifications | ⏳ |
 | 6 | MusicBrainz integration: checks against MusicBrainz, Picard-style retagging | — |
 
 ## Quick start (local)
@@ -52,9 +52,12 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
 
 - **Dashboard**: open issues by severity and by check, how many are on MBID-tagged (trusted)
   files, library size, the last scan, and the artists with the most issues.
-- **Issues**: filter by check, severity, artist, MBID status, or a search over paths and
-  messages. Proposed renames show the current and expected path with the differing characters
-  highlighted. Filtered views have their own URL, so they can be bookmarked.
+- **Issues**: grouped by album folder by default, one card per album with its checks, the
+  proposed folder rename and how many filenames change; expand a card for its individual
+  issues, or switch *Show* to *Every issue* for a flat list. Filter by check, severity, artist,
+  MBID status, or a search over paths and messages. Proposed renames show the current and
+  expected path with the differing characters highlighted. Filtered views have their own URL,
+  so they can be bookmarked.
 - **Scans**: scan history with files read and issues opened/resolved.
 - **Scan now** (top bar, every page): runs a scan in the background with live progress; the page
   refreshes its counts when it finishes. Only one scan runs at a time.

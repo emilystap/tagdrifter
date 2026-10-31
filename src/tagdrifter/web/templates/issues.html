@@ -39,6 +39,13 @@
       <option value="no" {% if params.mbid == "no" %}selected{% endif %}>Not MBID-tagged</option>
     </select>
   </label>
+  <label>
+    <span>Show</span>
+    <select name="view">
+      <option value="album" {% if view == "album" %}selected{% endif %}>By album</option>
+      <option value="list" {% if view == "list" %}selected{% endif %}>Every issue</option>
+    </select>
+  </label>
   <label class="grow">
     <span>Search path or message</span>
     <input type="search" name="q" value="{{ params.q }}" placeholder="e.g. Born This Way" autocomplete="off">
