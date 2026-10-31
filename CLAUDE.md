@@ -167,8 +167,8 @@ present, are in the git-ignored `CLAUDE.local.md`.
        the artist's standard name or its `en` alias (e.g. 新しい学校のリーダーズ tagged as
        "ATARASHII GAKKO!"). Album and track titles compare exactly with MusicBrainz, but also
        accept the English translation MusicBrainz offers for the release: the owner's
-       ATARASHII GAKKO! albums are tagged and filed as e.g. "マエナラワナイ (Maenarawanai)",
-       the translation shown on the release page. Before writing `mb.album` /
+       ATARASHII GAKKO! albums are tagged and filed to match the translation shown on the
+       release page; e.g. "マエナラワナイ" becomes "Maenarawanai". Before writing `mb.album` /
        `mb.track_title`, find where that comes from in the API (likely a linked
        transliteration/translation pseudo-release, `inc=release-rels`) and how Picard 3
        builds the tag from it. Spanish and German titles aren't translated (no English
