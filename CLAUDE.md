@@ -163,9 +163,14 @@ present, are in the git-ignored `CLAUDE.local.md`.
        first error and keeping what it fetched.
      - Cache: `mb_releases` (migration 5), the raw response zlib-compressed (3-11 KB each),
        NULL data = not found. `Store.mb_releases_due` / `mb_releases` / `mb_cache_counts`.
-     - `web/mbsync.py` `MusicBrainzSync`: `ScanRunner` calls `after_scan` when a scan
-       finishes; after a *scheduled* scan it waits a random 1-30 min (MusicBrainz asks
-       background jobs not to fire at fixed times). A run that stopped on an error pauses
+     - `web/mbsync.py` `MusicBrainzSync`. MusicBrainz asks background jobs not to wake at a
+       set time of day but to spread calls through it, so lookups never follow the scan
+       schedule: a background trickle (started in the app lifespan) wakes at random
+       intervals (`TRICKLE_INTERVAL` 30-150 min, drawn each time) and looks up
+       `TRICKLE_BATCH` (5) due releases. `ScanRunner` calls `after_scan` when a scan
+       finishes: after a scan someone started, everything due is looked up at once; after a
+       *scheduled* scan, nothing (left to the trickle). One run at a time (`_claim`). A run
+       that stopped on an error pauses
        lookups for an hour, or the Retry-After if longer (`paused_until`, in memory), so
        repeated scans during an outage don't keep poking the API. If anything changed it
        rescans so the issues show up. Dashboard panel (`_mb_status.html`, polls while running).

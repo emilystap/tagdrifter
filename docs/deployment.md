@@ -141,9 +141,15 @@ MusicBrainz is a small non-profit, so Tag Drifter is careful with its API:
 
 - **One request per release**, at most **one request a second**, identified with a
   User-Agent that links to this project (and to you, if you set a contact; see below).
-- Lookups happen **after a scan**, for releases not looked up yet; each is cached and only
-  looked up again after a random 45-75 days, so refreshes trickle in. After a *scheduled*
-  scan they start a random 1-30 minutes later instead of on the hour.
+- Each release is cached and only looked up again after a random 45-75 days, so
+  refreshes trickle in rather than coming due together.
+- **No set time of day.** MusicBrainz asks background jobs not to wake at, say, 03:00 (with
+  many installs, that's a peak at the top of every hour somewhere) but to spread calls
+  through the day. So background lookups (releases new to the library, and refreshes) don't
+  follow the scan schedule: a worker wakes at random intervals of 30-150 minutes and looks up
+  up to 5 releases each time. A scheduled scan never triggers lookups itself.
+- After a scan **you** start (*Scan now*), everything due is looked up at once, since you're
+  waiting for the result.
 - If MusicBrainz answers "slow down" (503), Tag Drifter waits (at least as long as its
   `Retry-After` header asks), retries twice, then stops. After a run stops on any error,
   lookups pause for an hour (or longer, if MusicBrainz asked), however many scans start
@@ -155,10 +161,11 @@ always links to this project; to add your own address (recommended, so MusicBrai
 `TAGDRIFTER_MUSICBRAINZ_CONTACT: "you@example.com"`. It is sent only to MusicBrainz, in the
 User-Agent header: `TagDrifter/0.1.0 ( you@example.com ; https://github.com/emilystap/tagdrifter )`.
 
-The first time, looking up ~600 releases takes about 25 minutes in the background (the
-dashboard's *MusicBrainz* panel shows progress); Tag Drifter rescans when it's done, so the
-issues appear without waiting for the next scheduled scan. After that, a scan only looks up
-releases that are new to the library or due for a refresh.
+For the first full lookup, press *Scan now* once lookups are on: ~600 releases take about 25
+minutes (the dashboard's *MusicBrainz* panel shows progress), and Tag Drifter rescans when
+it's done so the issues appear right away. Left to the background lookups alone, the first
+pass would take several days. After that, the background lookups keep up with new releases
+and refreshes (about 20 a day for ~600 releases) and rescan whenever they fetched something.
 
 Upgrading to this version re-reads every file once (to record its audio length), so the
 first scan after updating takes about as long as the very first one.
