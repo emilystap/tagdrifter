@@ -128,7 +128,8 @@ present, are in the git-ignored `CLAUDE.local.md`.
        fuzzy artist + title matching.
      - `tags.mbids` (warning): other MBID tags missing (release, release group, release
        track, artist, album artist). Not `musicbrainz_workid` (track relationships are off in
-       the owner's Picard, so it's never written).
+       the owner's Picard, so it's never written). Standalone recordings (a recording MBID but
+       no release MBID) are flagged too, deliberately: the owner wants them listed.
      - `tags.naming` (warning): tags the path rules use (album artist, album, title, track /
        disc numbers, date); the message names the path part that falls back.
      - `tags.required`: kept for extra user-chosen tags; default empty.
@@ -162,10 +163,12 @@ present, are in the git-ignored `CLAUDE.local.md`.
      - Comparison rules follow the owner's Picard 3 settings (personal tool; don't generalize
        yet): no ASCII punctuation conversion (compare exactly, case-sensitive); artist names
        standardized for *variations only*, and artist, album and track names translated to
-       the `en` locale when available. So a tag value matches if it equals the credited
-       name, the artist's standard name or its `en` alias (artists), or the MusicBrainz title
-       or its English translation (albums, tracks). How Picard 3 translates titles has to be
-       confirmed before writing `mb.album` / `mb.track_title`.
+       the `en` locale when available. Artist names match if they equal the credited name,
+       the artist's standard name or its `en` alias (e.g. 新しい学校のリーダーズ tagged as
+       "ATARASHII GAKKO!"). Album and track titles compare exactly with MusicBrainz: the
+       owner's non-English titles (Spanish, German) aren't translated by Picard, and
+       non-Latin-script titles are rare. Add translation handling only if real false positives
+       show up.
    - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
 
 ## Source of truth
