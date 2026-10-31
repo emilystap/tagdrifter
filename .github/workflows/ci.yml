@@ -9,7 +9,24 @@ permissions:
   contents: read
 
 jobs:
+  # Docs-only changes skip the tests. A job skipped by its `if` still reports its check (as
+  # skipped, which counts as passing), so the required `test` check never blocks a merge.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.check.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: check
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: echo "code=$(bash .github/scripts/code-changed.sh "$BASE")" | tee -a "$GITHUB_OUTPUT"
+
   test:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
