@@ -23,7 +23,10 @@ from tagdrifter.musicbrainz import (
     MusicBrainzError,
     RateLimiter,
     ReleaseNotFound,
+    SyncResult,
+    retry_after_seconds,
     sync_releases,
+    user_agent,
 )
 from tagdrifter.web import ScanRunner, create_app
 from tagdrifter.web.mbsync import MusicBrainzSync
@@ -71,9 +74,10 @@ class FakeOpener:
 
     def __call__(self, request, timeout):
         self.requests.append(request)
-        status, body = self.answers.pop(0)
+        status, body, *headers = self.answers.pop(0)
         if status != 200:
-            raise urllib.error.HTTPError(request.full_url, status, "x", {}, io.BytesIO(b""))
+            hdrs = headers[0] if headers else {}
+            raise urllib.error.HTTPError(request.full_url, status, "x", hdrs, io.BytesIO(b""))
         return FakeResponse(json.dumps(body).encode())
 
 
@@ -366,3 +370,106 @@ def test_dashboard_panel(library, tmp_path) -> None:
 def test_tests_cannot_reach_musicbrainz() -> None:
     with pytest.raises(AssertionError, match="test tried to call MusicBrainz"):
         MusicBrainzClient(limiter=RateLimiter(0)).release(MAENARAWANAI)
+
+
+# --- Politeness: Retry-After, cooldown, contact -------------------------------------------
+
+
+def test_retry_after_parsing() -> None:
+    now = datetime(2026, 11, 1, 12, 0, tzinfo=UTC)
+    assert retry_after_seconds({"Retry-After": "120"}) == 120
+    assert retry_after_seconds({"Retry-After": "Sun, 01 Nov 2026 12:05:00 GMT"}, now) == 300
+    assert retry_after_seconds({"Retry-After": "Sun, 01 Nov 2026 11:00:00 GMT"}, now) == 0
+    assert retry_after_seconds({"Retry-After": "soon"}) is None
+    assert retry_after_seconds({}) is None
+
+
+def test_503_waits_at_least_retry_after() -> None:
+    clock = FakeClock()
+    client, _ = client_with((503, None, {"Retry-After": "40"}), (200, {"id": "ok"}), clock=clock)
+    assert client.release(MAENARAWANAI) == {"id": "ok"}
+    assert clock.slept == [40.0]  # longer than the 15 s backoff, so MusicBrainz's wait wins
+
+
+def test_long_retry_after_ends_the_run_at_once() -> None:
+    clock = FakeClock()
+    client, opener = client_with((503, None, {"Retry-After": "3600"}), clock=clock)
+    with pytest.raises(MusicBrainzError, match="retry after 3600s") as exc:
+        client.release(MAENARAWANAI)
+    assert exc.value.retry_after == 3600 and len(opener.requests) == 1
+    assert client.limiter._next >= clock.now + 3600  # nothing else goes out before then
+
+
+class Clock:
+    def __init__(self) -> None:
+        self.now = 1_000_000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def failing_sync(tmp_path, library, *answers):
+    settings = settings_for(library, tmp_path, musicbrainz_enabled=True)
+    scan(settings)
+    client, opener = client_with(*answers)
+    clock = Clock()
+    sync = MusicBrainzSync(settings, client, scheduled_delay=(0, 0), clock=clock)
+    return sync, opener, clock
+
+
+def test_failed_run_pauses_lookups_for_an_hour(library, tmp_path) -> None:
+    sync, opener, clock = failing_sync(tmp_path, library, (500, None))
+    assert sync.after_scan()
+    sync.wait(10)
+    assert "500" in sync.status().last.error
+    assert sync.status().paused_until == clock.now + 3600
+    assert not sync.after_scan()  # however many scans start meanwhile
+    clock.now += 3599
+    assert not sync.after_scan()
+    assert len(opener.requests) == 1
+    clock.now += 2
+    assert sync.status().paused_until is None
+    opener.answers.append((200, {"id": "x", "media": []}))
+    assert sync.after_scan()
+    sync.wait(10)
+    assert len(opener.requests) == 2
+
+
+def test_retry_after_longer_than_an_hour_is_respected(library, tmp_path) -> None:
+    sync, _, clock = failing_sync(tmp_path, library, (503, None, {"Retry-After": "7200"}))
+    sync.client.limiter = RateLimiter(0)  # don't actually wait in the test
+    assert sync.after_scan()
+    sync.wait(10)
+    assert sync.status().paused_until == clock.now + 7200
+
+
+def test_successful_run_does_not_pause(library, tmp_path) -> None:
+    sync, _, _ = failing_sync(tmp_path, library, (200, {"id": "x", "media": []}))
+    assert sync.after_scan()
+    sync.wait(10)
+    assert sync.status().paused_until is None and sync.status().last == SyncResult(1, 1)
+
+
+def test_user_agent_contact() -> None:
+    assert user_agent() == USER_AGENT
+    assert user_agent("me@example.com").endswith(
+        "( me@example.com ; https://github.com/emilystap/tagdrifter )"
+    )
+    client, opener = client_with((200, {"id": "x"}))
+    client = MusicBrainzClient(limiter=client.limiter, opener=opener, contact=" me@example.com ")
+    client.release(MAENARAWANAI)
+    assert opener.requests[0].get_header("User-agent") == user_agent("me@example.com")
+    for bad in ("me@example.com" + chr(13) + chr(10) + "X-Evil: 1", "(me)", "x" * 201):
+        with pytest.raises(ValueError, match="musicbrainz_contact"):
+            MusicBrainzClient(contact=bad)
+
+
+def test_contact_setting(tmp_path) -> None:
+    cfg = tmp_path / "config.toml"
+    cfg.write_text('[musicbrainz]\ncontact = "a@example.com"\n', encoding="utf-8")
+    assert load_settings(cfg, env={}).musicbrainz_contact == "a@example.com"
+    env = {"TAGDRIFTER_MUSICBRAINZ_CONTACT": "b@example.com"}
+    settings = load_settings(cfg, env=env)
+    assert MusicBrainzSync(settings).client.user_agent == user_agent("b@example.com")
+    with pytest.raises(ValueError):
+        create_app(Settings(musicbrainz_contact="bad\nvalue"))

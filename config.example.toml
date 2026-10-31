@@ -2,7 +2,7 @@
 # Environment variables override these: TAGDRIFTER_LIBRARY, TAGDRIFTER_DB,
 # TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_SCHEDULE, TAGDRIFTER_FIX,
 # TAGDRIFTER_PUBLIC_URL, TAGDRIFTER_GOTIFY_URL, TAGDRIFTER_GOTIFY_TOKEN, TAGDRIFTER_NOTIFY_ON,
-# TAGDRIFTER_MUSICBRAINZ, TAGDRIFTER_CONFIG.
+# TAGDRIFTER_MUSICBRAINZ, TAGDRIFTER_MUSICBRAINZ_CONTACT, TAGDRIFTER_CONFIG.
 
 [library]
 path = "M:/music"            # in Docker this will be "/music"
@@ -47,6 +47,10 @@ on = ["new_issues", "failures"]
 # Look up each release on MusicBrainz after scans (one request per release, at most one a
 # second, cached for 45-75 days) for the mb.* checks. Env: TAGDRIFTER_MUSICBRAINZ.
 enabled = false
+# How MusicBrainz can reach you (an email address or URL), added to the User-Agent next to
+# the project URL. Optional, but MusicBrainz asks for a contact. Env:
+# TAGDRIFTER_MUSICBRAINZ_CONTACT.
+# contact = "you@example.com"
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

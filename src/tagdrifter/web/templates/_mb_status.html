@@ -15,7 +15,11 @@
       {% endif %}
     </p>
     {% if mb_status.last and mb_status.last.error and not mb_status.running %}
-      <p class="rename-problem small">Last lookups stopped: {{ mb_status.last.error }}. They resume after the next scan.</p>
+      <p class="rename-problem small">
+        Last lookups stopped: {{ mb_status.last.error }}.
+        {% if mb_status.paused_until %}Paused until {{ mb_status.paused_until_time | timestamp }}; then they resume after the next scan.
+        {% else %}They resume after the next scan.{% endif %}
+      </p>
     {% endif %}
   {% endif %}
 </div>

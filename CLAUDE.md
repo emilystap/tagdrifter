@@ -154,16 +154,21 @@ present, are in the git-ignored `CLAUDE.local.md`.
        `/ws/2/release/<mbid>?inc=recordings+artist-credits+release-groups+aliases&fmt=json`,
        which already carries everything 6b-2 needs (release, recording and artist aliases),
        so adding checks never needs a refetch. Process-wide `RateLimiter` (≥1.1 s between
-       requests), User-Agent with the repo URL, gzip; a 503 backs off 15 s and 60 s, then
-       ends the run. `sync_releases` fetches releases missing from the cache first, then
+       requests), gzip; User-Agent `TagDrifter/<ver> ( <contact> ; <repo URL> )`, where the
+       optional `musicbrainz_contact` / `TAGDRIFTER_MUSICBRAINZ_CONTACT` is the operator's
+       address (validated: one line, no parentheses). A 503 backs off 15 s and 60 s, or the
+       `Retry-After` if longer; a Retry-After over 5 min ends the run at once. Then the run
+       ends (`MusicBrainzError.retry_after`). `sync_releases` fetches releases missing from the cache first, then
        refreshes due (`refresh_after`: random 45-75 days; not found: 30-60), stopping at the
        first error and keeping what it fetched.
      - Cache: `mb_releases` (migration 5), the raw response zlib-compressed (3-11 KB each),
        NULL data = not found. `Store.mb_releases_due` / `mb_releases` / `mb_cache_counts`.
      - `web/mbsync.py` `MusicBrainzSync`: `ScanRunner` calls `after_scan` when a scan
        finishes; after a *scheduled* scan it waits a random 1-30 min (MusicBrainz asks
-       background jobs not to fire at fixed times). If anything changed it rescans so the
-       issues show up. Dashboard panel (`_mb_status.html`, polls while running).
+       background jobs not to fire at fixed times). A run that stopped on an error pauses
+       lookups for an hour, or the Retry-After if longer (`paused_until`, in memory), so
+       repeated scans during an outage don't keep poking the API. If anything changed it
+       rescans so the issues show up. Dashboard panel (`_mb_status.html`, polls while running).
      - Checks only read the cache: the scanner parses it into `core/mbrelease.py`
        `MbRelease` objects (`AlbumContext.releases`, keyed by lower-case release MBID; a
        release not looked up yet is absent and skipped). `checks/builtin_musicbrainz.py`,

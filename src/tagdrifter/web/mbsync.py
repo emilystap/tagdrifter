@@ -3,8 +3,10 @@
 After every finished scan, releases that are new to the library or due for a refresh are
 looked up (musicbrainz.sync_releases, 1 request/s). After a *scheduled* scan the lookups wait
 a random few minutes first, because MusicBrainz asks background jobs not to fire at fixed
-times. When anything was fetched, a rescan applies it to the mb.* checks (cheap: tags come
-from the cache, and the next sync finds nothing due).
+times. A run that stopped on an error (MusicBrainz overloaded or unreachable) isn't retried
+for an hour, or longer if MusicBrainz asked (Retry-After), however many scans start
+meanwhile. When anything was fetched, a rescan applies it to the mb.* checks (cheap: tags
+come from the cache, and the next sync finds nothing due).
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ from ..musicbrainz import MusicBrainzClient, SyncResult, sync_releases
 log = logging.getLogger(__name__)
 
 SCHEDULED_DELAY = (60.0, 1800.0)  # seconds; random wait before lookups after a scheduled scan
+ERROR_COOLDOWN = 3600.0  # seconds without lookups after a run stopped on an error
 
 
 @dataclass(frozen=True)
@@ -33,6 +36,11 @@ class MbSyncStatus:
     total: int = 0
     last: SyncResult | None = None  # the last finished sync
     finished_at: float | None = None  # time.time()
+    paused_until: float | None = None  # time.time(); no lookups before this after an error
+
+    @property
+    def paused_until_time(self) -> datetime | None:
+        return datetime.fromtimestamp(self.paused_until, UTC) if self.paused_until else None
 
 
 class MusicBrainzSync:
@@ -42,10 +50,15 @@ class MusicBrainzSync:
         client: MusicBrainzClient | None = None,
         *,
         scheduled_delay: tuple[float, float] = SCHEDULED_DELAY,
+        error_cooldown: float = ERROR_COOLDOWN,
+        clock=time.time,
     ) -> None:
         self.settings = settings
-        self.client = client or MusicBrainzClient()
+        self.client = client or MusicBrainzClient(contact=settings.musicbrainz_contact)
         self.scheduled_delay = scheduled_delay
+        self.error_cooldown = error_cooldown
+        self._clock = clock
+        self._paused_until: float | None = None
         self.rescan = None  # set by ScanRunner: start a scan when lookups changed the cache
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -65,6 +78,9 @@ class MusicBrainzSync:
         is due. Returns whether a sync was started."""
         if not self.enabled:
             return False
+        if self._paused_until is not None and self._clock() < self._paused_until:
+            log.info("MusicBrainz lookups paused after an error; skipping")
+            return False
         with Store(self.settings.database_path) as store:
             due = len(store.mb_releases_due(_now()))
         with self._lock:
@@ -82,8 +98,17 @@ class MusicBrainzSync:
     def status(self) -> MbSyncStatus:
         with self._lock:
             running = self._thread is not None and self._thread.is_alive()
+            paused = self._paused_until
+            if paused is not None and self._clock() >= paused:
+                paused = None
             return MbSyncStatus(
-                running, self._waiting, self._done, self._total, self._last, self._finished_at
+                running,
+                self._waiting,
+                self._done,
+                self._total,
+                self._last,
+                self._finished_at,
+                paused,
             )
 
     def wait(self, timeout: float | None = None) -> None:
@@ -120,7 +145,11 @@ class MusicBrainzSync:
         )
         with self._lock:
             self._last = result
-            self._finished_at = time.time()
+            self._finished_at = self._clock()
+            if result.error:
+                wait = max(self.error_cooldown, result.retry_after or 0)
+                self._paused_until = self._finished_at + wait
+                log.info("MusicBrainz lookups paused for %.0f min", wait / 60)
         if result.changed and self.rescan is not None:
             self.rescan()
 

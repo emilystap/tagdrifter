@@ -15,6 +15,7 @@ Environment variables (handy in Docker compose):
     TAGDRIFTER_GOTIFY_TOKEN    Gotify application token
     TAGDRIFTER_NOTIFY_ON       comma-separated events: new_issues, failures (or "none")
     TAGDRIFTER_MUSICBRAINZ     true/false: look up releases on MusicBrainz for the mb.* checks
+    TAGDRIFTER_MUSICBRAINZ_CONTACT  your email (or URL), added to the MusicBrainz User-Agent
 """
 
 from __future__ import annotations
@@ -60,6 +61,9 @@ class Settings:
     # mb.* checks can compare tags with it. Off by default: it's the only network access
     # besides notifications.
     musicbrainz_enabled: bool = False
+    # How MusicBrainz can reach whoever runs this instance (an email address or URL), added to
+    # the User-Agent next to the project URL. Optional; never sent anywhere else.
+    musicbrainz_contact: str = ""
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -117,6 +121,7 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         gotify_token=str(notify.get("gotify_token", base.gotify_token)),
         notify_on=frozenset(notify.get("on", base.notify_on)),
         musicbrainz_enabled=bool(musicbrainz.get("enabled", base.musicbrainz_enabled)),
+        musicbrainz_contact=str(musicbrainz.get("contact", base.musicbrainz_contact)),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -164,6 +169,7 @@ def load_settings(
         "TAGDRIFTER_GOTIFY_TOKEN": ("gotify_token", str),
         "TAGDRIFTER_NOTIFY_ON": ("notify_on", _parse_events),
         "TAGDRIFTER_MUSICBRAINZ": ("musicbrainz_enabled", _parse_bool),
+        "TAGDRIFTER_MUSICBRAINZ_CONTACT": ("musicbrainz_contact", str),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):

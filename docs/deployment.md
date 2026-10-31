@@ -140,12 +140,20 @@ or deleted, a length that doesn't match (live vs studio, edits, the wrong releas
 MusicBrainz is a small non-profit, so Tag Drifter is careful with its API:
 
 - **One request per release**, at most **one request a second**, identified with a
-  User-Agent that links to this project.
+  User-Agent that links to this project (and to you, if you set a contact; see below).
 - Lookups happen **after a scan**, for releases not looked up yet; each is cached and only
   looked up again after a random 45-75 days, so refreshes trickle in. After a *scheduled*
   scan they start a random 1-30 minutes later instead of on the hour.
-- If MusicBrainz answers "slow down" (503), Tag Drifter waits, retries twice, then stops
-  until the next scan.
+- If MusicBrainz answers "slow down" (503), Tag Drifter waits (at least as long as its
+  `Retry-After` header asks), retries twice, then stops. After a run stops on any error,
+  lookups pause for an hour (or longer, if MusicBrainz asked), however many scans start
+  meanwhile; the dashboard shows until when.
+
+MusicBrainz asks every client to identify a way to reach whoever runs it. The User-Agent
+always links to this project; to add your own address (recommended, so MusicBrainz can reach
+*you* rather than the project if your instance misbehaves), set
+`TAGDRIFTER_MUSICBRAINZ_CONTACT: "you@example.com"`. It is sent only to MusicBrainz, in the
+User-Agent header: `TagDrifter/0.1.0 ( you@example.com ; https://github.com/emilystap/tagdrifter )`.
 
 The first time, looking up ~600 releases takes about 25 minutes in the background (the
 dashboard's *MusicBrainz* panel shows progress); Tag Drifter rescans when it's done, so the
