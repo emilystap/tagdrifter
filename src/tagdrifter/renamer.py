@@ -34,7 +34,12 @@ TRACK_LOCATION = "path.track_location"
 
 
 class RenameError(Exception):
-    """A plan could not be applied or undone; the message says why."""
+    """A plan could not be applied or undone; the message says why. `partial` means files
+    were left half-moved (a rollback or undo stopped partway)."""
+
+    def __init__(self, message: str, *, partial: bool = False) -> None:
+        super().__init__(message)
+        self.partial = partial
 
 
 @dataclass(frozen=True)
@@ -282,7 +287,9 @@ def apply_plan(settings: Settings, store: Store, album: str, fingerprint: str) -
             undo_batch(settings, store, batch, status="failed", error=message)
         except RenameError as undo_exc:
             store.finish_rename_batch(batch, "partial", f"{message} Rollback failed: {undo_exc}")
-            raise RenameError(f"{message} Rolling back also failed: {undo_exc}") from exc
+            raise RenameError(
+                f"{message} Rolling back also failed: {undo_exc}", partial=True
+            ) from exc
         raise RenameError(f"{message} Nothing was changed.") from exc
     store.finish_rename_batch(batch, "applied")
     return ApplyResult(batch, len(plan.moves), removed)
@@ -314,7 +321,9 @@ def undo_batch(
                 _rename(root, move["dst"], move["src"])
         except (OSError, RenameError) as exc:
             store.finish_rename_batch(batch_id, "partial", f"Undo stopped: {exc}")
-            raise RenameError(f"Undo stopped at {move['dst'] or move['src']}: {exc}") from exc
+            raise RenameError(
+                f"Undo stopped at {move['dst'] or move['src']}: {exc}", partial=True
+            ) from exc
         store.mark_rename_undone(move["id"])
         reversed_count += 1
     store.finish_rename_batch(batch_id, status, error)

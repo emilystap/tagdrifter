@@ -242,3 +242,17 @@ def test_web_shows_why_a_rename_is_refused(settings, lib) -> None:
     with TestClient(create_app(settings)) as client:
         preview = client.get("/rename/preview", params={"album": ALBUM}).text
         assert "Can’t rename this folder" in preview and "already exists" in preview
+
+
+def test_undo_that_stops_partway_is_marked_partial(settings, lib) -> None:
+    scan(settings)
+    result = apply(settings, "Pixies/doolittle (old)")
+    (lib / "Pixies/Doolittle/Pixies_Doolittle_02_Tame.flac").unlink()  # moved away by someone
+    with Store(settings.database_path) as store:
+        with pytest.raises(RenameError, match="Undo stopped") as exc:
+            undo_batch(settings, store, result.batch_id)
+        assert exc.value.partial
+        assert store.rename_batch(result.batch_id)["status"] == "partial"
+        with pytest.raises(RenameError) as refused:  # a refused plan moved nothing
+            apply_plan(settings, store, "Pixies/doolittle (old)", "stale")
+        assert not refused.value.partial

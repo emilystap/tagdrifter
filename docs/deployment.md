@@ -101,6 +101,34 @@ sees renamed files as moved: Navidrome picks them up on its next scan (its handl
 counts and favourites for moved files depends on its version). Set `TAGDRIFTER_FIX` back to
 `false` and the mount to `:ro` to go back to report-only.
 
+## Optional: notifications
+
+Tag Drifter can push to a [Gotify](https://gotify.net) server when something needs attention:
+
+- **new issues** (`new_issues`): after a scan, scheduled or manual, that found issues that
+  weren't open before: how many, and the albums they're in (up to 10). A scan with nothing new
+  sends nothing. The first scan reports everything it finds.
+- **failures** (`failures`): a scan failed, or a rename or undo stopped partway and left files
+  half-moved (high priority).
+
+1. In Gotify: *Apps* → *Create application* (e.g. "Tag Drifter") and copy its token.
+2. Add to the app's `environment`:
+
+   ```yaml
+   TAGDRIFTER_GOTIFY_URL: "http://gotify.lan:8080"   # the address the container can reach
+   TAGDRIFTER_GOTIFY_TOKEN: "AbCdEf..."
+   TAGDRIFTER_PUBLIC_URL: "https://tagdrifter.example" # optional: tap a notification to open it
+   # TAGDRIFTER_NOTIFY_ON: "failures"                 # optional; default new_issues,failures
+   ```
+
+3. Save; the app restarts. The dashboard's *Notifications* panel shows where they go and has
+   *Send test notification*, which shows Gotify's reply (e.g. a wrong token).
+
+The token is sent in the `X-Gotify-Key` header, so it doesn't appear in proxy logs. If Gotify
+is unreachable, the scan or rename carries on and the container log says why the notification
+wasn't sent. If Gotify runs as another app on the same TrueNAS, use the host's LAN address and
+Gotify's host port; `localhost` inside the container is the container itself.
+
 ## Optional: config.toml
 
 Environment variables cover the main settings. For per-check options (required tags, disabled

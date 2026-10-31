@@ -27,7 +27,7 @@
         <td class="num">{{ "{:,}".format(s["files_read"]) }}</td>
         <td class="num">{{ "{:,}".format(s["files_removed"]) }}</td>
         <td class="num">{{ "{:,}".format(s["issues_open"]) }}</td>
-        <td class="num">{{ "+{:,}".format(s["issues_new"]) }}</td>
+        <td class="num">{% if s["issues_new"] %}<a href="/issues?scan={{ s["id"] }}" title="Issues first seen in this scan that are still open">{{ "+{:,}".format(s["issues_new"]) }}</a>{% else %}+0{% endif %}</td>
         <td class="num">{{ "−{:,}".format(s["issues_resolved"]) }}</td>
       </tr>
       {% endfor %}

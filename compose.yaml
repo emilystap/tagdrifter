@@ -29,3 +29,7 @@ services:
       # TAGDRIFTER_PASSWORD_HASH: "scrypt:16384:8:1:..."
       # Optional: rename albums to their expected paths from the UI (needs the :rw mount)
       # TAGDRIFTER_FIX: "true"
+      # Optional: notifications to Gotify (an application token from Gotify's Apps page)
+      # TAGDRIFTER_GOTIFY_URL: "http://gotify.lan:8080"
+      # TAGDRIFTER_GOTIFY_TOKEN: "..."
+      # TAGDRIFTER_PUBLIC_URL: "https://tagdrifter.example" # links in notifications

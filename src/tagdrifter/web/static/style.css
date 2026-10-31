@@ -329,3 +329,9 @@ details summary { cursor: pointer; }
 .rename-problem { color: var(--error); margin: 6px 0; }
 .rename-done { margin: 6px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .batch-undo { margin: 0 0 0 auto; }
+
+/* --- Notifications ------------------------------------------------------------------ */
+
+.notify-panel { margin-top: 16px; }
+.notify-panel p { margin: 6px 0; }
+.notify-panel form { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }

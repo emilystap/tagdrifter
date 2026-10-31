@@ -93,7 +93,17 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `undo_batch` reverses pending moves newest first. Routes: `GET /rename/preview`,
      `POST /rename/apply` (fires `scan-started`, which the scan widget listens for),
      `/renames` (journal + Undo). `ScanRunner.paused()` keeps scans out while files move.
-   - **5d next**: Navidrome rescan trigger after renames. 5e: notifications (ntfy/Apprise).
+   - 5d dropped: a Navidrome rescan trigger after renames. Navidrome's own file watcher
+     already rescans (and purges missing files) on change, so it would duplicate that.
+   - 5e ✅ Notifications (`notify.py`, stdlib only): Gotify (`gotify_url` + `gotify_token`,
+     `[notify]` / `TAGDRIFTER_GOTIFY_*`; token in the `X-Gotify-Key` header). Events
+     (`notify_on`): `new_issues` (scan found issues with `first_seen_scan` = that scan; Markdown
+     summary by album, links to `/issues?scan=N`) and `failures` (scan failed; a rename or undo
+     raised `RenameError(partial=True)`). `ScanRunner` and the rename routes call
+     `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
+     click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
+     with `describe()` and `send(Notification)`.
+   - **Next**: open. Candidates: ntfy/webhook notifiers, the first-run login below, step 6.
    - Later: rename across artist folders for `album.placement` issues; a CLI for renames.
    - Later: non-FLAC formats via mutagen.
    - Later (owner's request): a conventional first-run login. On first launch with no

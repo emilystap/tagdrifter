@@ -46,6 +46,15 @@
       <option value="list" {% if view == "list" %}selected{% endif %}>Every issue</option>
     </select>
   </label>
+  {% if params.scan %}
+  <label>
+    <span>Scan</span>
+    <select name="scan">
+      <option value="{{ params.scan }}" selected>New in #{{ params.scan }}</option>
+      <option value="">Any scan</option>
+    </select>
+  </label>
+  {% endif %}
   <label class="grow">
     <span>Search path or message</span>
     <input type="search" name="q" value="{{ params.q }}" placeholder="e.g. Born This Way" autocomplete="off">

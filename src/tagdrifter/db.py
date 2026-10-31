@@ -140,6 +140,7 @@ class IssueFilter:
     # False also matches artist/library-scope issues, which have no MBID status.
     mbid_tagged: bool | None = None
     text: str | None = None  # substring of subject or message
+    first_seen_scan: int | None = None  # new in this scan
 
     def where(self) -> tuple[str, list[Any]]:
         sql = "resolved_scan IS NULL"
@@ -150,6 +151,9 @@ class IssueFilter:
         if self.severity:
             sql += " AND severity = ?"
             params.append(self.severity)
+        if self.first_seen_scan is not None:
+            sql += " AND first_seen_scan = ?"
+            params.append(self.first_seen_scan)
         if self.mbid_tagged is not None:
             sql += (
                 " AND mbid_tagged = 1" if self.mbid_tagged else " AND COALESCE(mbid_tagged, 0) = 0"

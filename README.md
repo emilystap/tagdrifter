@@ -23,7 +23,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
-| 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Navidrome rescan, notifications, later a first-run password setup | ⏳ |
+| 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, later a first-run password setup | ⏳ |
 | 6 | MusicBrainz integration: checks against MusicBrainz, Picard-style retagging | — |
 
 ## Quick start (local)
@@ -58,7 +58,8 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   MBID status, or a search over paths and messages. Proposed renames show the current and
   expected path with the differing characters highlighted. Filtered views have their own URL,
   so they can be bookmarked.
-- **Scans**: scan history with files read and issues opened/resolved.
+- **Scans**: scan history with files read and issues opened/resolved; the new count links
+  to the issues first seen in that scan (`/issues?scan=N`).
 - **Scan now** (top bar, every page): runs a scan in the background with live progress; the page
   refreshes its counts when it finishes. Only one scan runs at a time.
 - **Scheduled scans**: while the UI runs, it scans on `[scan] schedule` / `TAGDRIFTER_SCHEDULE`,
@@ -71,6 +72,11 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   why the album can't be renamed. Only albums whose tracks are all MBID-tagged and unchanged
   since the last scan qualify, and nothing is ever overwritten. Applied renames are listed on
   the *Renames* page with *Undo*. See [docs/deployment.md](docs/deployment.md#optional-renaming-files).
+- **Notifications (optional)**: with a [Gotify](https://gotify.net) server
+  (`TAGDRIFTER_GOTIFY_URL` + `TAGDRIFTER_GOTIFY_TOKEN`), a scan that finds new issues sends a
+  summary by album, and a failed scan or a rename left half-done sends an alert. Quiet scans
+  send nothing. Tapping one opens the matching page if `TAGDRIFTER_PUBLIC_URL` is set; the
+  dashboard has *Send test notification*. See [docs/deployment.md](docs/deployment.md#optional-notifications).
 - **Login (optional)**: set a password hash and every page needs a login; sessions last 30
   days. Generate the hash with `tagdrifter hash-password` and set it as
   `TAGDRIFTER_PASSWORD_HASH` or `[web] password_hash`. Without one, there's no login (rely on
@@ -146,6 +152,7 @@ src/tagdrifter/
   checks/        Check framework (base.py) and built-in checks
   config.py      Settings: defaults < config.toml < TAGDRIFTER_* env vars < CLI flags
   renamer.py     Rename plans (preview), apply with a journal, undo
+  notify.py      Notifications (Gotify): new issues after a scan, failures
   db.py          SQLite: file/tag cache, scan history, issue lifecycle
   scanner.py     Discover → read changed → check → save
   cli.py         `tagdrifter` command

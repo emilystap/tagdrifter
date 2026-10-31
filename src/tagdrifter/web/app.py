@@ -4,7 +4,9 @@ Server-rendered Jinja templates; HTMX (vendored in static/) swaps partials for f
 paging and scan progress. Each request opens its own Store; scans run in a ScanRunner thread.
 Every POST is CSRF-checked, and with a password configured every page needs a login (auth.py).
 With `fix_enabled`, album cards offer a rename preview + apply, and /renames lists the
-journal with undo (renamer.py); scans are held off while files move.
+journal with undo (renamer.py); scans are held off while files move. Notifications
+(notify.py) go out from the scan runner and for renames left half-done; the dashboard can
+send a test one.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from .. import __version__
 from ..checks import REGISTRY, Severity
 from ..config import Settings
 from ..db import IssueFilter, Store
+from ..notify import Notifications, NotifyError
 from ..renamer import RenameError, apply_plan, library_writable, plan_album, undo_batch
 from . import auth
 from . import format as fmt
@@ -54,9 +57,13 @@ StoreDep = Annotated[Store, Depends(get_store)]
 
 
 def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
-    """Build the app. Raises ValueError for an invalid scan schedule or password hash."""
+    """Build the app. Raises ValueError for an invalid scan schedule, password hash or
+    notification setting."""
     authenticator = auth.Authenticator(settings)
+    notifications = Notifications(settings)
     runner = runner or ScanRunner(settings)
+    if runner.notifications is None:
+        runner.notifications = notifications
     scheduler = ScanScheduler(runner, settings.scan_schedule)
 
     @asynccontextmanager
@@ -74,6 +81,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     app.state.runner = runner
     app.state.scheduler = scheduler
     app.state.auth = authenticator
+    app.state.notifications = notifications
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
     @app.middleware("http")
@@ -113,6 +121,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "auth_enabled": authenticator.enabled,
         "fix_enabled": settings.fix_enabled,
         "move_labels": fmt.move_labels,
+        "notifications": notifications,
     }
 
     def is_partial(request: Request, target: str) -> bool:
@@ -185,6 +194,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         artist: str = "",
         mbid: str = "",
         q: str = "",
+        scan: str = "",
         view: str = "album",
         page: Annotated[int, Query(ge=1)] = 1,
     ) -> HTMLResponse:
@@ -194,6 +204,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             path_prefix=artist or None,
             mbid_tagged={"yes": True, "no": False}.get(mbid),
             text=q.strip() or None,
+            first_seen_scan=int(scan) if scan.isdigit() else None,
         )
         view = "list" if view == "list" else "album"
         total = store.count_open_issues(filters)
@@ -225,6 +236,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             "artist": artist,
             "mbid": mbid,
             "q": q,
+            "scan": scan if scan.isdigit() else "",
             "view": "" if view == "album" else view,
         }
 
@@ -347,8 +359,18 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         try:
             result = await asyncio.to_thread(apply)
         except (RenameError, RuntimeError) as exc:
-            return render(request, "_rename_result.html", album=album, error=str(exc))
-        return renamed(request, "_rename_result.html", album=album, result=result, error=None)
+            if isinstance(exc, RenameError) and exc.partial:
+                notifications.rename_failed(album, str(exc))
+            return render(
+                request,
+                "_rename_result.html",
+                album=album,
+                error=str(exc),
+                partial=getattr(exc, "partial", False),
+            )
+        return renamed(
+            request, "_rename_result.html", album=album, result=result, error=None, partial=False
+        )
 
     @app.get("/renames", response_class=HTMLResponse)
     def renames(request: Request, store: StoreDep) -> HTMLResponse:
@@ -378,11 +400,23 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
                 with app.state.runner.paused():
                     undo_batch(settings, store, batch_id)
             except (RenameError, RuntimeError) as exc:
+                if isinstance(exc, RenameError) and exc.partial:
+                    notifications.rename_failed(batch["album"], str(exc))
                 return RedirectResponse(
                     "/renames?" + urlencode({"error": str(exc)}), status_code=303
                 )
         app.state.runner.start()
         return RedirectResponse("/renames", status_code=303)
+
+    # --- Notifications ----------------------------------------------------------------
+
+    @app.post("/notify/test", response_class=HTMLResponse)
+    async def notify_test(request: Request) -> HTMLResponse:
+        try:
+            reply = await asyncio.to_thread(notifications.send_test)
+        except NotifyError as exc:
+            return render(request, "_notify_test.html", ok=False, reply=str(exc))
+        return render(request, "_notify_test.html", ok=True, reply=reply)
 
     @app.get("/healthz")
     def healthz(store: StoreDep) -> JSONResponse:

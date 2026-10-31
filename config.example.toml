@@ -1,6 +1,7 @@
 # Tag Drifter configuration. Copy to config.toml (git-ignored) and adjust.
 # Environment variables override these: TAGDRIFTER_LIBRARY, TAGDRIFTER_DB,
 # TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_SCHEDULE, TAGDRIFTER_FIX,
+# TAGDRIFTER_PUBLIC_URL, TAGDRIFTER_GOTIFY_URL, TAGDRIFTER_GOTIFY_TOKEN, TAGDRIFTER_NOTIFY_ON,
 # TAGDRIFTER_CONFIG.
 
 [library]
@@ -25,11 +26,22 @@ schedule = "0 4 * * *"
 # Require a password for the web UI. Generate the hash with `tagdrifter hash-password`
 # (in Docker: `docker exec -it tagdrifter tagdrifter hash-password`). Unset = no login.
 # password_hash = "scrypt:16384:8:1:..."
+# The UI's address as you reach it (e.g. behind a reverse proxy), for links in notifications.
+# public_url = "https://tagdrifter.example"
 
 [fix]
 # Let the web UI rename MBID-tagged albums to their expected paths (preview, apply, undo).
 # Needs write access to the library. Env: TAGDRIFTER_FIX.
 enabled = false
+
+[notify]
+# Push notifications to a Gotify server (an application token from Gotify's Apps page).
+# Unset = no notifications. Env: TAGDRIFTER_GOTIFY_URL, TAGDRIFTER_GOTIFY_TOKEN.
+# gotify_url = "http://gotify.lan:8080"
+# gotify_token = "..."
+# What to send: "new_issues" (a scan found issues that weren't open before) and/or
+# "failures" (a scan failed, or a rename was left half-done). Env: TAGDRIFTER_NOTIFY_ON.
+on = ["new_issues", "failures"]
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

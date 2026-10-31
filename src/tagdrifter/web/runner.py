@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from ..config import Settings
 from ..db import Store
+from ..notify import Notifications
 from ..scanner import ScanProgress, ScanResult, run_scan
 
 log = logging.getLogger(__name__)
@@ -48,8 +49,9 @@ class ScanStatus:
 
 
 class ScanRunner:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, notifications: Notifications | None = None) -> None:
         self.settings = settings
+        self.notifications = notifications
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self._progress: ScanProgress | None = None
@@ -122,6 +124,8 @@ class ScanRunner:
             log.exception("Scan failed")
             with self._lock:
                 self._error = f"{type(exc).__name__}: {exc}"
+            if self.notifications is not None:
+                self.notifications.scan_failed(self._error)
             return
         log.info(
             "Scan #%d finished in %.0fs: %d files, %d read; %d open issues (+%d, -%d)",
@@ -135,3 +139,7 @@ class ScanRunner:
         )
         with self._lock:
             self._result = result
+        if self.notifications is not None:
+            self.notifications.scan_finished(
+                result.scan_id, result.issues_new, result.issues_resolved
+            )
