@@ -209,6 +209,17 @@ present, are in the git-ignored `CLAUDE.local.md`.
        / release title or the primary `en` alias. Maenarawanai's release and track titles
        are already Latin in MusicBrainz (e.g. track "sekigae Gattuso", recording
        "席替ガットゥーゾ"), so track titles compare with the *track* title first.
+   - 6b-3: refresh one release on demand (owner's request). A *Refresh from MusicBrainz*
+     button on an album's issue card (and the CLI) re-fetches that album's release(s) now
+     instead of waiting for `refresh_after`, then rescans. Useful after editing the release on
+     MusicBrainz, or to confirm a fix. Keep it gentle: one request per release through the
+     shared `RateLimiter`, refused while lookups are paused after an error, and a no-op
+     (with a message) if the release was fetched in the last few minutes, so repeated clicks
+     can't hammer the API. Already covered without it: a release MBID changed by retagging
+     is a release the cache doesn't have yet, so the next lookups fetch it like a new album
+     (`mb_releases_due` puts never-fetched releases first). The old release's row is left
+     behind: never refreshed (only library releases are looked up), just a few KB; prune
+     rows no longer in the library at the same time.
    - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
 
 ## Source of truth
