@@ -105,7 +105,16 @@ present, are in the git-ignored `CLAUDE.local.md`.
      with `describe()` and `send(Notification)`.
    - **Next**: step 6b-2 below.
    - Later: ntfy/webhook notifiers.
-   - Later: rename across artist folders for `album.placement` issues; a CLI for renames.
+   - 5f: bulk renames (owner's request; ~700 `path.track_location` issues are tedious one
+     album at a time). Select albums on `/issues` (a checkbox per album card, "select all
+     matching this filter", or every album of an artist) and preview them together: each album
+     is still planned on its own by `plan_album` with all its refusals, and refused albums are
+     listed and skipped rather than blocking the rest. Apply runs in the background with
+     progress (like scans; `ScanRunner.paused()` holds scans off), one journal batch per album
+     so Undo stays per album and one failure rolls back only its album, then a single rescan at
+     the end. The preview's fingerprint covers every selected album. A CLI
+     (`tagdrifter rename --check path.track_location [--artist X] [--dry-run]`) shares it.
+   - Later: rename across artist folders for `album.placement` issues.
    - Later: non-FLAC formats via mutagen.
    - Later (owner's request): a conventional first-run login. On first launch with no
      password set, every page leads to a "Set a password" form; the scrypt hash is stored in
