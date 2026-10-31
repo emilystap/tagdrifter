@@ -4,8 +4,9 @@ MusicBrainz is a small non-profit; its API asks every client to make at most one
 per second, to identify itself with a contact address, and not to hammer it on a fixed
 schedule (https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting). So:
 
-- one process-wide `RateLimiter` spaces requests at least `MIN_INTERVAL` apart, whichever
-  thread makes them;
+- one process-wide `RateLimiter` waits at least `MIN_INTERVAL` after each response before
+  the next request goes out, whichever thread makes it (counting from the response, not the
+  request, so network jitter can't make two requests arrive less than a second apart);
 - one request per release fetches everything the checks need now *and later* (recordings,
   artist credits, release group, aliases), and the raw response is cached compressed, so
   adding a check never needs a refetch;
@@ -48,7 +49,7 @@ API_ROOT = "https://musicbrainz.org/ws/2"
 RELEASE_INC = "recordings+artist-credits+release-groups+aliases"
 PROJECT_URL = "https://github.com/emilystap/tagdrifter"
 USER_AGENT = f"TagDrifter/{__version__} ( {PROJECT_URL} )"
-MIN_INTERVAL = 1.1  # seconds between requests; the documented limit is 1/s
+MIN_INTERVAL = 1.5  # seconds from one response to the next request; the documented limit is 1/s
 BACKOFF = (15.0, 60.0)  # waits after a 503 before retrying; then give up for this run
 MAX_RETRY_WAIT = 300.0  # a longer Retry-After ends the run instead of blocking the thread
 REFRESH_DAYS = (45, 75)  # a cached release is looked up again after this many days
@@ -104,7 +105,8 @@ class ReleaseNotFound(Exception):
 
 
 class RateLimiter:
-    """Spaces calls at least `interval` seconds apart across threads."""
+    """Spaces calls across threads: `wait()` before each call, `done()` after it; the next
+    call goes out at least `interval` seconds after the previous one finished."""
 
     def __init__(
         self,
@@ -126,6 +128,11 @@ class RateLimiter:
                 self._sleep(self._next - now)
                 now = self._next
             self._next = now + self.interval
+
+    def done(self) -> None:
+        """The call finished (answered or failed): count the interval from now."""
+        with self._lock:
+            self._next = max(self._next, self._clock() + self.interval)
 
     def pause(self, seconds: float) -> None:
         """Push the next allowed call at least `seconds` into the future (after a 503)."""
@@ -180,11 +187,13 @@ class MusicBrainzClient:
             self.limiter.wait()
             self.requests += 1
             try:
-                with (self._open or _urlopen)(request, timeout=self.timeout) as response:
-                    body = response.read()
-                    if response.headers.get("Content-Encoding") == "gzip":
-                        body = gzip.decompress(body)
-                    return json.loads(body)
+                try:
+                    with (self._open or _urlopen)(request, timeout=self.timeout) as response:
+                        body = response.read()
+                        gzipped = response.headers.get("Content-Encoding") == "gzip"
+                finally:
+                    self.limiter.done()  # whatever the outcome, space from the response
+                return json.loads(gzip.decompress(body) if gzipped else body)
             except urllib.error.HTTPError as exc:
                 if exc.code == 404:
                     raise ReleaseNotFound(what) from exc

@@ -109,7 +109,7 @@ def test_artist_mbid_count_without_names_tag() -> None:
     (issue,) = ArtistMbidCount().run(
         track_ctx(artist="ROSÉ & Bruno Mars", musicbrainz_artistid=[A1, A2])
     )
-    assert issue.message == "2 artist MBIDs but no artists tag naming them"
+    assert issue.message == "2 artist MBIDs but no ARTISTS tag naming them"
     assert not list(ArtistMbidCount().run(track_ctx(artists="Pixies")))  # tags.mbids's job
 
 
@@ -123,6 +123,13 @@ def test_album_artist_mbid_count_reports_once_per_album() -> None:
     assert issue.subject == "Pixies/Doolittle"
     assert issue.message == "1 album artist name but 2 MBIDs (album artist 'Kander & Ebb')"
     assert not list(AlbumArtistMbidCount().run(album(song(1, musicbrainz_albumartistid=A1))))
+    (issue,) = AlbumArtistMbidCount().run(
+        album(song(1, albumartist="ROSÉ & Bruno Mars", musicbrainz_albumartistid=[A1, A2]))
+    )
+    assert issue.message == (
+        "2 album artist MBIDs but no ALBUMARTISTS tag naming them "
+        "(album artist 'ROSÉ & Bruno Mars')"
+    )
 
 
 def test_duplicate_tracks() -> None:

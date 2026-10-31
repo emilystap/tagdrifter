@@ -181,14 +181,14 @@ class InvalidMbid(Check):
             yield self.issue(ctx.rel_path, f"Invalid MusicBrainz ID: {summary}", invalid=bad)
 
 
-def _count_mismatch(names: list[str], ids: list[str], what: str) -> str | None:
+def _count_mismatch(names: list[str], ids: list[str], what: str, tag: str) -> str | None:
     """Why `names` (e.g. ARTISTS) and `ids` (e.g. MUSICBRAINZ_ARTISTID) don't pair up, if they
     don't. Without a names tag, a single MBID is unambiguous; several need their names."""
     if not ids:
         return None  # tags.mbids reports missing MBIDs
     if not names:
         if len(ids) > 1:
-            return f"{len(ids)} {what} MBIDs but no {what}s tag naming them"
+            return f"{len(ids)} {what} MBIDs but no {tag} tag naming them"
         return None
     if len(names) != len(ids):
         return f"{len(names)} {what} name{'s' * (len(names) != 1)} but {len(ids)} MBIDs"
@@ -204,7 +204,7 @@ class ArtistMbidCount(Check):
     def run(self, ctx: TrackContext) -> Iterable[Issue]:
         names = _names(ctx.meta, ARTISTS_KEYS)
         ids = _mbids(ctx.meta, "musicbrainz_artistid")
-        if reason := _count_mismatch(names, ids, "artist"):
+        if reason := _count_mismatch(names, ids, "artist", "ARTISTS"):
             yield self.issue(ctx.rel_path, reason, names=names, mbids=ids)
 
 
@@ -218,7 +218,7 @@ class AlbumArtistMbidCount(Check):
         for t in ctx.tracks:  # album-level tags: the first track that shows it is enough
             names = _names(t.meta, ALBUM_ARTISTS_KEYS)
             ids = _mbids(t.meta, "musicbrainz_albumartistid")
-            if reason := _count_mismatch(names, ids, "album artist"):
+            if reason := _count_mismatch(names, ids, "album artist", "ALBUMARTISTS"):
                 yield self.issue(
                     ctx.rel_path,
                     f"{reason} (album artist {t.meta.albumartist!r})",

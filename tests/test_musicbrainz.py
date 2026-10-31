@@ -18,6 +18,7 @@ from tagdrifter.config import Settings, load_settings
 from tagdrifter.core.mbrelease import MbRelease
 from tagdrifter.db import Store
 from tagdrifter.musicbrainz import (
+    MIN_INTERVAL,
     RELEASE_INC,
     USER_AGENT,
     MusicBrainzClient,
@@ -69,12 +70,15 @@ class FakeResponse(io.BytesIO):
 class FakeOpener:
     """Answers queued (status, body) pairs and records the requests."""
 
-    def __init__(self, *answers) -> None:
+    def __init__(self, *answers, clock: FakeClock | None = None, latency: float = 0) -> None:
         self.answers = list(answers)
         self.requests = []
+        self.clock, self.latency = clock, latency  # simulated time each answer takes
 
     def __call__(self, request, timeout):
         self.requests.append(request)
+        if self.clock is not None:
+            self.clock.now += self.latency
         status, body, *headers = self.answers.pop(0)
         if status != 200:
             hdrs = headers[0] if headers else {}
@@ -82,10 +86,12 @@ class FakeOpener:
         return FakeResponse(json.dumps(body).encode())
 
 
-def client_with(*answers, clock: FakeClock | None = None) -> tuple[MusicBrainzClient, FakeOpener]:
+def client_with(
+    *answers, clock: FakeClock | None = None, latency: float = 0
+) -> tuple[MusicBrainzClient, FakeOpener]:
     clock = clock or FakeClock()
-    opener = FakeOpener(*answers)
-    limiter = RateLimiter(1.1, clock=clock, sleep=clock.sleep)
+    opener = FakeOpener(*answers, clock=clock, latency=latency)
+    limiter = RateLimiter(MIN_INTERVAL, clock=clock, sleep=clock.sleep)
     return MusicBrainzClient(limiter=limiter, opener=opener, backoff=(15, 60)), opener
 
 
@@ -108,7 +114,18 @@ def test_rate_limiter_spaces_requests() -> None:
     client, _ = client_with(*[(200, {"id": "x"})] * 3, clock=clock)
     for _ in range(3):
         client.release(MAENARAWANAI)
-    assert clock.slept == [1.1, 1.1]  # the first goes at once, then one per 1.1 s
+    assert MIN_INTERVAL >= 1.5
+    assert clock.slept == [MIN_INTERVAL, MIN_INTERVAL]  # the first goes at once
+
+
+def test_rate_limiter_counts_from_the_response() -> None:
+    # A slow answer doesn't use up the gap: the next request still waits the full interval
+    # after it, so jitter on the way can't squeeze two requests under a second apart.
+    clock = FakeClock()
+    client, _ = client_with(*[(200, {"id": "x"})] * 2, clock=clock, latency=2.0)
+    client.release(MAENARAWANAI)
+    client.release(MAENARAWANAI)
+    assert clock.slept == [MIN_INTERVAL]  # counted from start to start, it would be none
 
 
 def test_not_found_and_errors() -> None:

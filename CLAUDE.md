@@ -162,8 +162,8 @@ present, are in the git-ignored `CLAUDE.local.md`.
      - `musicbrainz.py`: `MusicBrainzClient` makes one lookup per release,
        `/ws/2/release/<mbid>?inc=recordings+artist-credits+release-groups+aliases&fmt=json`,
        which already carries everything 6b-2 needs (release, recording and artist aliases),
-       so adding checks never needs a refetch. Process-wide `RateLimiter` (≥1.1 s between
-       requests), gzip; User-Agent `TagDrifter/<ver> ( <contact> ; <repo URL> )`, where the
+       so adding checks never needs a refetch. Process-wide `RateLimiter`: ≥1.5 s from each
+       response to the next request (not start to start, so jitter can't bunch them), gzip; User-Agent `TagDrifter/<ver> ( <contact> ; <repo URL> )`, where the
        optional `musicbrainz_contact` / `TAGDRIFTER_MUSICBRAINZ_CONTACT` is the operator's
        address (validated: one line, no parentheses). A 503 backs off 15 s and 60 s, or the
        `Retry-After` if longer; a Retry-After over 5 min ends the run at once. Then the run
