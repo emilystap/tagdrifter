@@ -1,7 +1,10 @@
 """Pure naming/tagging rules. Only `metadata.read_metadata` touches the filesystem."""
 
 from .metadata import (
+    DERIVED_KEYS,
     LENGTH_KEY,
+    PICTURES_KEY,
+    EmbeddedPicture,
     MetadataReadError,
     TrackMeta,
     is_mbid,
@@ -26,9 +29,12 @@ from .sanitize import (
 )
 
 __all__ = [
+    "DERIVED_KEYS",
     "LENGTH_KEY",
+    "PICTURES_KEY",
     "SLASH_REPLACEMENT",
     "CollisionNotice",
+    "EmbeddedPicture",
     "MetadataReadError",
     "PathMatch",
     "PlacementIssue",

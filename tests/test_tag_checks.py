@@ -6,6 +6,7 @@ from tagdrifter.checks import AlbumContext
 from tagdrifter.checks.builtin_tags import (
     AlbumArtistMbidCount,
     ArtistMbidCount,
+    CoverArt,
     DuplicateTracks,
     MissingMbids,
     MissingTracks,
@@ -166,3 +167,42 @@ def test_missing_tracks() -> None:
     assert not list(MissingTracks().run(album(*tracks)))
     # Unknown totals: nothing to compare with.
     assert not list(MissingTracks().run(album(song(1), song(3))))
+
+
+def cover(n: int, *pictures: str):
+    return song(n, **{"~pictures": list(pictures)})
+
+
+FRONT = "3 image/jpeg 1200x1200"
+
+
+def test_cover_art_missing() -> None:
+    assert not list(CoverArt().run(album(cover(1, FRONT), cover(2, FRONT))))
+    (issue,) = CoverArt().run(album(cover(1), cover(2)))
+    assert issue.message == "All tracks have no embedded cover"
+    (issue,) = CoverArt().run(album(cover(1, FRONT), cover(2), cover(3)))
+    assert issue.message == "2 of 3 tracks have no embedded cover"
+    assert issue.details["files"] == {"no embedded cover": ["1-02.flac", "1-03.flac"]}
+    (issue,) = CoverArt().run(album(cover(1)))
+    assert issue.message == "The track has no embedded cover"
+
+
+def test_cover_art_skips_files_read_before_pictures_were_recorded() -> None:
+    assert not list(CoverArt().run(album(song(1), song(2))))  # no ~pictures: unknown
+    (issue,) = CoverArt().run(album(song(1), cover(2)))
+    assert issue.message == "The track has no embedded cover"
+
+
+def test_cover_art_front_cover() -> None:
+    back = "4 image/jpeg 1200x1200"
+    (issue,) = CoverArt().run(album(cover(1, back), cover(2, back, FRONT)))
+    assert issue.message == "1 of 2 tracks has no picture marked front cover"
+    assert not list(CoverArt({"require_front_cover": False}).run(album(cover(1, back))))
+
+
+def test_cover_art_min_size() -> None:
+    small = "3 image/jpeg 300x300"
+    tracks = album(cover(1, small), cover(2, small), cover(3, "3 image/png 0x0"))
+    assert not list(CoverArt().run(tracks))  # off by default
+    (issue,) = CoverArt({"min_size": 500}).run(tracks)
+    assert issue.message == "2 of 3 tracks have a cover smaller than 500 px (300x300)"

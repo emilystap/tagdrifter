@@ -63,6 +63,12 @@ disabled = []
 [checks."tags.required"]
 tags = []
 
+# Embedded cover art. min_size (pixels, shorter side) flags small front covers; 0 = off.
+# require_front_cover flags tracks whose pictures are all other types (back, booklet, ...).
+[checks."album.cover_art"]
+min_size = 0
+require_front_cover = true
+
 # How far a track's audio length may differ from MusicBrainz before mb.duration reports it.
 [checks."mb.duration"]
 tolerance_seconds = 3

@@ -1,9 +1,10 @@
 """Minimal FLAC tag reader.
 
-Reads the STREAMINFO block (for the exact length) and the VORBIS_COMMENT block, and *seeks
-past* everything else, so embedded cover art (PICTURE blocks, often several MB) is never
-read. Over SMB or on spinning disks this is far faster than a general-purpose tag library,
-which loads every metadata block.
+Reads the STREAMINFO block (for the exact length), the VORBIS_COMMENT block and the few
+header bytes of each PICTURE block (type, MIME type, dimensions), and *seeks past*
+everything else, so embedded cover art (often several MB per image) is never read. Over SMB
+or on spinning disks this is far faster than a general-purpose tag library, which loads
+every metadata block.
 
 Format reference: https://xiph.org/flac/format.html#metadata_block
 """
@@ -18,8 +19,10 @@ FLAC_MAGIC = b"fLaC"
 ID3_MAGIC = b"ID3"
 BLOCK_STREAMINFO = 0
 BLOCK_VORBIS_COMMENT = 4
+BLOCK_PICTURE = 6
 STREAMINFO_SIZE = 34
 MAX_COMMENT_BLOCK = 16 * 1024 * 1024  # 16 MiB guard against corrupt length fields
+MAX_PICTURE_TEXT = 64 * 1024  # guard for a PICTURE block's MIME type and description
 
 
 class FlacError(Exception):
@@ -38,9 +41,21 @@ def _skip_id3v2(f) -> None:
 
 
 @dataclass(frozen=True)
+class Picture:
+    """An embedded image's header: `type` is the ID3v2 APIC picture type (3 = front cover);
+    width and height are 0 when the tagger left them unset."""
+
+    type: int
+    mime: str
+    width: int
+    height: int
+
+
+@dataclass(frozen=True)
 class FlacInfo:
     comments: list[tuple[str, str]] = field(default_factory=list)  # (KEY, value), file order
     length_ms: int | None = None  # None when STREAMINFO doesn't give the sample count
+    pictures: list[Picture] = field(default_factory=list)  # file order
 
 
 def read_vorbis_comments(path: str | PathLike[str]) -> list[tuple[str, str]]:
@@ -53,9 +68,13 @@ def read_vorbis_comments(path: str | PathLike[str]) -> list[tuple[str, str]]:
 
 
 def read_flac(path: str | PathLike[str]) -> FlacInfo:
-    """The Vorbis comments and the length (from STREAMINFO, which always comes first).
-    Raises FlacError for anything that is not a well-formed FLAC metadata header."""
+    """The Vorbis comments, the length (from STREAMINFO, which always comes first) and the
+    embedded pictures' headers. Walks every metadata block header (pictures may come after
+    the comments). Raises FlacError for anything that is not a well-formed FLAC metadata
+    header."""
     length_ms: int | None = None
+    comments: list[tuple[str, str]] = []
+    pictures: list[Picture] = []
     with open(path, "rb") as f:
         _skip_id3v2(f)
         if f.read(4) != FLAC_MAGIC:
@@ -74,23 +93,46 @@ def read_flac(path: str | PathLike[str]) -> FlacInfo:
                 if len(data) < length:
                     raise FlacError("truncated STREAMINFO block")
                 length_ms = _length_ms(data)
-                if is_last:
-                    return FlacInfo([], length_ms)
-                continue
-
-            if block_type == BLOCK_VORBIS_COMMENT:
+            elif block_type == BLOCK_VORBIS_COMMENT:
                 if length > MAX_COMMENT_BLOCK:
                     raise FlacError(f"implausible comment block size ({length} bytes)")
                 data = f.read(length)
                 if len(data) < length:
                     raise FlacError("truncated comment block")
-                return FlacInfo(_parse_vorbis_comment(data), length_ms)
-
-            if block_type == 127:
+                comments = _parse_vorbis_comment(data)
+            elif block_type == BLOCK_PICTURE:
+                start = f.tell()
+                pictures.append(_read_picture_header(f, length))
+                f.seek(start + length)  # past the image data
+            elif block_type == 127:
                 raise FlacError("invalid metadata block type")
+            else:
+                f.seek(length, 1)  # skip PADDING, SEEKTABLE, ...
             if is_last:
-                return FlacInfo([], length_ms)
-            f.seek(length, 1)  # skip PICTURE, PADDING, SEEKTABLE, ...
+                return FlacInfo(comments, length_ms, pictures)
+
+
+def _read_picture_header(f, length: int) -> Picture:
+    """Picture type, MIME type, description, then width/height/depth/colours (all big-endian
+    u32 with length-prefixed strings), before the image data, which isn't read."""
+
+    def read(n: int) -> bytes:
+        data = f.read(n)
+        if len(data) < n:
+            raise FlacError("truncated PICTURE block")
+        return data
+
+    def text() -> bytes:
+        (n,) = struct.unpack(">I", read(4))
+        if n > MAX_PICTURE_TEXT or n > length:
+            raise FlacError("malformed PICTURE block")
+        return read(n)
+
+    (kind,) = struct.unpack(">I", read(4))
+    mime = text().decode("ascii", errors="replace")
+    text()  # description
+    width, height = struct.unpack(">II", read(8))
+    return Picture(kind, mime, width, height)
 
 
 def _length_ms(streaminfo: bytes) -> int | None:

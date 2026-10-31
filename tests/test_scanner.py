@@ -151,13 +151,26 @@ def test_issues_record_mbid_status(library, tmp_path) -> None:
     assert "loose.flac" in untagged and "Pixies/Hits" not in untagged
 
 
-def test_files_cached_without_length_are_reread_once(library, tmp_path) -> None:
+@pytest.mark.parametrize("key", ["~length", "~pictures"])
+def test_files_cached_without_derived_tags_are_reread_once(library, tmp_path, key) -> None:
     settings = settings_for(library, tmp_path)
     scan(settings)
-    with Store(settings.database_path) as store:  # as cached by a version without lengths
-        store.conn.execute("UPDATE files SET tags_json = json_remove(tags_json, '$.\"~length\"')")
+    with Store(settings.database_path) as store:  # as cached by a version without the key
+        store.conn.execute(f"UPDATE files SET tags_json = json_remove(tags_json, '$.\"{key}\"')")
         store.conn.commit()
     result, _ = scan(settings)
     assert result.files_read == 4  # every readable file; the unreadable one has no tags
     result, _ = scan(settings)
     assert result.files_read == 0
+
+
+def test_album_without_embedded_cover(tmp_path) -> None:
+    lib = tmp_path / "music"
+    tags = good_tags(ALBUMARTIST="Pixies", ARTIST="Pixies", ALBUM="Hits", DATE="1990")
+    build_flac(lib / "Pixies/Hits (1990)/01 Song.flac", tags | {"TITLE": "Song"}, picture_bytes=0)
+    build_flac(lib / "Pixies/Hits (1990)/02 Other.flac", tags | {"TITLE": "Other"})
+    settings = settings_for(lib, tmp_path)
+    scan(settings)
+    with Store(settings.database_path) as store:
+        issues = [i for i in store.open_issues() if i.check_id == "album.cover_art"]
+    assert [i.message for i in issues] == ["1 of 2 tracks has no embedded cover"]

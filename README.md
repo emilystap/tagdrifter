@@ -129,6 +129,7 @@ docker run -p 8080:8080 -v /path/to/music:/music:ro -v tagdrifter-data:/data tag
 | `tags.artist_mbid_count` | track | `ARTISTS` names and artist MBIDs differ in number (several MBIDs need an `ARTISTS` tag) |
 | `album.artist_mbid_count` | album | Same for `ALBUMARTISTS` and album artist MBIDs |
 | `album.duplicate_tracks` | album | Two files are the same track: same release track MBID, or same release, disc and track number (error) |
+| `album.cover_art` | album | Tracks without an embedded cover, or with pictures but none marked as the front cover; optionally covers smaller than `min_size` px. Read from the picture headers only, never the image |
 | `album.missing_tracks` | album | Fewer tracks or discs than `TOTALTRACKS` / `TOTALDISCS` say (info; e.g. a single kept without its B-side) |
 | `mb.release_unknown` | album | Release MBID MusicBrainz doesn't have (deleted) or has merged into another (error) |
 | `mb.track_mismatch` | album | A track's release-track or recording MBID doesn't match the tagged release (a different version, or a stale tag) |

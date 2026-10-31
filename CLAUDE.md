@@ -144,6 +144,14 @@ present, are in the git-ignored `CLAUDE.local.md`.
      - `album.missing_tracks` (info): fewer tracks per disc than `TOTALTRACKS` / `TRACKTOTAL`
        (or "n/N"), or missing discs. Disc gaps only when the numbering fits `TOTALDISCS`
        (Picard can number discs 2-3 of 2 when it skips a medium).
+     - `album.cover_art` (warning; added after 6b): tracks with no embedded picture, or
+       none of type 3 (front cover); `min_size` (px, off by default) flags small front
+       covers. `core/flac.py` reads only each PICTURE block's header (type, MIME, width,
+       height) and seeks past the image; stored as the `~pictures` pseudo-tag
+       (`"3 image/jpeg 1200x1200"` per picture, empty = none). Pseudo-tags the reader records
+       are `DERIVED_KEYS`; a cached file missing one is re-read once. Files read before
+       `~pictures` existed are skipped, not flagged. Different covers within an album
+       aren't compared (that needs the image data).
      - First run on the owner's library: 25 `album.missing_tracks` (mostly singles kept
        without B-sides), 5 `album.artist_mbid_count` (cast recordings and collabs), nothing
        else new.
