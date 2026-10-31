@@ -97,6 +97,16 @@ MIGRATIONS: list[str] = [
         data          BLOB
     );
     """,
+    # 6: a release group's releases with tracklists, looked up on request to compare an
+    # album's lengths with every release (library.compare_release_group); zlib-compressed
+    # JSON as returned by MusicBrainzClient.release_group_releases
+    """
+    CREATE TABLE mb_release_groups (
+        mbid       TEXT PRIMARY KEY, -- lower-case
+        fetched_at TEXT NOT NULL,
+        data       BLOB NOT NULL
+    );
+    """,
 ]
 
 
@@ -570,6 +580,23 @@ class Store:
             r["mbid"]: json.loads(zlib.decompress(r["data"])) if r["data"] is not None else None
             for r in self.conn.execute(sql, params)
         }
+
+    def save_mb_release_group(self, mbid: str, data: Mapping[str, Any]) -> None:
+        blob = zlib.compress(json.dumps(data, ensure_ascii=False).encode())
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO mb_release_groups (mbid, fetched_at, data) VALUES (?, ?, ?)"
+                " ON CONFLICT(mbid) DO UPDATE SET fetched_at=excluded.fetched_at,"
+                " data=excluded.data",
+                (mbid.lower(), utcnow(), blob),
+            )
+
+    def mb_release_group(self, mbid: str) -> tuple[dict, str] | None:
+        """A cached release group browse and when it was fetched; None if never looked up."""
+        row = self.conn.execute(
+            "SELECT fetched_at, data FROM mb_release_groups WHERE mbid = ?", (mbid.lower(),)
+        ).fetchone()
+        return (json.loads(zlib.decompress(row["data"])), row["fetched_at"]) if row else None
 
     def mb_cache_counts(self) -> tuple[int, int]:
         """(library releases cached, library releases) for the dashboard."""

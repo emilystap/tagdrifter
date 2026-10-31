@@ -105,7 +105,8 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
      click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
      with `describe()` and `send(Notification)`.
-   - **Next**: the owner's pick: 7b (embedded cover art) or 6c (retagging); 6b-3 after 6c.
+   - **Next**: the owner's pick: 6b-3 (refresh on demand; the release page exists now), 7b
+     (embedded cover art) or 6c (retagging).
    - Later: ntfy/webhook notifiers.
    - 5f ✅ Bulk renames (owner's request: ~700 `path.track_location` issues, 130 albums).
      `/issues` (album view, fix on) has a checkbox per renamable card (`form="bulk-form"`) and
@@ -256,20 +257,27 @@ present, are in the git-ignored `CLAUDE.local.md`.
      behind: never refreshed (only library releases are looked up), just a few KB; prune
      rows no longer in the library at the same time.
    - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
-   - 6d: make `mb.duration` easier to act on (owner's request; details to be worked out).
-     About 150 issues on the owner's library, and today each one has to be tracked down
-     by hand. Ideas so far:
-     - On demand, per issue (never in scans): list other releases with the same recording,
-       or other recordings of the song, sorted by how far their length is from the file's,
-       each linking to its musicbrainz.org release page. That makes it easy to see whether
-       a better-matching release exists to retag to. Things to check: what the API offers
-       (a recording lookup with `inc=releases`, browsing releases by recording, or a search
-       by ISRC / title + artist). It has to stay gentle: one user-triggered lookup through
-       the shared `RateLimiter`, cached, and refused while lookups are paused.
-     - Ignore leading and trailing silence when comparing lengths. This might be too loose,
-       and it needs the audio decoded (a FLAC decoder; today only STREAMINFO is read).
-     - Smaller options: a per-check tolerance in percent as well as seconds, or a way to
-       accept a known difference for an album.
+   - 6d ✅ *Compare with other releases* on the release page (for `mb.duration`; about 150
+     on the owner's library). The 2026-10-31 API probe (CAKE, Prolonging the Magic) found
+     that one browse, `/release?release-group=<id>&inc=recordings+media&limit=100`, returns
+     every release of the album with full tracklists, so a whole album is ranked from one
+     request (recording / ISRC lookups and search are 1+ per track; search was fuzzy and
+     disagreed with lookups). `MusicBrainzClient.release_group_releases` (at most
+     `MAX_BROWSE_PAGES` = 3 pages), cached in `mb_release_groups` (migration 6),
+     `MusicBrainzSync.lookup_release_group`: only on a click (`POST /library/release-group`),
+     through the shared `RateLimiter`, refused while lookups are off or paused, one at a time,
+     a no-op within `GROUP_REFETCH_AFTER` (10 min); a failure pauses lookups like a failed
+     run. Never refreshed automatically. `library.fit_release` matches files to tracks (release
+     track MBID, else recording MBID if unique on the release, else disc + track number) and
+     counts fits within the `mb.duration` tolerance; `compare_release_group` sorts by files
+     that fit, then off, unmatched, tracks without a file, mean difference
+     (`_release_group.html`; the album page shows a cached comparison without a request).
+     First result: the owner's files are the 1998 CD master; the tagged 2023 Deluxe Edition
+     differs on 2 tracks (MusicBrainz data or a different master).
+     - Later, if needed: for files nothing in the release group fits, a per-track recording
+       lookup (`inc=releases+media`) and ISRC lookup, to find other recordings / compilations.
+     - Set aside: ignoring leading/trailing silence (too loose; needs a FLAC decoder), a
+       percent tolerance, accepting a known difference per album.
 7. Library browser (owner's request): a *Library* tab to look up any release, not just ones
    with issues.
    - 7a ✅ `library.py` + `/library` (search, paged 50 per page) and

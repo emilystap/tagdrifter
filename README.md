@@ -24,7 +24,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, bulk renames ✅, later a first-run password setup | ⏳ |
-| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, then Picard-style retagging | ⏳ |
+| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, other releases ranked by track-length fit ✅, then Picard-style retagging | ⏳ |
 | 7 | Library browser: search any album, release page with tags and the MusicBrainz tracklist ✅, then embedded cover art | ⏳ |
 
 ## Quick start (local)
@@ -68,7 +68,10 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   track's other tags, embedded pictures, open issues (with *Preview renames*), links to the
   release and release group on musicbrainz.org, and, once the release has been looked up, the
   MusicBrainz tracklist beside the files with title and length differences marked. Issue cards
-  link to their album's page.
+  link to their album's page. *Compare with other releases* (MusicBrainz lookups on) fetches
+  every release of the album's release group once, when you click it, and ranks them by how
+  well their track lengths fit your files, with links to musicbrainz.org: handy for
+  `mb.duration` issues, which usually mean the files are a different edition.
 - **Scans**: scan history with files read and issues opened/resolved; the new count links
   to the issues first seen in that scan (`/issues?scan=N`).
 - **Scan now** (top bar, every page): runs a scan in the background with live progress; the page

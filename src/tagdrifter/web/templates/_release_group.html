@@ -1,0 +1,80 @@
+{#- Other releases in one release group, ranked by how well their track lengths fit this
+    album's files (6d). Swapped in place by *Compare with other releases*. Expects `album`,
+    `group_id`, `comparison` (library.GroupComparison, or None before the first lookup) and
+    optionally `message` (`refused`: it says why the lookup didn't happen). -#}
+{% macro fit_rows(fits, files) %}
+  {% for f in fits %}
+    <tr{% if f.fits == files and not f.unmatched %} class="fit-all"{% endif %}>
+      <td>
+        <a href="{{ f.url }}" rel="noreferrer" target="_blank">{{ f.release.title }}</a>
+        {% if f.tagged %}<span class="badge info">tagged</span>{% endif %}
+        {% if f.raw("disambiguation") %}<div class="muted small">{{ f.raw("disambiguation") }}</div>{% endif %}
+        <div class="muted small mobile-only">{{ f.formats }} · {{ f.track_count }} tracks</div>
+      </td>
+      <td class="small">
+        {{ [f.raw("date"), f.raw("country")] | select | join(" · ") or "–" }}
+        {% if f.raw("status") and f.raw("status") != "Official" %}<div class="muted">{{ f.raw("status") }}</div>{% endif %}
+      </td>
+      <td class="small col-file">{{ f.formats }}</td>
+      <td class="num col-file">{{ f.track_count }}</td>
+      <td>
+        <strong class="nowrap">{{ f.fits }} of {{ files }}</strong>
+        <div class="muted small">
+          {%- set notes = [] -%}
+          {%- if f.off %}{% set _ = notes.append(f.off ~ " off") %}{% endif -%}
+          {%- if f.unknown %}{% set _ = notes.append(f.unknown ~ " without a length") %}{% endif -%}
+          {%- if f.unmatched %}{% set _ = notes.append(f.unmatched ~ " not on it") %}{% endif -%}
+          {%- if f.no_file %}{% set _ = notes.append(f.no_file ~ " track" ~ ("s" if f.no_file != 1 else "") ~ " without a file") %}{% endif -%}
+          {{ notes | join(" · ") }}
+        </div>
+      </td>
+      <td class="num nowrap">{% if f.worst_ms %}{{ (f.worst_ms / 1000) | round | int }} s{% else %}–{% endif %}</td>
+    </tr>
+  {% endfor %}
+{% endmacro %}
+{% set shown = 10 %}
+<section class="panel album-section release-group" id="group-{{ group_id }}">
+  <h2>Other releases <span class="muted small">in the <a href="https://musicbrainz.org/release-group/{{ group_id }}" rel="noreferrer" target="_blank">release group</a></span></h2>
+  {% if comparison %}
+    <p class="muted small">
+      How each release’s track lengths fit the {{ comparison.files }} file{% if comparison.files != 1 %}s{% endif %} here
+      (within {{ comparison.tolerance_s }} s), best first.
+      Looked up {{ comparison.fetched_at | ago }}.
+      {% if comparison.release_count > comparison.fits | length %}Only the first {{ comparison.fits | length }} of {{ comparison.release_count }} releases were looked up.{% endif %}
+    </p>
+    {% if comparison.fits %}
+      <div class="table-wrap">
+        <table class="table release-fits">
+          <thead>
+            <tr><th>Release</th><th>Date</th><th class="col-file">Format</th><th class="num col-file">Tracks</th><th>Files that fit</th><th class="num">Worst</th></tr>
+          </thead>
+          <tbody>{{ fit_rows(comparison.fits[:shown], comparison.files) }}</tbody>
+        </table>
+      </div>
+      {% if comparison.fits | length > shown %}
+        <details class="more-releases">
+          <summary>{{ comparison.fits | length - shown }} more release{% if comparison.fits | length - shown != 1 %}s{% endif %}</summary>
+          <div class="table-wrap">
+            <table class="table release-fits">
+              <tbody>{{ fit_rows(comparison.fits[shown:], comparison.files) }}</tbody>
+            </table>
+          </div>
+        </details>
+      {% endif %}
+    {% else %}
+      <p class="small">MusicBrainz has no releases in this release group.</p>
+    {% endif %}
+  {% else %}
+    <p class="muted small">Compare the track lengths here with every release of this album on MusicBrainz, to find the one these files are. One lookup, only when you ask.</p>
+  {% endif %}
+  {% if message %}<p class="small {{ 'rename-problem' if refused else 'muted' }}">{{ message }}</p>{% endif %}
+  {% if settings.musicbrainz_enabled %}
+    <form hx-post="/library/release-group?{{ {'folder': album.folder, 'id': group_id} | urlencode }}"
+          hx-target="closest section" hx-swap="outerHTML" hx-disabled-elt="find button">
+      <button class="button" type="submit">{% if comparison %}Look up again{% else %}Compare with other releases{% endif %}</button>
+      <span class="lookup-busy muted small">Looking up…</span>
+    </form>
+  {% elif not comparison %}
+    <p class="muted small">MusicBrainz lookups are off (<code>[musicbrainz] enabled</code>).</p>
+  {% endif %}
+</section>
