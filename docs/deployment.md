@@ -5,16 +5,9 @@ Actions and published to `ghcr.io/emilystap/tagdrifter` (`latest` from `main`, `
 version tags). These steps assume TrueNAS SCALE 24.10 (Electric Eel) or later, where apps are
 Docker Compose projects.
 
-## 1. Make the image pullable
+The image is public, so TrueNAS pulls it without registry credentials.
 
-GHCR packages start out **private**. Either:
-
-- **Public (simplest):** on GitHub, open your profile → *Packages* → `tagdrifter` →
-  *Package settings* → *Change visibility* → Public. The image contains only this repo's code.
-- **Private:** in TrueNAS, *Apps* → *Configuration* → *Manage Container Image Registries* → add
-  `ghcr.io` with your GitHub username and a personal access token with only `read:packages`.
-
-## 2. Create a dataset for the app's data
+## 1. Create a dataset for the app's data
 
 Create a dataset for the database, e.g. `POOL/apps/tagdrifter` with a `data` directory in it,
 and give the `apps` user (UID/GID 568) write access:
@@ -25,7 +18,7 @@ and give the `apps` user (UID/GID 568) write access:
 The database holds the tag cache, scan history and issues. It's rebuilt by the next scan if
 lost (only issue history is lost), but snapshot the dataset with your other app data anyway.
 
-## 3. Check library permissions
+## 2. Check library permissions
 
 The container runs as `568:568` and mounts the library **read-only**. The `apps` user needs
 read and traverse access to every folder of the music dataset. If the dataset uses an SMB ACL
@@ -36,7 +29,7 @@ recursively. A quick check from the TrueNAS shell:
 sudo -u apps find /mnt/POOL/media/music -maxdepth 2 | head
 ```
 
-## 4. Install via YAML
+## 3. Install via YAML
 
 *Apps* → *Discover Apps* → ⋮ → *Install via YAML*. Name it `tagdrifter` and paste
 [`compose.yaml`](../compose.yaml) after editing:
@@ -55,6 +48,13 @@ proxy. The UI uses root-relative links, so it works over HTTPS without extra hea
 be served at the root of its hostname (e.g. `https://tags.example.com/`), not under a path.
 Keep the proxy host LAN-only (e.g. an access list). If the proxy sends `X-Forwarded-Proto:
 https` (NPM does), the login cookie is marked HTTPS-only.
+
+## 4. First scan
+
+The first scan reads every file's tags. It only reads the tag blocks at the start of each file
+(cover art is skipped), so it's quick: several thousand files a minute even over SMB, and
+faster on the NAS's own disks. Press *Scan now* in the top bar, or wait for
+the schedule. Later scans re-read only files whose size or modification time changed.
 
 ## Optional: a login
 
@@ -75,13 +75,6 @@ Without a password the UI has no login. To require one:
 Sessions last 30 days and are signed with a key generated in `/data/secret_key`. Delete that
 file (or set `TAGDRIFTER_SECRET_KEY`) to log every browser out. `/healthz` never needs a login.
 To forget the password, remove the variable and restart.
-
-## 5. First scan
-
-The first scan reads every file's tags. It only reads the tag blocks at the start of each file
-(cover art is skipped), so it's quick: several thousand files a minute even over SMB, and
-faster on the NAS's own disks. Press *Scan now* in the top bar, or wait for
-the schedule. Later scans re-read only files whose size or modification time changed.
 
 ## Optional: config.toml
 
