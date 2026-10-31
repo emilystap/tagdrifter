@@ -45,6 +45,11 @@
     {% if changes.renamed_files %}
       <div class="muted small">{{ changes.renamed_files }} filename{% if changes.renamed_files != 1 %}s{% endif %} change{% if changes.renamed_files == 1 %}s{% endif %}</div>
     {% endif %}
+    {% if fix_enabled and (changes.folder or changes.split or changes.renamed_files) and not g.untagged %}
+      <div class="rename">
+        <button class="button" hx-get="/rename/preview?album={{ g.key | urlencode }}" hx-target="closest .rename">Preview renames</button>
+      </div>
+    {% endif %}
     <details class="group-issues">
       <summary>{{ g.count }} issue{% if g.count != 1 %}s{% endif %}</summary>
       <ul class="issues">

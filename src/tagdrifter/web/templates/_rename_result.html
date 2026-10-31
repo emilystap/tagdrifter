@@ -1,0 +1,11 @@
+{#- Outcome of applying a rename, swapped into the album card's .rename box. -#}
+{% if error %}
+  <p class="rename-problem"><strong>Nothing renamed:</strong> {{ error }}</p>
+  <button class="button" hx-get="/rename/preview?album={{ album | urlencode }}" hx-target="closest .rename">Preview again</button>
+{% else %}
+  <p class="rename-done">
+    <span class="badge ok">renamed</span>
+    {{ result.moved }} change{% if result.moved != 1 %}s{% endif %} made; rescanning to update the issues.
+    <a href="/renames">Undo on the Renames page</a>
+  </p>
+{% endif %}

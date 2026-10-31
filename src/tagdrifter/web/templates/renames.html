@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Renames · Tag Drifter{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Renames</h2>
+  {% if error %}<p class="rename-problem" role="alert"><strong>Undo stopped:</strong> {{ error }}</p>{% endif %}
+  {% if not writable %}<p class="muted small">The library is mounted read-only, so renames can’t be applied or undone.</p>{% endif %}
+  {% if batches %}
+  <ul class="groups">
+    {% for b in batches %}
+    <li class="group">
+      <div class="group-head">
+        <span class="badge {{ {'applied': 'ok', 'failed': 'error', 'partial': 'warning'}.get(b['status'], '') }}">{{ b["status"] }}</span>
+        <span class="path group-path">{{ b["album"] }}</span>
+        {% if b["status"] in ("applied", "partial") and writable %}
+        <form class="batch-undo" method="post" action="/renames/{{ b['id'] }}/undo"
+              onsubmit="return confirm('Move these files back to where they were?')">
+          <button type="submit" class="button">Undo</button>
+        </form>
+        {% endif %}
+      </div>
+      <div class="muted small">
+        #{{ b["id"] }} · {{ b["created_at"] | timestamp }} · {{ b["tracks"] }} track{% if b["tracks"] != 1 %}s{% endif %}
+      </div>
+      {% if b["error"] %}<div class="rename-problem small">{{ b["error"] }}</div>{% endif %}
+      <details class="group-issues">
+        <summary hx-get="/renames/{{ b['id'] }}" hx-target="next .batch-moves" hx-trigger="click once">Changes</summary>
+        <div class="batch-moves"></div>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+    <p class="muted">Nothing renamed yet. Album cards on the Issues page have a “Preview renames” button.</p>
+  {% endif %}
+</section>
+{% endblock %}

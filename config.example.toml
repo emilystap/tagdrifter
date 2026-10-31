@@ -1,6 +1,7 @@
 # Tag Drifter configuration. Copy to config.toml (git-ignored) and adjust.
 # Environment variables override these: TAGDRIFTER_LIBRARY, TAGDRIFTER_DB,
-# TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_SCHEDULE, TAGDRIFTER_CONFIG.
+# TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_SCHEDULE, TAGDRIFTER_FIX,
+# TAGDRIFTER_CONFIG.
 
 [library]
 path = "M:/music"            # in Docker this will be "/music"
@@ -24,6 +25,11 @@ schedule = "0 4 * * *"
 # Require a password for the web UI. Generate the hash with `tagdrifter hash-password`
 # (in Docker: `docker exec -it tagdrifter tagdrifter hash-password`). Unset = no login.
 # password_hash = "scrypt:16384:8:1:..."
+
+[fix]
+# Let the web UI rename MBID-tagged albums to their expected paths (preview, apply, undo).
+# Needs write access to the library. Env: TAGDRIFTER_FIX.
+enabled = false
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

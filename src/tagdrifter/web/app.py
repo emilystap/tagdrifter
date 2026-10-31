@@ -3,6 +3,8 @@
 Server-rendered Jinja templates; HTMX (vendored in static/) swaps partials for filtering,
 paging and scan progress. Each request opens its own Store; scans run in a ScanRunner thread.
 Every POST is CSRF-checked, and with a password configured every page needs a login (auth.py).
+With `fix_enabled`, album cards offer a rename preview + apply, and /renames lists the
+journal with undo (renamer.py); scans are held off while files move.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from pathlib import Path
 from typing import Annotated
 from urllib.parse import parse_qs, urlencode
 
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
@@ -30,6 +32,7 @@ from .. import __version__
 from ..checks import REGISTRY, Severity
 from ..config import Settings
 from ..db import IssueFilter, Store
+from ..renamer import RenameError, apply_plan, library_writable, plan_album, undo_batch
 from . import auth
 from . import format as fmt
 from .runner import ScanRunner
@@ -108,6 +111,8 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "expected_location": fmt.expected_location,
         "scheduler": scheduler,
         "auth_enabled": authenticator.enabled,
+        "fix_enabled": settings.fix_enabled,
+        "move_labels": fmt.move_labels,
     }
 
     def is_partial(request: Request, target: str) -> bool:
@@ -265,10 +270,9 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     async def login(request: Request) -> Response:
         if not authenticator.enabled:
             return RedirectResponse("/", status_code=303)
-        # Parsed by hand to avoid the python-multipart dependency for one form.
-        form = parse_qs((await request.body()).decode(errors="replace"))
-        password = form.get("password", [""])[0]
-        target = auth.safe_next(form.get("next", ["/"])[0])
+        form = await _form(request)
+        password = form.get("password", "")
+        target = auth.safe_next(form.get("next", "/"))
         # scrypt is deliberately slow; keep it off the event loop.
         if await asyncio.to_thread(authenticator.check_password, password):
             response = RedirectResponse(target, status_code=303)
@@ -309,6 +313,77 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         status = app.state.runner.status()
         return render(request, "_scan_status.html", status=status, last_scan=_last_scan(store))
 
+    # --- Renames ----------------------------------------------------------------------
+
+    def require_fix() -> None:
+        if not settings.fix_enabled:
+            raise HTTPException(404, "Renaming is off (set TAGDRIFTER_FIX=true to enable it).")
+
+    def renamed(request: Request, name: str, **context) -> HTMLResponse:
+        """Render, and start a rescan so the issues reflect the new paths."""
+        response = render(request, name, **context)
+        if app.state.runner.start():
+            response.headers["HX-Trigger"] = "scan-started"
+        return response
+
+    @app.get("/rename/preview", response_class=HTMLResponse)
+    def rename_preview(request: Request, store: StoreDep, album: str) -> HTMLResponse:
+        require_fix()
+        plan = plan_album(settings, store, album)
+        return render(
+            request, "_rename_preview.html", plan=plan, writable=library_writable(settings)
+        )
+
+    @app.post("/rename/apply", response_class=HTMLResponse)
+    async def rename_apply(request: Request) -> HTMLResponse:
+        require_fix()
+        form = await _form(request)
+        album, fingerprint = form.get("album", ""), form.get("fingerprint", "")
+
+        def apply():
+            with app.state.runner.paused(), Store(settings.database_path) as store:
+                return apply_plan(settings, store, album, fingerprint)
+
+        try:
+            result = await asyncio.to_thread(apply)
+        except (RenameError, RuntimeError) as exc:
+            return render(request, "_rename_result.html", album=album, error=str(exc))
+        return renamed(request, "_rename_result.html", album=album, result=result, error=None)
+
+    @app.get("/renames", response_class=HTMLResponse)
+    def renames(request: Request, store: StoreDep) -> HTMLResponse:
+        require_fix()
+        return render(
+            request,
+            "renames.html",
+            page="renames",
+            batches=store.rename_batches(100),
+            writable=library_writable(settings),
+            error=request.query_params.get("error"),
+        )
+
+    @app.get("/renames/{batch_id}", response_class=HTMLResponse)
+    def rename_moves(request: Request, store: StoreDep, batch_id: int) -> HTMLResponse:
+        require_fix()
+        return render(request, "_rename_moves.html", moves=store.rename_moves(batch_id))
+
+    @app.post("/renames/{batch_id}/undo")
+    def rename_undo(request: Request, batch_id: int) -> Response:
+        require_fix()
+        with Store(settings.database_path) as store:
+            batch = store.rename_batch(batch_id)
+            if batch is None or batch["status"] not in ("applied", "partial"):
+                raise HTTPException(404, "Nothing to undo.")
+            try:
+                with app.state.runner.paused():
+                    undo_batch(settings, store, batch_id)
+            except (RenameError, RuntimeError) as exc:
+                return RedirectResponse(
+                    "/renames?" + urlencode({"error": str(exc)}), status_code=303
+                )
+        app.state.runner.start()
+        return RedirectResponse("/renames", status_code=303)
+
     @app.get("/healthz")
     def healthz(store: StoreDep) -> JSONResponse:
         store.conn.execute("SELECT 1")
@@ -322,6 +397,13 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         )
 
     return app
+
+
+async def _form(request: Request) -> dict[str, str]:
+    """A urlencoded form's fields (first value each). Parsed by hand to avoid the
+    python-multipart dependency for a few small forms."""
+    form = parse_qs((await request.body()).decode(errors="replace"))
+    return {k: v[0] for k, v in form.items()}
 
 
 def _current_path(request: Request) -> str:

@@ -29,9 +29,9 @@ present, are in the git-ignored `CLAUDE.local.md`.
   names that would collide over SMB.
 - **Incremental scans**: re-read tags only when size or mtime changed; checks always run over
   the whole library (they're cheap and some depend on siblings).
-- **Read-only first**: the first deployment mounts the library `:ro`. Fix/rename actions come
-  later, with preview + approve in the UI, a read-write mount, and PUID/PGID matching TrueNAS's
-  `apps` user (568).
+- **Read-only by default**: deployments mount the library `:ro`. Renames are opt-in
+  (`TAGDRIFTER_FIX` plus a read-write mount), always previewed and approved in the UI,
+  journaled for undo, and run as TrueNAS's `apps` user (568).
 - **Config precedence**: defaults < `config.toml` < `TAGDRIFTER_*` env vars < CLI flags.
   The config file is TOML (stdlib `tomllib`).
 
@@ -80,11 +80,21 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Host`) and, with a password, sends unauthenticated requests to `/login` (HTMX ones via
      `HX-Redirect`); `/login`, `/healthz` and `/static/` are public. Every new POST route is
      covered automatically. The login form is parsed by hand (no python-multipart).
-   - **5c next**: rename preview + approve per album (rename + move `.lrc`/`.txt` sidecars, prune
-     empty dirs; v1's `organize_artist_directory` has the logic). Only MBID-tagged files, never
-     overwrite, re-check each file before renaming, an undo journal, off unless enabled
-     (needs the library mounted read-write).
-   - 5d: Navidrome rescan trigger after renames. 5e: notifications (ntfy/Apprise).
+   - 5c ✅ Rename preview + apply + undo per album (`renamer.py`, off unless `fix_enabled` /
+     `[fix] enabled` / `TAGDRIFTER_FIX`; needs a read-write mount). `plan_album` builds moves
+     from the album's open `path.track_location` issues and refuses (with reasons) unless every
+     audio file is readable, MBID-tagged and unchanged since the scan (size + mtime vs the
+     `files` cache), targets stay in the artist folder, nothing would be overwritten and no two
+     targets collide case-insensitively. One new folder for all tracks that doesn't exist yet
+     → the folder itself is renamed (artwork travels); otherwise tracks move one by one and an
+     emptied folder is removed. Sidecars follow their track. Case-only renames go through a
+     hidden temp name. `apply_plan` re-plans and requires the preview's `fingerprint`, journals
+     each move (`rename_batches` / `rename_moves`, migration 4) and rolls back on failure;
+     `undo_batch` reverses pending moves newest first. Routes: `GET /rename/preview`,
+     `POST /rename/apply` (fires `scan-started`, which the scan widget listens for),
+     `/renames` (journal + Undo). `ScanRunner.paused()` keeps scans out while files move.
+   - **5d next**: Navidrome rescan trigger after renames. 5e: notifications (ntfy/Apprise).
+   - Later: rename across artist folders for `album.placement` issues; a CLI for renames.
    - Later: non-FLAC formats via mutagen.
    - Later (owner's request): a conventional first-run login. On first launch with no
      password set, every page leads to a "Set a password" form; the scrypt hash is stored in

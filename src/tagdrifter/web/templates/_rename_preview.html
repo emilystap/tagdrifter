@@ -1,0 +1,35 @@
+{#- Rename preview for one album card, swapped into its .rename box. Expects `plan`, `writable`. -#}
+<div class="rename-preview">
+  {% if plan.problems %}
+    <p class="rename-problem"><strong>Can’t rename this folder:</strong></p>
+    <ul class="small">
+      {% for p in plan.problems %}<li>{{ p }}</li>{% endfor %}
+    </ul>
+  {% else %}
+    <ul class="moves">
+      {% for m in plan.moves %}
+        {% set a, b = move_labels(m) %}
+        {% set current, expected = diff_marks(a, b) %}
+        <li>
+          <span class="badge">{{ m.kind }}</span>
+          <span class="move-paths">
+            <span class="path">{{ current }}</span>
+            <span class="path"><span class="muted" aria-label="becomes">→ </span>{{ expected }}</span>
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if not writable %}
+      <p class="rename-problem small">The library is mounted read-only, so nothing can be renamed. Mount it read-write to apply this.</p>
+    {% else %}
+      <form class="rename-actions" hx-post="/rename/apply" hx-target="closest .rename" hx-swap="innerHTML">
+        <input type="hidden" name="album" value="{{ plan.album }}">
+        <input type="hidden" name="fingerprint" value="{{ plan.fingerprint }}">
+        <button type="submit" class="button primary">
+          Rename {{ plan.track_count }} track{% if plan.track_count != 1 %}s{% endif %}{% if plan.moves[0].kind == "folder" %} and the folder{% endif %}
+        </button>
+        <span class="muted small">Recorded on the Renames page, where it can be undone.</span>
+      </form>
+    {% endif %}
+  {% endif %}
+</div>

@@ -65,6 +65,26 @@ MIGRATIONS: list[str] = [
     ALTER TABLE issues ADD COLUMN album TEXT;
     CREATE INDEX issues_album ON issues(album);
     """,
+    # 4: rename journal (renamer.py): one batch per applied album, its moves in order
+    """
+    CREATE TABLE rename_batches (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        album       TEXT NOT NULL,
+        created_at  TEXT NOT NULL,
+        finished_at TEXT,
+        status      TEXT NOT NULL,      -- running | applied | failed | partial | undone
+        error       TEXT
+    );
+    CREATE TABLE rename_moves (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        batch_id INTEGER NOT NULL REFERENCES rename_batches(id),
+        kind     TEXT NOT NULL,         -- folder | file | sidecar | mkdir | rmdir
+        src      TEXT NOT NULL,         -- library-relative; '' for mkdir
+        dst      TEXT NOT NULL,         -- library-relative; '' for rmdir
+        undone   INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX rename_moves_batch ON rename_moves(batch_id);
+    """,
 ]
 
 
@@ -196,8 +216,11 @@ class Store:
     # --- File cache ---------------------------------------------------------------------
 
     def load_file_cache(self) -> dict[str, CachedFile]:
+        return self._cached_files("SELECT path, size, mtime_ns, tags_json, error FROM files")
+
+    def _cached_files(self, sql: str, params: Sequence[Any] = ()) -> dict[str, CachedFile]:
         out = {}
-        for row in self.conn.execute("SELECT path, size, mtime_ns, tags_json, error FROM files"):
+        for row in self.conn.execute(sql, params):
             tags = (
                 {k: tuple(v) for k, v in json.loads(row["tags_json"]).items()}
                 if row["tags_json"] is not None
@@ -231,6 +254,24 @@ class Store:
                     for path, size, mtime, tags, error in rows
                 ],
             )
+
+    def files_under(self, folder: str) -> dict[str, CachedFile]:
+        """Cached files anywhere below a library-relative folder."""
+        prefix = folder.rstrip("/") + "/"
+        # substr, not LIKE: LIKE ignores ASCII letter case.
+        return self._cached_files(
+            "SELECT path, size, mtime_ns, tags_json, error FROM files WHERE substr(path, 1, ?) = ?",
+            (len(prefix), prefix),
+        )
+
+    def files_in_folder(self, folder: str) -> dict[str, CachedFile]:
+        """Cached files directly in a library-relative folder."""
+        prefix = folder.rstrip("/") + "/"
+        return {
+            path: entry
+            for path, entry in self.files_under(folder).items()
+            if "/" not in path[len(prefix) :]
+        }
 
     def delete_files(self, paths: Iterable[str]) -> None:
         with self.conn:
@@ -418,3 +459,51 @@ class Store:
 
     def file_count(self) -> int:
         return self.conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]
+
+    # --- Rename journal -----------------------------------------------------------------
+
+    def start_rename_batch(self, album: str) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO rename_batches (album, created_at, status) VALUES (?, ?, 'running')",
+                (album, utcnow()),
+            )
+        return int(cur.lastrowid)
+
+    def record_rename(self, batch_id: int, kind: str, src: str, dst: str) -> None:
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO rename_moves (batch_id, kind, src, dst) VALUES (?, ?, ?, ?)",
+                (batch_id, kind, src, dst),
+            )
+
+    def mark_rename_undone(self, move_id: int) -> None:
+        with self.conn:
+            self.conn.execute("UPDATE rename_moves SET undone = 1 WHERE id = ?", (move_id,))
+
+    def finish_rename_batch(self, batch_id: int, status: str, error: str | None = None) -> None:
+        with self.conn:
+            self.conn.execute(
+                "UPDATE rename_batches SET status = ?, error = ?, finished_at = ? WHERE id = ?",
+                (status, error, utcnow(), batch_id),
+            )
+
+    def rename_batch(self, batch_id: int) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT * FROM rename_batches WHERE id = ?", (batch_id,)
+        ).fetchone()
+
+    def rename_batches(self, limit: int = 50) -> list[sqlite3.Row]:
+        """Recent batches, newest first, with how many tracks each moved."""
+        return self.conn.execute(
+            "SELECT b.*, (SELECT COUNT(*) FROM rename_moves m WHERE m.batch_id = b.id"
+            " AND m.kind = 'file') AS tracks FROM rename_batches b ORDER BY b.id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    def rename_moves(self, batch_id: int, *, pending_only: bool = False) -> list[sqlite3.Row]:
+        """A batch's moves in the order they were made."""
+        sql = "SELECT * FROM rename_moves WHERE batch_id = ?"
+        if pending_only:
+            sql += " AND undone = 0"
+        return self.conn.execute(sql + " ORDER BY id", (batch_id,)).fetchall()

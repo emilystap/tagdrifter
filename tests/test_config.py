@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from tagdrifter.config import load_settings
+from tagdrifter.config import Settings, load_settings
 
 
 def test_defaults_without_config(tmp_path, monkeypatch) -> None:
@@ -73,3 +73,11 @@ schedule = "15 3 * * *"
     assert load_settings(cfg, env={"TAGDRIFTER_SCHEDULE": "off"}).scan_schedule == "off"
     monkeypatch.chdir(tmp_path / "..")  # no config.toml here
     assert load_settings(env={}).scan_schedule == "0 4 * * *"
+
+
+def test_fix_enabled_from_toml_and_env(tmp_path) -> None:
+    assert Settings().fix_enabled is False
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("[fix]\nenabled = true\n", encoding="utf-8")
+    assert load_settings(cfg, env={}).fix_enabled is True
+    assert load_settings(cfg, env={"TAGDRIFTER_FIX": "off"}).fix_enabled is False

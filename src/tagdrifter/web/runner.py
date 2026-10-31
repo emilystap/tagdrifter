@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 from ..config import Settings
@@ -55,11 +57,29 @@ class ScanRunner:
         self._started_at: float | None = None
         self._result: ScanResult | None = None
         self._error: str | None = None
+        self._paused = False
 
-    def start(self, *, full: bool = False) -> bool:
-        """Start a scan unless one is already running. Returns whether one was started."""
+    @contextmanager
+    def paused(self) -> Iterator[None]:
+        """Hold off scans while files are renamed. Raises RuntimeError if a scan is running or
+        another rename holds it."""
         with self._lock:
             if self._thread is not None and self._thread.is_alive():
+                raise RuntimeError("A scan is running; try again when it finishes.")
+            if self._paused:
+                raise RuntimeError("Another rename is in progress.")
+            self._paused = True
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._paused = False
+
+    def start(self, *, full: bool = False) -> bool:
+        """Start a scan unless one is already running (or renames are in progress). Returns
+        whether one was started."""
+        with self._lock:
+            if self._paused or (self._thread is not None and self._thread.is_alive()):
                 return False
             self._progress = None
             self._started_at = time.time()
