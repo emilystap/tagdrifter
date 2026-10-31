@@ -41,12 +41,14 @@ def _vorbis_comment(tags: dict[str, str | list[str]]) -> bytes:
     return out
 
 
-def _picture(size: int) -> bytes:
+def _picture(size: int, kind: int = 3, width: int = 500, height: int = 500) -> bytes:
     # Picture type, MIME, description, width/height/depth/colours, then the image data, padded
     # so the whole block is `size` bytes. Mutagen parses this structure rather than trusting the
     # block length, so it has to be well formed.
     mime = b"image/jpeg"
-    header = struct.pack(">II", 3, len(mime)) + mime + struct.pack(">IIIII", 0, 500, 500, 24, 0)
+    header = (
+        struct.pack(">II", kind, len(mime)) + mime + struct.pack(">IIIII", 0, width, height, 24, 0)
+    )
     data_len = size - len(header) - 4
     if data_len < 0:
         raise ValueError(f"picture_bytes must be at least {len(header) + 4}")
@@ -57,21 +59,26 @@ def build_flac(
     path: Path,
     tags: dict[str, str | list[str]] | None = None,
     *,
-    picture_bytes: int = 0,
+    picture_bytes: int = 64,
     picture_first: bool = True,
     id3_prefix: bool = False,
     length_ms: int = 0,
+    picture: tuple[int, int, int] = (3, 500, 500),
+    extra_pictures: tuple[tuple[int, int, int, int], ...] = (),
 ) -> Path:
     """Write a structurally valid, audio-less FLAC file.
 
-    `picture_bytes` adds a PICTURE block of that size (before or after the comment block).
-    `length_ms` sets the length STREAMINFO reports (0 = unknown).
+    `picture_bytes` adds a PICTURE block of that size (before or after the comment block);
+    by default a small front cover, as every file in the target library has one (0 = none).
+    `picture` is its (type, width, height); `extra_pictures` adds (size, type, width, height)
+    blocks at the end. `length_ms` sets the length STREAMINFO reports (0 = unknown).
     """
     blocks: list[tuple[int, bytes]] = [(0, _streaminfo(length_ms))]
-    picture = (6, _picture(picture_bytes)) if picture_bytes else None
+    pic = (6, _picture(picture_bytes, *picture)) if picture_bytes else None
     comment = (4, _vorbis_comment(tags)) if tags is not None else None
-    ordered = [picture, comment] if picture_first else [comment, picture]
+    ordered = [pic, comment] if picture_first else [comment, pic]
     blocks += [b for b in ordered if b]
+    blocks += [(6, _picture(*extra)) for extra in extra_pictures]
     body = b"".join(_block(t, d, last=i == len(blocks) - 1) for i, (t, d) in enumerate(blocks))
 
     prefix = b""

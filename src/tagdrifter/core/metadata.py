@@ -47,6 +47,12 @@ TOTAL_DISCS_KEYS = ("disctotal", "totaldiscs")
 # The audio length in ms, stored alongside the tags (0 = unknown). Not a possible Vorbis
 # comment name ("~" is outside the allowed range), so it can't clash with a real tag.
 LENGTH_KEY = "~length"
+# Embedded pictures, one value each: "<type> <mime> <width>x<height>" (type 3 = front cover);
+# present and empty when the file has none.
+PICTURES_KEY = "~pictures"
+# Pseudo-tags the current reader records: a cached file without one of them is read again.
+DERIVED_KEYS = (LENGTH_KEY, PICTURES_KEY)
+FRONT_COVER = 3
 
 Tags = Mapping[str, tuple[str, ...]]
 
@@ -190,6 +196,14 @@ class TrackMeta:
         return value or None
 
     @property
+    def pictures(self) -> tuple[EmbeddedPicture, ...] | None:
+        """Embedded pictures, or None when the file was read by a version that didn't record
+        them (so a check can't tell)."""
+        if PICTURES_KEY not in self.tags:
+            return None
+        return tuple(p for v in self.tags[PICTURES_KEY] if (p := EmbeddedPicture.parse(v)))
+
+    @property
     def is_mbid_tagged(self) -> bool:
         """Has valid release and recording MBIDs, i.e. was most likely tagged by Picard.
 
@@ -197,6 +211,29 @@ class TrackMeta:
         truth (including letter case) over their paths.
         """
         return is_mbid(self.release_mbid) and is_mbid(first_tag(self.tags, RECORDING_MBID_KEYS))
+
+
+@dataclass(frozen=True, slots=True)
+class EmbeddedPicture:
+    type: int  # ID3v2 APIC picture type; 3 = front cover
+    mime: str
+    width: int  # 0 = not recorded by the tagger
+    height: int
+
+    def describe(self) -> str:
+        return f"{self.type} {self.mime} {self.width}x{self.height}"
+
+    @classmethod
+    def parse(cls, value: str) -> EmbeddedPicture | None:
+        match = re.fullmatch(r"(\d+) (\S*) (\d+)x(\d+)", value)
+        if not match:
+            return None
+        kind, mime, width, height = match.groups()
+        return cls(int(kind), mime, int(width), int(height))
+
+    @property
+    def is_front_cover(self) -> bool:
+        return self.type == FRONT_COVER
 
 
 class MetadataReadError(Exception):
@@ -216,7 +253,12 @@ def read_tags(path: PurePath) -> dict[str, tuple[str, ...]]:
             info = read_flac(path)
         except (FlacError, OSError) as exc:
             raise MetadataReadError(f"{path}: {exc}") from exc
-        return normalize_tags([*info.comments, (LENGTH_KEY, str(info.length_ms or 0))])
+        pictures = [
+            EmbeddedPicture(p.type, p.mime, p.width, p.height).describe() for p in info.pictures
+        ]
+        return normalize_tags(
+            [*info.comments, (LENGTH_KEY, str(info.length_ms or 0)), (PICTURES_KEY, pictures)]
+        )
 
     from mutagen import File as MutagenFile  # imported lazily; only needed for non-FLAC
     from mutagen import MutagenError
@@ -232,7 +274,11 @@ def read_tags(path: PurePath) -> dict[str, tuple[str, ...]]:
     tags = audio.tags or []
     pairs = tags if isinstance(tags, list) else list(tags.items())
     length = getattr(getattr(audio, "info", None), "length", 0) or 0
-    return normalize_tags([*pairs, (LENGTH_KEY, str(round(length * 1000)))])
+    derived = [(LENGTH_KEY, str(round(length * 1000)))]
+    if hasattr(audio, "pictures"):  # FLAC-style pictures (e.g. Ogg FLAC); else unknown
+        pics = [EmbeddedPicture(p.type, p.mime, p.width, p.height) for p in audio.pictures]
+        derived.append((PICTURES_KEY, [p.describe() for p in pics]))
+    return normalize_tags([*pairs, *derived])
 
 
 def read_metadata(path: PurePath) -> TrackMeta:

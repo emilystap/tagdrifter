@@ -1,8 +1,9 @@
 """Library scan: discover files, read changed tags, run checks, persist results.
 
 Incremental: a file's tags are re-read only when its size or modification time changed
-since the last scan (or with full=True), or when it was cached before audio lengths were
-recorded (a one-off re-read after upgrading). Checks always run over the whole library, because
+since the last scan (or with full=True), or when it was cached by a version that didn't
+record a pseudo-tag in `DERIVED_KEYS` (audio length, embedded pictures: a one-off re-read
+after upgrading). Checks always run over the whole library, because
 some (release collisions, placement) depend on a file's neighbours; they are cheap.
 """
 
@@ -31,7 +32,7 @@ from .checks import (
 )
 from .config import Settings
 from .core import (
-    LENGTH_KEY,
+    DERIVED_KEYS,
     MetadataReadError,
     TrackMeta,
     compute_target,
@@ -190,7 +191,7 @@ def _scan(
             full
             or cached is None
             or (cached.size, cached.mtime_ns) != (size, mtime)
-            or (cached.tags is not None and LENGTH_KEY not in cached.tags)
+            or (cached.tags is not None and any(k not in cached.tags for k in DERIVED_KEYS))
         ):
             to_read.append(rel)
         else:

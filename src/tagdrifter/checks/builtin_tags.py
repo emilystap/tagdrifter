@@ -299,6 +299,51 @@ class MissingTracks(Check):
             yield self.issue(ctx.rel_path, message[0].upper() + message[1:], gaps=details)
 
 
+@register
+class CoverArt(Check):
+    id = "album.cover_art"
+    scope = Scope.ALBUM
+    description = (
+        "Tracks without an embedded cover, with pictures but none marked as the front cover, "
+        "or (with min_size set) a front cover smaller than min_size pixels."
+    )
+
+    def run(self, ctx: AlbumContext) -> Iterable[Issue]:
+        min_size = int(self.options.get("min_size", 0))
+        want_front = bool(self.options.get("require_front_cover", True))
+        known = [t for t in ctx.tracks if t.meta.pictures is not None]
+        problems: dict[str, list[str]] = {}
+        sizes: set[str] = set()
+        for t in known:
+            pictures = t.meta.pictures or ()
+            front = next((p for p in pictures if p.is_front_cover), None)
+            if not pictures:
+                problems.setdefault("no embedded cover", []).append(t.rel_path.name)
+            elif front is None and want_front:
+                problems.setdefault("no picture marked front cover", []).append(t.rel_path.name)
+            cover = front or (pictures[0] if pictures else None)
+            if cover and min_size and 0 < min(cover.width, cover.height) < min_size:
+                problems.setdefault(f"a cover smaller than {min_size} px", []).append(
+                    t.rel_path.name
+                )
+                sizes.add(f"{cover.width}x{cover.height}")
+        if not problems:
+            return
+        parts = []
+        for what, files in problems.items():
+            if len(files) == len(known):
+                count = "All tracks" if len(known) > 1 else "The track"
+                verb = "have" if len(known) > 1 else "has"
+            else:
+                count = f"{len(files)} of {len(known)} tracks"
+                verb = "has" if len(files) == 1 else "have"
+            parts.append(f"{count} {verb} {what}")
+        message = "; ".join(parts)
+        if sizes:
+            message += f" ({', '.join(sorted(sizes))})"
+        yield self.issue(ctx.rel_path, message, files=problems)
+
+
 def _total_tracks(meta: TrackMeta) -> int:
     """The disc's track count from TOTALTRACKS / TRACKTOTAL or a "3/12" track number; 0 if
     unknown."""
