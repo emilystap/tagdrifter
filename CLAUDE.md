@@ -54,7 +54,13 @@ present, are in the git-ignored `CLAUDE.local.md`.
    count what the other filters leave and are swapped out of band with each results update,
    `_issue_facets.html`), `web/runner.py` (`ScanRunner`: one
    background scan at a time, progress polled by HTMX every 1s; a finished scan fires the
-   `scan-finished` event and the page reloads `#page`). Server-rendered Jinja; partials are
+   `scan-finished` event and the page reloads `#page`). Each scan records why it ran
+   (`scans.reason`, migration 7, `db.SCAN_REASONS`: manual, schedule, cli, rename, undo,
+   musicbrainz; pass `reason=` to `ScanRunner.start` / `run_scan` for a new trigger). The
+   Scans page (`_scan_results.html`, 50 per page) hides follow-up rescans that completed with
+   no new issues unless `?all=1`; older scans that started within a minute of a rename
+   finishing were backfilled as `rename`. Old scans aren't deleted (rows are tiny, and
+   issues refer to scan ids). Server-rendered Jinja; partials are
    chosen by the `HX-Target` header. HTMX 2.0.4 is vendored in `web/static/` (no CDN).
 4. Deployment ✅ (CI builds + smoke-tests the image; running on the reference TrueNAS setup
    behind an HTTPS reverse proxy, so templates use root-relative URLs, never `url_for()`

@@ -132,15 +132,16 @@ def run_scan(
     progress: ProgressCallback | None = None,
     *,
     full: bool = False,
+    reason: str | None = None,
 ) -> ScanResult:
-    """Scan the library and record results. KeyboardInterrupt marks the scan cancelled
-    (tags read so far are kept) and re-raises."""
+    """Scan the library and record results; `reason` says why it ran (db.SCAN_REASONS).
+    KeyboardInterrupt marks the scan cancelled (tags read so far are kept) and re-raises."""
     root = settings.library_path
     if not root.is_dir():
         raise FileNotFoundError(f"library path not found or not a directory: {root}")
 
     started = time.monotonic()
-    result = ScanResult(scan_id=store.start_scan(str(root)))
+    result = ScanResult(scan_id=store.start_scan(str(root), reason))
     try:
         _scan(settings, store, root, result, progress, full)
     except BaseException as exc:

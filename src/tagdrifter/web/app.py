@@ -38,7 +38,7 @@ from .. import __version__, library
 from ..checks import REGISTRY, Severity
 from ..checks.builtin_musicbrainz import DEFAULT_TOLERANCE_SECONDS
 from ..config import Settings
-from ..db import IssueFilter, Store
+from ..db import FOLLOW_UP_REASONS, SCAN_REASONS, IssueFilter, Store
 from ..musicbrainz import SyncResult
 from ..notify import Notifications, NotifyError
 from ..renamer import (
@@ -59,6 +59,7 @@ from .scheduler import ScanScheduler
 HERE = Path(__file__).parent
 PAGE_SIZE = 100  # issues per page in the flat list
 GROUP_PAGE_SIZE = 50  # albums per page when grouped
+SCAN_PAGE_SIZE = 50  # rows per page of scan history
 SEVERITY_ORDER = {Severity.ERROR: 0, Severity.WARNING: 1, Severity.INFO: 2}
 
 
@@ -410,8 +411,40 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         return round(1000 * float(options.get("tolerance_seconds", DEFAULT_TOLERANCE_SECONDS)))
 
     @app.get("/scans", response_class=HTMLResponse)
-    def scans(request: Request, store: StoreDep) -> HTMLResponse:
-        return render(request, "scans.html", page="scans", scans=store.recent_scans(50))
+    def scans(
+        request: Request,
+        store: StoreDep,
+        all: bool = False,
+        page: Annotated[int, Query(ge=1)] = 1,
+    ) -> HTMLResponse:
+        total, routine = store.count_scans()
+        entries = total if all else total - routine
+        pages = max(1, ceil(entries / SCAN_PAGE_SIZE))
+        page = min(page, pages)
+        offset = (page - 1) * SCAN_PAGE_SIZE
+
+        def page_url(n: int, show_all: bool = all) -> str:
+            query = ({"all": 1} if show_all else {}) | ({"page": n} if n > 1 else {})
+            return "/scans" + (f"?{urlencode(query)}" if query else "")
+
+        context = {
+            "page": "scans",
+            "scans": store.recent_scans(SCAN_PAGE_SIZE, offset, hide_routine=not all),
+            "total": total,
+            "routine": routine,
+            "show_all": all,
+            "entries": entries,
+            "first_index": offset + 1 if entries else 0,
+            "page_no": page,
+            "pages": pages,
+            "page_url": page_url,
+            "toggle_url": page_url(1, not all),
+            "reasons": SCAN_REASONS,
+            "follow_up": FOLLOW_UP_REASONS,
+        }
+        if is_partial(request, "results"):
+            return render(request, "_scan_results.html", **context)
+        return render(request, "scans.html", **context)
 
     # --- Login ------------------------------------------------------------------------
 
@@ -477,7 +510,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     def renamed(request: Request, name: str, **context) -> HTMLResponse:
         """Render, and start a rescan so the issues reflect the new paths."""
         response = render(request, name, **context)
-        if app.state.runner.start():
+        if app.state.runner.start(reason="rename"):
             response.headers["HX-Trigger"] = "scan-started"
         return response
 
@@ -611,7 +644,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
                 return RedirectResponse(
                     "/renames?" + urlencode({"error": str(exc)}), status_code=303
                 )
-        app.state.runner.start()
+        app.state.runner.start(reason="undo")
         return RedirectResponse("/renames", status_code=303)
 
     # --- MusicBrainz ------------------------------------------------------------------

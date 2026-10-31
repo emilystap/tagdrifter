@@ -1,0 +1,60 @@
+{#- One page of scan history; swapped into #results by the pager and the show-all toggle.
+    Expects `scans`, `total`, `routine`, `show_all`, `entries`, `first_index`, `page_no`,
+    `pages`, `page_url`, `toggle_url`. -#}
+<div class="results-head">
+  <span>
+    {% if entries %}
+      {{ "{:,}".format(first_index) }}–{{ "{:,}".format(first_index + scans | length - 1) }}
+      of {{ "{:,}".format(entries) }} scan{% if entries != 1 %}s{% endif %}
+    {% endif %}
+    {% if routine %}
+      <span class="small">
+        {% if show_all %}
+          (including {{ "{:,}".format(routine) }} routine rescan{% if routine != 1 %}s{% endif %}).
+          <a href="{{ toggle_url }}" hx-get="{{ toggle_url }}" hx-target="#results" hx-push-url="true">Hide them</a>
+        {% else %}
+          ({{ "{:,}".format(routine) }} routine rescan{% if routine != 1 %}s{% endif %} hidden: after renames, undo or MusicBrainz lookups, with no new issues).
+          <a href="{{ toggle_url }}" hx-get="{{ toggle_url }}" hx-target="#results" hx-push-url="true">Show all</a>
+        {% endif %}
+      </span>
+    {% endif %}
+  </span>
+  {% include "_pager.html" %}
+</div>
+
+{% if scans %}
+<div class="panel table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>#</th><th>Started</th><th>Reason</th><th>Status</th><th class="num">Duration</th>
+        <th class="num">Files</th><th class="num">Read</th><th class="num">Removed</th>
+        <th class="num">Open</th><th class="num">New</th><th class="num">Resolved</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in scans %}
+      <tr>
+        <td>{{ s["id"] }}</td>
+        <td>{{ s["started_at"] | timestamp }}</td>
+        <td class="small{% if s['reason'] in follow_up %} muted{% endif %}">{{ reasons.get(s["reason"], "–") }}</td>
+        <td>
+          <span class="badge {{ {'completed': 'ok', 'failed': 'error', 'cancelled': 'warning'}.get(s['status'], '') }}"
+                {% if s["error"] %}title="{{ s['error'] }}"{% endif %}>{{ s["status"] }}</span>
+        </td>
+        <td class="num">{{ s | scan_duration }}</td>
+        <td class="num">{{ "{:,}".format(s["files_total"]) }}</td>
+        <td class="num">{{ "{:,}".format(s["files_read"]) }}</td>
+        <td class="num">{{ "{:,}".format(s["files_removed"]) }}</td>
+        <td class="num">{{ "{:,}".format(s["issues_open"]) }}</td>
+        <td class="num">{% if s["issues_new"] %}<a href="/issues?scan={{ s["id"] }}" title="Issues first seen in this scan that are still open">{{ "+{:,}".format(s["issues_new"]) }}</a>{% else %}+0{% endif %}</td>
+        <td class="num">{{ "−{:,}".format(s["issues_resolved"]) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="results-foot">{% include "_pager.html" %}</div>
+{% elif not total %}
+  <div class="panel"><p class="muted">No scans yet. Press “Scan now” to read the library.</p></div>
+{% endif %}

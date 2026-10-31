@@ -86,11 +86,11 @@ class ScanRunner:
             with self._lock:
                 self._paused = False
 
-    def start(self, *, full: bool = False, automatic: bool = False) -> bool:
+    def start(self, *, full: bool = False, automatic: bool = False, reason: str = "manual") -> bool:
         """Start a scan unless one is already running (or renames are in progress). Returns
         whether one was started. `automatic`: nobody pressed a button (the schedule, or a
         rescan after background lookups), so MusicBrainz lookups are left to the background
-        trickle instead of all starting at once."""
+        trickle instead of all starting at once. `reason`: why it runs (db.SCAN_REASONS)."""
         with self._lock:
             if self._paused or (self._thread is not None and self._thread.is_alive()):
                 return False
@@ -99,7 +99,7 @@ class ScanRunner:
             self._error = None
             self._thread = threading.Thread(
                 target=self._run,
-                kwargs={"full": full, "automatic": automatic},
+                kwargs={"full": full, "automatic": automatic, "reason": reason},
                 name="tagdrifter-scan",
                 daemon=True,
             )
@@ -109,7 +109,7 @@ class ScanRunner:
     def rescan(self) -> bool:
         """Apply freshly fetched MusicBrainz data: an automatic scan, so it doesn't start
         another round of lookups."""
-        return self.start(automatic=True)
+        return self.start(automatic=True, reason="musicbrainz")
 
     def wait(self, timeout: float | None = None) -> None:
         thread = self._thread
@@ -134,11 +134,11 @@ class ScanRunner:
                 self._phase_started = time.monotonic()
             self._progress = progress
 
-    def _run(self, full: bool, automatic: bool = False) -> None:
+    def _run(self, full: bool, automatic: bool = False, reason: str = "manual") -> None:
         log.info("Scan started (%s)", "full" if full else "incremental")
         try:
             with Store(self.settings.database_path) as store:
-                result = run_scan(self.settings, store, self._on_progress, full=full)
+                result = run_scan(self.settings, store, self._on_progress, full=full, reason=reason)
         except Exception as exc:  # reported in the UI; run_scan already marked the scan failed
             log.exception("Scan failed")
             with self._lock:

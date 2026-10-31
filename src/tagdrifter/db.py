@@ -107,7 +107,34 @@ MIGRATIONS: list[str] = [
         data       BLOB NOT NULL
     );
     """,
+    # 7: why each scan ran (SCAN_REASONS), so the Scans page can hide the routine rescans
+    # that follow renames and lookups. Older scans that started within a minute of a rename
+    # finishing were that rename's rescan; the rest stay unknown (NULL).
+    """
+    ALTER TABLE scans ADD COLUMN reason TEXT;
+    UPDATE scans SET reason = 'rename' WHERE EXISTS (
+        SELECT 1 FROM rename_batches b
+        WHERE b.finished_at IS NOT NULL AND scans.started_at >= b.finished_at
+          AND julianday(scans.started_at) - julianday(b.finished_at) < 60.0 / 86400
+    );
+    """,
 ]
+
+# Why a scan ran. Follow-up rescans (FOLLOW_UP_REASONS) are hidden from the Scans page by
+# default unless they failed or found new issues.
+SCAN_REASONS = {
+    "manual": "Scan now",
+    "schedule": "Scheduled",
+    "cli": "Command line",
+    "rename": "After renames",
+    "undo": "After undo",
+    "musicbrainz": "After MusicBrainz lookups",
+}
+FOLLOW_UP_REASONS = ("rename", "undo", "musicbrainz")
+_ROUTINE_SCAN = (
+    f"(coalesce(reason, '') IN ({', '.join(repr(r) for r in FOLLOW_UP_REASONS)})"
+    " AND status = 'completed' AND issues_new = 0)"
+)
 
 
 def utcnow() -> str:
@@ -305,11 +332,14 @@ class Store:
 
     # --- Scans --------------------------------------------------------------------------
 
-    def start_scan(self, library_path: str) -> int:
+    def start_scan(self, library_path: str, reason: str | None = None) -> int:
+        if reason is not None and reason not in SCAN_REASONS:
+            raise ValueError(f"unknown scan reason: {reason!r}")
         with self.conn:
             cur = self.conn.execute(
-                "INSERT INTO scans (started_at, status, library_path) VALUES (?, 'running', ?)",
-                (utcnow(), library_path),
+                "INSERT INTO scans (started_at, status, library_path, reason)"
+                " VALUES (?, 'running', ?, ?)",
+                (utcnow(), library_path, reason),
             )
         return int(cur.lastrowid)
 
@@ -334,10 +364,22 @@ class Store:
                 {"now": utcnow(), "status": status, "error": error, "id": scan_id, **counts},
             )
 
-    def recent_scans(self, limit: int = 20) -> list[sqlite3.Row]:
+    def recent_scans(
+        self, limit: int = 20, offset: int = 0, *, hide_routine: bool = False
+    ) -> list[sqlite3.Row]:
+        """Newest first. `hide_routine`: leave out follow-up rescans (after renames, undo or
+        MusicBrainz lookups) that completed without finding new issues."""
+        where = f"WHERE NOT {_ROUTINE_SCAN}" if hide_routine else ""
         return self.conn.execute(
-            "SELECT * FROM scans ORDER BY id DESC LIMIT ?", (limit,)
+            f"SELECT * FROM scans {where} ORDER BY id DESC LIMIT ? OFFSET ?", (limit, offset)
         ).fetchall()
+
+    def count_scans(self) -> tuple[int, int]:
+        """(all scans, routine follow-up rescans) for the Scans page."""
+        row = self.conn.execute(
+            f"SELECT count(*), coalesce(sum({_ROUTINE_SCAN}), 0) FROM scans"
+        ).fetchone()
+        return int(row[0]), int(row[1])
 
     # --- Issues -------------------------------------------------------------------------
 

@@ -73,8 +73,11 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   every release of the album's release group once, when you click it, and ranks them by how
   well their track lengths fit your files, with links to musicbrainz.org: handy for
   `mb.duration` issues, which usually mean the files are a different edition.
-- **Scans**: scan history with files read and issues opened/resolved; the new count links
-  to the issues first seen in that scan (`/issues?scan=N`).
+- **Scans**: scan history, 50 per page, with why each scan ran (*Scan now*, schedule,
+  command line, after renames, undo or MusicBrainz lookups), files read and issues
+  opened/resolved; the new count links to the issues first seen in that scan
+  (`/issues?scan=N`). Routine rescans (after renames, undo or lookups) that found no new
+  issues are hidden unless you choose *Show all*.
 - **Scan now** (top bar, every page): runs a scan in the background with live progress; the page
   refreshes its counts when it finishes. Only one scan runs at a time.
 - **Scheduled scans**: while the UI runs, it scans on `[scan] schedule` / `TAGDRIFTER_SCHEDULE`,

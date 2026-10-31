@@ -107,5 +107,5 @@ class ScanScheduler:
         return job.next_run_time if job else None
 
     def _fire(self) -> None:
-        if not self.runner.start(automatic=True):
+        if not self.runner.start(automatic=True, reason="schedule"):
             log.info("Scheduled scan skipped: a scan is already running")

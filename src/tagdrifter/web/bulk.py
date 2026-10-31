@@ -133,4 +133,4 @@ class BulkRenamer:
         with self._lock:
             self._result, self._error, self._finished_at = result, error, time.time()
         if result is None or result.applied:
-            self.runner.start()  # one rescan for everything that moved
+            self.runner.start(reason="rename")  # one rescan for everything that moved
