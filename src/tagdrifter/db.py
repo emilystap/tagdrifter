@@ -478,17 +478,30 @@ class Store:
             )
         }
 
-    def open_issue_artists(self) -> list[tuple[str, int]]:
-        """(artist folder, open issue count) pairs, by folder name. Library-level subjects
-        (no '/') count as their own name, e.g. a loose file."""
+    def open_issue_artists(self, filters: IssueFilter | None = None) -> list[tuple[str, int]]:
+        """(artist folder, open issue count) pairs among issues matching `filters`, by folder
+        name. Library-level subjects (no '/') count as their own name, e.g. a loose file."""
+        where, params = (filters or IssueFilter()).where()
         return [
             (r["artist"], r["n"])
             for r in self.conn.execute(
                 "SELECT substr(subject, 1, instr(subject || '/', '/') - 1) AS artist,"
-                " COUNT(*) AS n FROM issues WHERE resolved_scan IS NULL"
-                " GROUP BY artist ORDER BY artist COLLATE NOCASE"
+                f" COUNT(*) AS n FROM issues WHERE {where}"
+                " GROUP BY artist ORDER BY artist COLLATE NOCASE",
+                params,
             )
         ]
+
+    def open_issue_checks(self, filters: IssueFilter | None = None) -> dict[str, int]:
+        """{check_id: open issue count} among issues matching `filters`."""
+        where, params = (filters or IssueFilter()).where()
+        return {
+            r["check_id"]: r["n"]
+            for r in self.conn.execute(
+                f"SELECT check_id, COUNT(*) AS n FROM issues WHERE {where} GROUP BY check_id",
+                params,
+            )
+        }
 
     def file_count(self) -> int:
         return self.conn.execute("SELECT COUNT(*) FROM files").fetchone()[0]

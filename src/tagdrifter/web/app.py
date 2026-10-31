@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from math import ceil
 from pathlib import Path
 from typing import Annotated
@@ -278,16 +279,19 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
                 if settings.fix_enabled and view == "album"
                 else 0
             ),
+            # Each dropdown counts the issues the other filters leave, so it only offers
+            # choices that find something (and keeps the current one).
+            "check_counts": _with_selected(
+                sorted(store.open_issue_checks(replace(filters, check_id=None)).items()), check
+            ),
+            "artists": _with_selected(
+                store.open_issue_artists(replace(filters, path_prefix=None)), artist
+            ),
         }
         if is_partial(request, "results"):
-            return render(request, "_issue_results.html", **context)
-        return render(
-            request,
-            "issues.html",
-            check_ids=sorted({c for c, _ in store.open_issue_counts()} | REGISTRY.keys()),
-            artists=store.open_issue_artists(),
-            **context,
-        )
+            # The dropdowns are outside #results; refresh them out of band.
+            return render(request, "_issue_results.html", facets_oob=True, **context)
+        return render(request, "issues.html", **context)
 
     @app.get("/scans", response_class=HTMLResponse)
     def scans(request: Request, store: StoreDep) -> HTMLResponse:
@@ -545,6 +549,13 @@ def _issue_filter(
         text=q.strip() or None,
         first_seen_scan=int(scan) if scan.isdigit() else None,
     )
+
+
+def _with_selected(options: list[tuple[str, int]], selected: str) -> list[tuple[str, int]]:
+    """(value, count) options plus the selected value with no matches, so it stays chosen."""
+    if selected and selected not in {value for value, _ in options}:
+        options = sorted([*options, (selected, 0)], key=lambda o: o[0].casefold())
+    return options
 
 
 async def _form_lists(request: Request) -> dict[str, list[str]]:

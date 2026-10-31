@@ -1,0 +1,19 @@
+{#- The Check and Artist dropdowns, each counting the issues the other filters leave. Used in
+    the filter form, and swapped out of band (`oob`) with every #results update. -#}
+{% macro check_select(check_counts, selected, oob=false) %}
+<select name="check" id="filter-check"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <option value="">All checks</option>
+  {% for c, n in check_counts %}
+    <option value="{{ c }}" {% if selected == c %}selected{% endif %}>{{ c }} ({{ n }})</option>
+  {% endfor %}
+</select>
+{% endmacro %}
+
+{% macro artist_select(artists, selected, oob=false) %}
+<select name="artist" id="filter-artist"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <option value="">All artists</option>
+  {% for name, n in artists %}
+    <option value="{{ name }}" {% if selected == name %}selected{% endif %}>{{ name or "(library root)" }} ({{ n }})</option>
+  {% endfor %}
+</select>
+{% endmacro %}

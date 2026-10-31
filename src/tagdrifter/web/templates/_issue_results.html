@@ -91,3 +91,8 @@
 </ul>
 <div class="results-foot">{% include "_pager.html" %}</div>
 {% endif %}
+{% if facets_oob %}
+  {% import "_issue_facets.html" as facets %}
+  {{ facets.check_select(check_counts, params.check, oob=true) }}
+  {{ facets.artist_select(artists, params.artist, oob=true) }}
+{% endif %}
