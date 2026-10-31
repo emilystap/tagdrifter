@@ -86,6 +86,17 @@ present, are in the git-ignored `CLAUDE.local.md`.
      (needs the library mounted read-write).
    - 5d: Navidrome rescan trigger after renames. 5e: notifications (ntfy/Apprise).
    - Later: non-FLAC formats via mutagen.
+   - Later (owner's request): a conventional first-run login. On first launch with no
+     password set, every page leads to a "Set a password" form; the scrypt hash is stored in
+     SQLite (a small `app_settings` table) instead of env/config, with a *Change password* page
+     and a CLI reset (`tagdrifter reset-password`). Single user: a username adds little for
+     this tool. `TAGDRIFTER_AUTH=off` / `[web] auth = false` turns login off entirely (for
+     setups behind proxy auth); `password_hash` from env/config still works and takes
+     precedence (the UI can't change it then). Open points: guard the setup window, since
+     whoever reaches the UI first could set the password (e.g. require a one-time setup code
+     printed to the container log, or only allow setup from the LAN); and this changes the
+     default for existing deployments from "no login" to "set a password" on upgrade, which
+     the release notes must say.
 6. MusicBrainz integration: look up releases by `musicbrainz_albumid` (WS/2 JSON, 1 req/s,
    descriptive User-Agent), cache them in SQLite, and add checks comparing tags with MusicBrainz
    (album artist, album, track titles incl. case, numbering). Then Picard-style retagging with

@@ -23,7 +23,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
-| 5 | Album grouping ✅, login + CSRF protection ✅, fix actions, Navidrome rescan, notifications | ⏳ |
+| 5 | Album grouping ✅, login + CSRF protection ✅, fix actions, Navidrome rescan, notifications, later a first-run password setup | ⏳ |
 | 6 | MusicBrainz integration: checks against MusicBrainz, Picard-style retagging | — |
 
 ## Quick start (local)
