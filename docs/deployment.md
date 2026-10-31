@@ -76,6 +76,31 @@ Sessions last 30 days and are signed with a key generated in `/data/secret_key`.
 file (or set `TAGDRIFTER_SECRET_KEY`) to log every browser out. `/healthz` never needs a login.
 To forget the password, remove the variable and restart.
 
+## Optional: renaming files
+
+Tag Drifter can rename an album's tracks (and their folder) to the expected paths it reports.
+It's off by default and only acts on albums whose every track is readable and MBID-tagged.
+To turn it on:
+
+1. Give the `apps` user **write** access to the library (the same ACL entry as in step 2, with
+   *Modify* instead of *Read*). New folders inherit the dataset's ACL.
+2. Edit the app's YAML: change the library mount from `:ro` to `:rw`, and add
+   `TAGDRIFTER_FIX: "true"` under `environment`. Save; the app restarts.
+3. On the *Issues* page, album cards with proposed renames get a *Preview renames* button. It
+   lists every move (folder, tracks, `.lrc`/`.txt` sidecars) and why an album can't be renamed,
+   if it can't. *Rename* applies it, and a scan runs afterwards to update the issues.
+
+Safeguards: nothing is ever overwritten; each file must be unchanged since the last scan (size
+and modification time) or the album is refused until you scan again; renames stay inside the
+album's artist folder; scans wait while files move. Every rename is recorded on the *Renames*
+page (top bar), where it can be undone. If a rename fails halfway, the moves already made are
+reversed automatically.
+
+Take a snapshot of the music dataset before your first batch of renames. Your music server
+sees renamed files as moved: Navidrome picks them up on its next scan (its handling of play
+counts and favourites for moved files depends on its version). Set `TAGDRIFTER_FIX` back to
+`false` and the mount to `:ro` to go back to report-only.
+
 ## Optional: config.toml
 
 Environment variables cover the main settings. For per-check options (required tags, disabled

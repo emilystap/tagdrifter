@@ -16,6 +16,7 @@
       <a href="/" {% if page == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a>
       <a href="/issues" {% if page == "issues" %}aria-current="page"{% endif %}>Issues</a>
       <a href="/scans" {% if page == "scans" %}aria-current="page"{% endif %}>Scans</a>
+      {% if fix_enabled %}<a href="/renames" {% if page == "renames" %}aria-current="page"{% endif %}>Renames</a>{% endif %}
     </nav>
     <div class="topbar-actions">
       <div id="scan-status" hx-get="/scan/status" hx-trigger="load" hx-swap="outerHTML">

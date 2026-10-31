@@ -10,7 +10,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 > **A personal project, shared as-is.** Tag Drifter is built around one library's conventions:
 > FLAC files tagged with [Picard](https://picard.musicbrainz.org/) / MusicBrainz, on a
 > case-sensitive ZFS dataset served over SMB. The naming rules are opinionated and not
-> configurable yet. It only reports for now; it never changes your files. The web UI's
+> configurable yet. By default it only reports; renaming files is opt-in. The web UI's
 > login is optional and basic, so keep it on your LAN. AI relied on heavily during
 > development - use at your own peril.
 
@@ -23,7 +23,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
-| 5 | Album grouping ✅, login + CSRF protection ✅, fix actions, Navidrome rescan, notifications, later a first-run password setup | ⏳ |
+| 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Navidrome rescan, notifications, later a first-run password setup | ⏳ |
 | 6 | MusicBrainz integration: checks against MusicBrainz, Picard-style retagging | — |
 
 ## Quick start (local)
@@ -66,6 +66,11 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   scheduled scan that comes due while another is running is skipped. The footer shows the
   next one.
 
+- **Renames (opt-in)**: with `[fix] enabled = true` / `TAGDRIFTER_FIX=true` and the library
+  writable, album cards get *Preview renames*: every folder, track and `.lrc`/`.txt` move, or
+  why the album can't be renamed. Only albums whose tracks are all MBID-tagged and unchanged
+  since the last scan qualify, and nothing is ever overwritten. Applied renames are listed on
+  the *Renames* page with *Undo*. See [docs/deployment.md](docs/deployment.md#optional-renaming-files).
 - **Login (optional)**: set a password hash and every page needs a login; sessions last 30
   days. Generate the hash with `tagdrifter hash-password` and set it as
   `TAGDRIFTER_PASSWORD_HASH` or `[web] password_hash`. Without one, there's no login (rely on
@@ -80,7 +85,7 @@ login. Keep the UI on your LAN either way.
 
 The image is published to `ghcr.io/emilystap/tagdrifter` by GitHub Actions. It runs as UID/GID
 568 (TrueNAS's `apps` user), serves on port 8080, reads the library at `/music` (mount it
-`:ro`) and keeps its database in `/data`. [`compose.yaml`](compose.yaml) is ready for TrueNAS's
+`:ro` unless you enable renaming) and keeps its database in `/data`. [`compose.yaml`](compose.yaml) is ready for TrueNAS's
 *Install via YAML* once you fill in your dataset paths; [docs/deployment.md](docs/deployment.md)
 walks through permissions, the first scan and updates.
 
@@ -122,7 +127,7 @@ and import the module in `checks/__init__.py`:
 @register
 class NoLiveAlbums(Check):
     id = "custom.no_live_albums"
-    scope = Scope.ALBUM            # TRACK, ALBUM, ARTIST or LIBRARY
+    scope = Scope.ALBUM  # TRACK, ALBUM, ARTIST or LIBRARY
     description = "Flags album folders with '(Live)' in the name."
 
     def run(self, ctx: AlbumContext):
@@ -140,6 +145,7 @@ src/tagdrifter/
   core/          Pure naming rules (sanitize, metadata, naming, placement, paths) + flac.py reader
   checks/        Check framework (base.py) and built-in checks
   config.py      Settings: defaults < config.toml < TAGDRIFTER_* env vars < CLI flags
+  renamer.py     Rename plans (preview), apply with a journal, undo
   db.py          SQLite: file/tag cache, scan history, issue lifecycle
   scanner.py     Discover → read changed → check → save
   cli.py         `tagdrifter` command

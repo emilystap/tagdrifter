@@ -1,0 +1,20 @@
+{#- The journaled moves of one rename batch; undone ones are greyed out. -#}
+<ul class="moves small">
+  {% for m in moves %}
+    <li{% if m["undone"] %} class="muted" title="Undone"{% endif %}>
+      <span class="badge">{{ m["kind"] }}</span>
+      <span class="move-paths">
+        {% if m["kind"] == "mkdir" %}
+          <span>created <span class="path">{{ m["dst"] }}</span></span>
+        {% elif m["kind"] == "rmdir" %}
+          <span>removed empty <span class="path">{{ m["src"] }}</span></span>
+        {% else %}
+          {% set a, b = move_labels(m) %}{% set current, expected = diff_marks(a, b) %}
+          <span class="path">{{ current }}</span>
+          <span class="path"><span class="muted" aria-label="becomes">→ </span>{{ expected }}</span>
+        {% endif %}
+        {% if m["undone"] %}<span>(undone)</span>{% endif %}
+      </span>
+    </li>
+  {% endfor %}
+</ul>

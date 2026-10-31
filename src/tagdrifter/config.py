@@ -9,6 +9,7 @@ Environment variables (handy in Docker compose):
     TAGDRIFTER_SCHEDULE        cron expression for automatic scans, or "off"
     TAGDRIFTER_PASSWORD_HASH   web UI password, as printed by `tagdrifter hash-password`
     TAGDRIFTER_SECRET_KEY      key for signing login sessions (default: generated in the data dir)
+    TAGDRIFTER_FIX             true/false: allow renaming files from the web UI
 """
 
 from __future__ import annotations
@@ -40,6 +41,9 @@ class Settings:
     password_hash: str = field(default="", repr=False)
     # Signs session cookies. Empty = generate one and keep it next to the database.
     secret_key: str = field(default="", repr=False)
+    # Allow renaming MBID-tagged albums to their expected paths from the web UI (needs the
+    # library mounted read-write).
+    fix_enabled: bool = False
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -62,6 +66,7 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
     database = data.get("database", {})
     scan = data.get("scan", {})
     web = data.get("web", {})
+    fix = data.get("fix", {})
     checks = dict(data.get("checks", {}))
     disabled = checks.pop("disabled", [])
 
@@ -82,6 +87,7 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         scan_schedule=str(scan.get("schedule", base.scan_schedule)),
         password_hash=str(web.get("password_hash", base.password_hash)),
         secret_key=str(web.get("secret_key", base.secret_key)),
+        fix_enabled=bool(fix.get("enabled", base.fix_enabled)),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -123,6 +129,7 @@ def load_settings(
         "TAGDRIFTER_SCHEDULE": ("scan_schedule", str),
         "TAGDRIFTER_PASSWORD_HASH": ("password_hash", str),
         "TAGDRIFTER_SECRET_KEY": ("secret_key", str),
+        "TAGDRIFTER_FIX": ("fix_enabled", _parse_bool),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):

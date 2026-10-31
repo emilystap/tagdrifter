@@ -27,7 +27,9 @@
   {% endif %}
 </div>
 {% else %}
-<div id="scan-status" class="scan-status">
+{#- A rename starts a scan from elsewhere and fires `scan-started`: start polling then. -#}
+<div id="scan-status" class="scan-status"
+     hx-get="/scan/status" hx-trigger="scan-started from:body" hx-swap="outerHTML">
   {% if status.error %}
     <span class="badge error" title="{{ status.error }}">Last scan failed</span>
   {% elif last_scan and last_scan["status"] != "completed" %}

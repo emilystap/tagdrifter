@@ -112,3 +112,17 @@ def expected_location(check_id: str, subject: str, details: dict) -> tuple[str, 
         expected = details["expected_artist_folder"]
         return subject, f"{expected}/{rest}" if rest else expected
     return None
+
+
+def move_labels(move) -> tuple[str, str]:
+    """(from, to) for a renamer Move or a journal row: just the names when a file stays in its
+    folder."""
+    kind, src, dst = (
+        (move.kind, move.src, move.dst)
+        if hasattr(move, "kind")
+        else (move["kind"], move["src"], move["dst"])
+    )
+    a, b = PurePosixPath(src), PurePosixPath(dst)
+    if kind != "folder" and a.parent == b.parent:
+        return a.name, b.name
+    return src, dst

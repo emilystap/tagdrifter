@@ -14,7 +14,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      # The library, read-only: Tag Drifter only reports for now.
+      # The library, read-only. To rename files from the UI, use :rw and set TAGDRIFTER_FIX.
       - /mnt/POOL/media/music:/music:ro
       # SQLite database (tag cache, scan history, issues). Back this up with the app dataset.
       - /mnt/POOL/apps/tagdrifter/data:/data
@@ -27,3 +27,5 @@ services:
       TAGDRIFTER_WORKERS: "8" # parallel tag reads; mainly affects the first scan
       # Optional login: output of `docker exec -it tagdrifter tagdrifter hash-password`
       # TAGDRIFTER_PASSWORD_HASH: "scrypt:16384:8:1:..."
+      # Optional: rename albums to their expected paths from the UI (needs the :rw mount)
+      # TAGDRIFTER_FIX: "true"

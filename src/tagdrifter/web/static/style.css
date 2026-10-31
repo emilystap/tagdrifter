@@ -318,3 +318,14 @@ details summary { cursor: pointer; }
   .filters select, .filters input { max-width: none; }
   .filters label { flex: 1 1 140px; }
 }
+
+/* Rename preview / journal */
+.rename { margin-top: 8px; }
+.moves { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.moves li { display: grid; grid-template-columns: 5.5em 1fr; gap: 8px; align-items: baseline; }
+.moves .badge { justify-self: start; }
+.moves .move-paths { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.rename-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0 0; }
+.rename-problem { color: var(--error); margin: 6px 0; }
+.rename-done { margin: 6px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.batch-undo { margin: 0 0 0 auto; }
