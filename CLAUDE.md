@@ -256,6 +256,20 @@ present, are in the git-ignored `CLAUDE.local.md`.
      behind: never refreshed (only library releases are looked up), just a few KB; prune
      rows no longer in the library at the same time.
    - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
+   - 6d: make `mb.duration` easier to act on (owner's request; details to be worked out).
+     About 150 issues on the owner's library, and today each one has to be tracked down
+     by hand. Ideas so far:
+     - On demand, per issue (never in scans): list other releases with the same recording,
+       or other recordings of the song, sorted by how far their length is from the file's,
+       each linking to its musicbrainz.org release page. That makes it easy to see whether
+       a better-matching release exists to retag to. Things to check: what the API offers
+       (a recording lookup with `inc=releases`, browsing releases by recording, or a search
+       by ISRC / title + artist). It has to stay gentle: one user-triggered lookup through
+       the shared `RateLimiter`, cached, and refused while lookups are paused.
+     - Ignore leading and trailing silence when comparing lengths. This might be too loose,
+       and it needs the audio decoded (a FLAC decoder; today only STREAMINFO is read).
+     - Smaller options: a per-check tolerance in percent as well as seconds, or a way to
+       accept a known difference for an album.
 7. Library browser (owner's request): a *Library* tab to look up any release, not just ones
    with issues.
    - 7a ✅ `library.py` + `/library` (search, paged 50 per page) and
