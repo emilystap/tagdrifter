@@ -221,6 +221,23 @@ present, are in the git-ignored `CLAUDE.local.md`.
      behind: never refreshed (only library releases are looked up), just a few KB; prune
      rows no longer in the library at the same time.
    - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
+7. Library browser (owner's request): a *Library* tab to look up any release, not just ones
+   with issues.
+   - Search by artist, album or release MBID; results grouped by album folder (one row per
+     release, from the `files` cache, so browsing never touches the disk or the network).
+   - Release page: the album folder, each track's current path and its tags (all of them, in a
+     compact table; differences between tracks highlighted for album-level tags), audio
+     length, the album's open issues, and links to the release (and release group) on
+     musicbrainz.org. With the cache, show the MusicBrainz tracklist beside the files. The
+     6b-3 *Refresh from MusicBrainz* button and the 5c rename preview belong here too.
+   - Cover art from the **embedded** PICTURE block (every file in the target library has
+     one), not the Cover Art Archive: no extra requests to anyone, and it shows what Navidrome
+     shows. `core/flac.py` skips PICTURE blocks today (they can be several MB); add a reader
+     that returns the front cover (type 3, else the first) on demand, served by a route that
+     scales it down to a thumbnail cached under the data dir (keyed by path + size + mtime)
+     and sent with a long `Cache-Control`. Scaling needs an image library (Pillow) or the
+     browser does it from the full image; decide when building. Only read on page view,
+     never during scans.
 
 ## Source of truth
 
