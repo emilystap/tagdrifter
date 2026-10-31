@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import struct
+import uuid
 from pathlib import Path, PurePosixPath
 
 import pytest
@@ -106,7 +107,10 @@ MBIDS = {
 
 
 def good_tags(**overrides: str) -> dict[str, str]:
+    """Picard-like tags for Pixies – Doolittle track 1. Each call gets its own release track
+    MBID, so separate files never look like duplicates of one track."""
     tags = {
+        "musicbrainz_releasetrackid": str(uuid.uuid4()),
         "ALBUMARTIST": "Pixies",
         "ARTIST": "Pixies",
         "ALBUM": "Doolittle",

@@ -102,4 +102,4 @@ Tag Drifter replaced a private notebook-based script ("v1"). Its rules were port
 - **Untagged tracks don't split an album.** v1 treated tracks lacking `musicbrainz_albumid` as a
   separate release from their tagged siblings and proposed `(Year, N tracks)` folder splits.
   They now inherit the folder's single album ID; the missing tag is reported by
-  `album.inconsistent_tags` / `tags.required` instead.
+  `album.inconsistent_tags` / `tags.mbids` instead.

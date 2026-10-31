@@ -103,7 +103,7 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
      click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
      with `describe()` and `send(Notification)`.
-   - **Next**: step 6a below.
+   - **Next**: step 6b below.
    - Later: ntfy/webhook notifiers.
    - Later: rename across artist folders for `album.placement` issues; a CLI for renames.
    - Later: non-FLAC formats via mutagen.
@@ -122,32 +122,41 @@ present, are in the git-ignored `CLAUDE.local.md`.
    **recording** MBID (what ListenBrainz scrobbles match on, via Navidrome);
    `MUSICBRAINZ_RELEASETRACKID` is the track MBID. Messages say "recording MBID
    (`musicbrainz_trackid`)".
-   - **6a: local tag checks** (no network). Split `tags.required` so each concern has its own
-     row, filter and severity:
+   - 6a ✅ Local tag checks (`checks/builtin_tags.py`, no network). `tags.required` is split
+     so each concern has its own row, filter and severity; its default list is now empty
+     (extra user-chosen tags only):
      - `tags.recording_mbid` (error): `musicbrainz_trackid` missing; scrobbles fall back to
        fuzzy artist + title matching.
-     - `tags.mbids` (warning): other MBID tags missing (release, release group, release
-       track, artist, album artist). Not `musicbrainz_workid` (track relationships are off in
-       the owner's Picard, so it's never written). Standalone recordings (a recording MBID but
-       no release MBID) are flagged too, deliberately: the owner wants them listed.
-     - `tags.naming` (warning): tags the path rules use (album artist, album, title, track /
-       disc numbers, date); the message names the path part that falls back.
-     - `tags.required`: kept for extra user-chosen tags; default empty.
-     - `tags.artist_mbid_count` (warning): number of `ARTISTS` values ≠ number of
-       `MUSICBRAINZ_ARTISTID` values; same for `ALBUMARTISTS` / `MUSICBRAINZ_ALBUMARTISTID`.
-       Needs the multi-valued tags; never guess by splitting `ARTIST` on "feat." / "&".
-     - `album.duplicate_tracks` (error): two files in an album with the same release-track
-       MBID, or the same disc + track number.
-     - `album.missing_tracks` (info): fewer files on a disc than its `TOTALTRACKS`.
-     - Groundwork for 6b: read STREAMINFO in `core/flac.py` (sample rate, total samples →
-       exact duration) and store it in the `files` cache (migration; existing rows need one
-       re-read, since incremental scans only re-read changed files).
+     - `tags.mbids` (warning): release, release group, release track, artist or album artist
+       MBID missing. Not `musicbrainz_workid` (track relationships are off in the owner's
+       Picard, so it's never written). Standalone recordings (a recording MBID but no release
+       MBID) are flagged too, deliberately: the owner wants them listed.
+     - `tags.naming` (warning): tags the naming rules read (`NAMING_TAGS`: album artist,
+       artist, album, title, track number, date; disc number on multi-disc releases), each
+       with what the path falls back to.
+     - `tags.artist_mbid_count` (track) / `album.artist_mbid_count` (album, reported once per
+       folder): number of `ARTISTS` / `ALBUMARTISTS` values ≠ number of artist / album artist
+       MBIDs. Without the names tag, one MBID is fine and several are flagged (about 3,100 of
+       the owner's files predate `ALBUMARTISTS`). Never guess by splitting `ARTIST` on
+       "feat." / "&".
+     - `album.duplicate_tracks` (error): same release-track MBID, or same release + disc +
+       track number.
+     - `album.missing_tracks` (info): fewer tracks per disc than `TOTALTRACKS` / `TRACKTOTAL`
+       (or "n/N"), or missing discs. Disc gaps only when the numbering fits `TOTALDISCS`
+       (Picard can number discs 2-3 of 2 when it skips a medium).
+     - First run on the owner's library: 25 `album.missing_tracks` (mostly singles kept
+       without B-sides), 5 `album.artist_mbid_count` (cast recordings and collabs), nothing
+       else new.
    - **6b: MusicBrainz cache + checks.** One lookup per release:
      `/ws/2/release/<mbid>?inc=recordings+artist-credits+release-groups` (plus whatever the
      translation rules below need, e.g. aliases), 1 req/s, descriptive User-Agent. Fetched in
      the background after a scan (new releases first), cached in SQLite, refreshed ~30 days;
      checks read only the cache (keeps checks pure and offline), and an uncached release yields
      no issues. Dashboard shows "MusicBrainz: N / M releases cached".
+     - Groundwork (moved from 6a, where nothing used it yet): read STREAMINFO in
+       `core/flac.py` (sample rate, total samples → exact duration) and store it in the
+       `files` cache (migration; existing rows need one re-read, since incremental scans
+       only re-read changed files).
      - `mb.release_unknown`: release MBID 404s (deleted) or returns another id (merged).
      - `mb.track_mismatch`: recording / release-track MBID not on the tagged release, or at a
        different disc/position. The strongest wrong-version signal for single tracks.

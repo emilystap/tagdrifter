@@ -155,7 +155,7 @@ def test_new_issues_message_lists_albums(settings) -> None:
     assert n.path == f"/issues?scan={result.scan_id}"
     assert "7 new issues in " in n.message and "; 2 resolved. 7 open in all." in n.message
     assert "- **Pixies/Hits**: `album.placement`" in n.message
-    assert "`path.track_location`, `tags.invalid_mbid`, `tags.required`\n" in n.message
+    assert "`path.track_location`, `tags.invalid_mbid`, `tags.mbids`\n" in n.message
 
 
 def test_scan_sends_new_issues_once(settings, library, gotify) -> None:
