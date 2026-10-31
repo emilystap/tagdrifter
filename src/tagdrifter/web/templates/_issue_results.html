@@ -1,61 +1,65 @@
-{#- Issue list for the current filters; swapped into #results by the filter form and pager. -#}
+{#- Issue list for the current filters; swapped into #results by the filter form and pager.
+    view "album": one card per album folder, its issues collapsed; view "list": every issue. -#}
 <div class="results-head">
   <span>
-    {% if total %}
+    {% if not entries %}
+      No open issues match.
+    {% elif view == "album" %}
+      {{ "{:,}".format(first_index) }}–{{ "{:,}".format(first_index + rows | length - 1) }}
+      of {{ "{:,}".format(entries) }} album{% if entries != 1 %}s{% endif %}
+      · {{ "{:,}".format(total) }} issue{% if total != 1 %}s{% endif %}
+    {% else %}
       {{ "{:,}".format(first_index) }}–{{ "{:,}".format(first_index + rows | length - 1) }}
       of {{ "{:,}".format(total) }} open issue{% if total != 1 %}s{% endif %}
-    {% else %}
-      No open issues match.
     {% endif %}
   </span>
   {% include "_pager.html" %}
 </div>
 
-{% if rows %}
-<ul class="issues">
-  {% for r in rows %}
-  {% set loc = expected_location(r.check_id, r.subject, r.details) %}
-  <li class="issue">
-    <div class="issue-head">
-      <span class="badge {{ r.severity }}">{{ r.severity }}</span>
-      <a class="check-id" href="/issues?check={{ r.check_id | urlencode }}"><code>{{ r.check_id }}</code></a>
-      {% if r.mbid_tagged is false %}
-        <span class="badge" title="Track (or an album track) lacks valid release/recording MBIDs, so its tags aren't trusted">no MBIDs</span>
+{% if rows and view == "album" %}
+<ul class="groups">
+  {% for row in rows %}
+  {% set g, changes = row.group, row.changes %}
+  <li class="group">
+    <div class="group-head">
+      <span class="badge {{ g.worst_severity }}">{{ g.count }}</span>
+      <span class="path group-path">{{ g.key }}</span>
+      {% if g.untagged %}
+        <span class="badge" title="{{ g.untagged }} of these issues are on files without valid release/recording MBIDs, so their tags aren't trusted">no MBIDs</span>
       {% endif %}
-      <span class="muted small first-seen" title="First seen in scan #{{ r.first_seen_scan }}">since #{{ r.first_seen_scan }}</span>
     </div>
-    {% if loc %}
-      {% set current, expected = diff_marks(loc[0], loc[1]) %}
+    <div class="group-checks">
+      {% for check_id, n in g.checks.items() %}
+        <span class="check-chip"><code>{{ check_id }}</code>{% if n > 1 %} ×{{ n }}{% endif %}</span>
+      {% endfor %}
+    </div>
+    {% if changes.folder %}
+      {% set current, expected = diff_marks(changes.folder[0], changes.folder[1]) %}
       <dl class="paths">
-        <dt>Now</dt><dd class="path">{{ current }}</dd>
+        <dt>Folder</dt><dd class="path">{{ current }}</dd>
         <dt>Expected</dt><dd class="path">{{ expected }}</dd>
       </dl>
-      <div class="muted small">{{ r.details.get("issue_type") or r.message.split(";")[0] }}</div>
-    {% else %}
-      <div class="path">{{ r.subject }}</div>
-      <div>{{ r.message }}</div>
+    {% elif changes.split %}
+      <div class="muted small">Tracks belong in more than one other folder; see below.</div>
     {% endif %}
-    {% if r.details %}
-      <details class="small">
-        <summary class="muted">Details</summary>
-        <dl class="details">
-          {% for k, v in r.details.items() %}
-            <dt>{{ k }}</dt>
-            <dd>
-              {%- if v is mapping -%}
-                {% for k2, v2 in v.items() %}<code>{{ k2 }}</code>: {{ v2 if v2 is string else v2 | join(", ") }}{% if not loop.last %}; {% endif %}{% endfor %}
-              {%- elif v is iterable and v is not string -%}
-                {{ v | join(", ") }}
-              {%- else -%}
-                <code>{{ v }}</code>
-              {%- endif -%}
-            </dd>
-          {% endfor %}
-        </dl>
-      </details>
+    {% if changes.renamed_files %}
+      <div class="muted small">{{ changes.renamed_files }} filename{% if changes.renamed_files != 1 %}s{% endif %} change{% if changes.renamed_files == 1 %}s{% endif %}</div>
     {% endif %}
+    <details class="group-issues">
+      <summary>{{ g.count }} issue{% if g.count != 1 %}s{% endif %}</summary>
+      <ul class="issues">
+        {% set in_group = true %}
+        {% for r in row.issues %}{% include "_issue.html" %}{% endfor %}
+      </ul>
+    </details>
   </li>
   {% endfor %}
+</ul>
+<div class="results-foot">{% include "_pager.html" %}</div>
+{% elif rows %}
+<ul class="issues">
+  {% set in_group = false %}
+  {% for r in rows %}{% include "_issue.html" %}{% endfor %}
 </ul>
 <div class="results-foot">{% include "_pager.html" %}</div>
 {% endif %}

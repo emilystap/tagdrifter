@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
+from pathlib import PurePosixPath
 
 from markupsafe import Markup, escape
 
@@ -75,6 +77,30 @@ def diff_marks(current: str, expected: str) -> tuple[Markup, Markup]:
             if b_part:
                 b_out.append(Markup("<mark>{}</mark>").format(b_part))
     return Markup("").join(a_out), Markup("").join(b_out)
+
+
+@dataclass(frozen=True)
+class AlbumChanges:
+    """What the path issues of one album folder propose, for the group summary."""
+
+    folder: tuple[str, str] | None  # (current, expected) when every track agrees on a new folder
+    split: bool  # tracks are expected in more than one other folder
+    renamed_files: int  # tracks whose filename changes
+
+
+def album_changes(key: str, rows) -> AlbumChanges:
+    expected_dirs = set()
+    renamed = 0
+    for r in rows:
+        if r.check_id != "path.track_location" or not r.details.get("expected"):
+            continue
+        expected = PurePosixPath(r.details["expected"])
+        if str(expected.parent) != key:
+            expected_dirs.add(str(expected.parent))
+        if not r.details.get("filename_ok", True):
+            renamed += 1
+    folder = (key, next(iter(expected_dirs))) if len(expected_dirs) == 1 else None
+    return AlbumChanges(folder=folder, split=len(expected_dirs) > 1, renamed_files=renamed)
 
 
 def expected_location(check_id: str, subject: str, details: dict) -> tuple[str, str] | None:

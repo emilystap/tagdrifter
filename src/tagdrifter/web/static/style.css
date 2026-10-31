@@ -255,6 +255,22 @@ a.tile:hover { border-color: var(--accent); text-decoration: none; }
 .issue-head .check-id { color: var(--muted); }
 .issue-head .first-seen { margin-left: auto; }
 
+.groups { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.group {
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+.group-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.group-path { font-weight: 600; }
+.group-checks { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.check-chip { font-size: 0.8rem; color: var(--muted); }
+.group-issues > summary { color: var(--accent); font-size: 0.9rem; margin-top: 4px; }
+.group-issues .issues { margin-top: 8px; }
+.group-issues .issue { background: var(--bg); }
+
 .paths {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);

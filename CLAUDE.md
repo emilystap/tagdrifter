@@ -54,8 +54,6 @@ present, are in the git-ignored `CLAUDE.local.md`.
    background scan at a time, progress polled by HTMX every 1s; a finished scan fires the
    `scan-finished` event and the page reloads `#page`). Server-rendered Jinja; partials are
    chosen by the `HX-Target` header. HTMX 2.0.4 is vendored in `web/static/` (no CDN).
-   Per-track issues should be grouped by album (step 5): one album rename produces one issue per
-   track, e.g. 42 rows for a 42-track album.
 4. Deployment ✅ (CI builds + smoke-tests the image; running on the reference TrueNAS setup
    behind an HTTPS reverse proxy, so templates use root-relative URLs, never `url_for()`
    absolute ones): `web/scheduler.py` (`ScanScheduler`, APScheduler 3 `BackgroundScheduler`,
@@ -66,9 +64,21 @@ present, are in the git-ignored `CLAUDE.local.md`.
    HEALTHCHECK on `/healthz`), `compose.yaml`, `docs/deployment.md`, workflows `ci.yml` and
    `image.yml` (build, smoke test, push to `ghcr.io/emilystap/tagdrifter` from main and `v*`
    tags). Image changes are tested by CI (build + smoke test) unless Docker is available locally.
-5. **Next**: fix actions (rename + move `.lrc`/`.txt` sidecars, prune empty dirs; v1's
-   `organize_artist_directory` has the logic) with per-album grouping in the UI, Navidrome
-   rescan trigger, notifications (ntfy/Apprise), non-FLAC formats via mutagen.
+5. Fix actions, in PRs:
+   - 5a ✅ Issues grouped by album: the scanner stores each issue's album folder (`album`
+     column, migration 3; NULL for artist/library scope, which group by subject).
+     `Store.open_issue_groups` / `open_issues_in_groups`; `/issues?view=album` (default) or
+     `view=list`. `format.album_changes` derives the folder rename shown on each card.
+   - **5b next: authentication and CSRF protection**, before anything can write. Optional
+     single-user password (hashed, from env/config; off when unset) with a session cookie,
+     plus an Origin/`Sec-Fetch-Site` check on every POST (a page on another site could
+     otherwise POST to the UI from the owner's browser, LAN-only or not).
+   - 5c: rename preview + approve per album (rename + move `.lrc`/`.txt` sidecars, prune
+     empty dirs; v1's `organize_artist_directory` has the logic). Only MBID-tagged files, never
+     overwrite, re-check each file before renaming, an undo journal, off unless enabled
+     (needs the library mounted read-write).
+   - 5d: Navidrome rescan trigger after renames. 5e: notifications (ntfy/Apprise).
+   - Later: non-FLAC formats via mutagen.
 6. MusicBrainz integration: look up releases by `musicbrainz_albumid` (WS/2 JSON, 1 req/s,
    descriptive User-Agent), cache them in SQLite, and add checks comparing tags with MusicBrainz
    (album artist, album, track titles incl. case, numbering). Then Picard-style retagging with
