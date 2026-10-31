@@ -287,7 +287,7 @@ def test_group_store_queries(settings) -> None:
         assert doolittle.count == 5 and doolittle.worst_severity == "error"
         assert doolittle.checks["path.track_location"] == 1 and doolittle.untagged == 5
         assert store.count_open_issue_groups() == 3
-        assert store.count_open_issue_groups(IssueFilter(check_id="tags.required")) == 1
+        assert store.count_open_issue_groups(IssueFilter(check_id="tags.mbids")) == 1
         issues = store.open_issues_in_groups(["Pixies/Hits"])
         assert [i.check_id for i in issues["Pixies/Hits"]] == ["album.placement"]
         assert all(

@@ -47,21 +47,11 @@ on = ["new_issues", "failures"]
 # Check ids to switch off (see `tagdrifter checks`).
 disabled = []
 
-# Tags every track must have. "a|b" means either one satisfies the requirement.
+# Extra tags every track must have. "a|b" means either one satisfies the requirement.
+# MBIDs (tags.recording_mbid, tags.mbids) and the tags the naming rules use (tags.naming)
+# have their own checks, so this is empty by default.
 [checks."tags.required"]
-tags = [
-    "albumartist|album artist",
-    "artist",
-    "album",
-    "title",
-    "tracknumber",
-    "date|year|originaldate",
-    "musicbrainz_artistid",
-    "musicbrainz_albumartistid",
-    "musicbrainz_albumid",
-    "musicbrainz_releasegroupid",
-    "musicbrainz_trackid",
-]
+tags = []
 
 # Tags that every track in one album folder should agree on.
 [checks."album.inconsistent_tags"]

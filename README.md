@@ -24,7 +24,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, later a first-run password setup | ⏳ |
-| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates), then checks against cached MusicBrainz data (titles, artist credits, track versions, durations), then Picard-style retagging | — |
+| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, then checks against cached MusicBrainz data (titles, artist credits, track versions, durations), then Picard-style retagging | ⏳ |
 
 ## Quick start (local)
 
@@ -115,8 +115,15 @@ docker run -p 8080:8080 -v /path/to/music:/music:ro -v tagdrifter-data:/data tag
 | Check | Scope | What it reports |
 | --- | --- | --- |
 | `path.track_location` | track | Wrong album folder and/or filename (including case-only differences when case-sensitive) |
-| `tags.required` | track | Missing required tags (configurable list, with `a\|b` alternatives) |
+| `tags.recording_mbid` | track | No recording MBID (`musicbrainz_trackid`), which ListenBrainz uses to match scrobbles (error) |
+| `tags.mbids` | track | Missing release, release group, release track, artist or album artist MBIDs (standalone recordings included) |
+| `tags.naming` | track | Missing tags the naming rules use (album artist, artist, album, title, track/disc number, date), with what the path falls back to |
+| `tags.required` | track | Extra tags you require (configurable list with `a\|b` alternatives; empty by default) |
 | `tags.invalid_mbid` | track | MusicBrainz ID tags that aren't valid UUIDs |
+| `tags.artist_mbid_count` | track | `ARTISTS` names and artist MBIDs differ in number (several MBIDs need an `ARTISTS` tag) |
+| `album.artist_mbid_count` | album | Same for `ALBUMARTISTS` and album artist MBIDs |
+| `album.duplicate_tracks` | album | Two files are the same track: same release track MBID, or same release, disc and track number (error) |
+| `album.missing_tracks` | album | Fewer tracks or discs than `TOTALTRACKS` / `TOTALDISCS` say (info; e.g. a single kept without its B-side) |
 | `album.placement` | album | Album under the wrong artist folder (v1's placement audit) |
 | `album.inconsistent_tags` | album | Tracks in one folder disagree on album artist, album, release MBID, … |
 | `file.unreadable` | album | Audio files whose tags can't be read |

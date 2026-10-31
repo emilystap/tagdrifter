@@ -17,7 +17,7 @@ def test_full_scan_finds_expected_issues(library, tmp_path) -> None:
     assert result.files_read == 5
     assert set(issues) == {
         ("path.track_location", "Pixies/Doolittle/02 Tame.flac"),
-        ("tags.required", "Pixies/Doolittle/02 Tame.flac"),
+        ("tags.mbids", "Pixies/Doolittle/02 Tame.flac"),
         ("tags.invalid_mbid", "Pixies/Doolittle/02 Tame.flac"),
         ("file.unreadable", "Pixies/Doolittle/broken.flac"),
         ("path.orphan_sidecar", "Pixies/Doolittle/old name.lrc"),
@@ -26,7 +26,7 @@ def test_full_scan_finds_expected_issues(library, tmp_path) -> None:
     }
     loc = issues[("path.track_location", "Pixies/Doolittle/02 Tame.flac")]
     assert loc.details["expected"] == "Pixies/Doolittle/Pixies_Doolittle_02_Tame.flac"
-    assert issues[("tags.required", "Pixies/Doolittle/02 Tame.flac")].details["missing"] == [
+    assert issues[("tags.mbids", "Pixies/Doolittle/02 Tame.flac")].details["tags"] == [
         "musicbrainz_releasegroupid"
     ]
     assert result.issues_new == len(issues) and result.issues_resolved == 0
@@ -51,7 +51,7 @@ def test_rescan_reads_only_changed_files_and_resolves_issues(library, tmp_path) 
     assert ("path.track_location", "Pixies/Doolittle/02 Tame.flac") not in issues
     assert ("file.unreadable", "Pixies/Doolittle/broken.flac") not in issues
     # Same tag problems, now reported against the new path
-    assert ("tags.required", "Pixies/Doolittle/Pixies_Doolittle_02_Tame.flac") in issues
+    assert ("tags.mbids", "Pixies/Doolittle/Pixies_Doolittle_02_Tame.flac") in issues
     assert result.issues_resolved == 4  # location, unreadable, + required/mbid at old path
 
 
