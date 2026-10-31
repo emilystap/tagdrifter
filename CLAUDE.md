@@ -56,9 +56,10 @@ present, are in the git-ignored `CLAUDE.local.md`.
    chosen by the `HX-Target` header. HTMX 2.0.4 is vendored in `web/static/` (no CDN).
    Per-track issues should be grouped by album (step 5): one album rename produces one issue per
    track, e.g. 42 rows for a 42-track album.
-4. Deployment ✅ (written; verified by CI's image build + smoke test, not yet installed on
-   TrueNAS): `web/scheduler.py` (`ScanScheduler`, APScheduler 3 `BackgroundScheduler`, started
-   in the app lifespan; `scan_schedule` / `TAGDRIFTER_SCHEDULE`, default `0 4 * * *`).
+4. Deployment ✅ (CI builds + smoke-tests the image; running on the reference TrueNAS setup
+   behind an HTTPS reverse proxy, so templates use root-relative URLs, never `url_for()`
+   absolute ones): `web/scheduler.py` (`ScanScheduler`, APScheduler 3 `BackgroundScheduler`,
+   started in the app lifespan; `scan_schedule` / `TAGDRIFTER_SCHEDULE`, default `0 4 * * *`).
    APScheduler 3 numbers weekdays Monday = 0, so `_cron_weekdays` translates standard cron
    weekdays; don't pass raw crontab strings to `CronTrigger.from_crontab`. `Dockerfile`
    (uv 0.13 build stage, python:3.13-slim, UID/GID 568, `/music` `/data` `/config`,

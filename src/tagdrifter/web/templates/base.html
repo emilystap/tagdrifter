@@ -4,8 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Tag Drifter{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
-  <script src="{{ url_for('static', path='htmx.min.js') }}" defer></script>
+  {# Root-relative, not url_for(): behind a TLS-terminating proxy the app sees plain http, and
+     absolute http:// asset URLs on an https page are blocked as mixed content. #}
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js" defer></script>
 </head>
 <body>
   <header class="topbar">
