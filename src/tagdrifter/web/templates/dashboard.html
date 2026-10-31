@@ -82,4 +82,23 @@
     {% endif %}
   </section>
 </div>
+
+<section class="panel notify-panel">
+  <h2>Notifications</h2>
+  {% if notifications.enabled %}
+    <p>
+      Sending to {{ notifications.describe() }}:
+      {% for event in settings.notify_on | sort %}<span class="badge">{{ event | replace("_", " ") }}</span> {% else %}<span class="muted">nothing (notify_on is empty)</span>{% endfor %}
+    </p>
+    <form hx-post="/notify/test" hx-target="#notify-result" hx-disabled-elt="find button">
+      <button type="submit" class="button">Send test notification</button>
+      <span id="notify-result" class="small" aria-live="polite"></span>
+    </form>
+    {% if not settings.public_url %}
+      <p class="muted small">Set <code>TAGDRIFTER_PUBLIC_URL</code> to open Tag Drifter by tapping a notification.</p>
+    {% endif %}
+  {% else %}
+    <p class="muted">Off. Set <code>TAGDRIFTER_GOTIFY_URL</code> and <code>TAGDRIFTER_GOTIFY_TOKEN</code> to get new issues and failures pushed to Gotify.</p>
+  {% endif %}
+</section>
 {% endblock %}

@@ -10,6 +10,10 @@ Environment variables (handy in Docker compose):
     TAGDRIFTER_PASSWORD_HASH   web UI password, as printed by `tagdrifter hash-password`
     TAGDRIFTER_SECRET_KEY      key for signing login sessions (default: generated in the data dir)
     TAGDRIFTER_FIX             true/false: allow renaming files from the web UI
+    TAGDRIFTER_PUBLIC_URL      the web UI's address, for links in notifications
+    TAGDRIFTER_GOTIFY_URL      Gotify server to send notifications to
+    TAGDRIFTER_GOTIFY_TOKEN    Gotify application token
+    TAGDRIFTER_NOTIFY_ON       comma-separated events: new_issues, failures (or "none")
 """
 
 from __future__ import annotations
@@ -44,6 +48,13 @@ class Settings:
     # Allow renaming MBID-tagged albums to their expected paths from the web UI (needs the
     # library mounted read-write).
     fix_enabled: bool = False
+    # The web UI's address as users reach it (e.g. behind a reverse proxy), for links in
+    # notifications. Empty = notifications carry no link.
+    public_url: str = ""
+    # Notifications (notify.py): a Gotify server and application token; empty = off.
+    gotify_url: str = ""
+    gotify_token: str = field(default="", repr=False)
+    notify_on: frozenset[str] = frozenset({"new_issues", "failures"})
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -61,12 +72,19 @@ def _parse_bool(value: str) -> bool:
     raise ValueError(f"not a boolean: {value!r}")
 
 
+def _parse_events(value: str) -> frozenset[str]:
+    """A comma-separated list; "none" (or "off") for no events."""
+    events = {v.strip().lower() for v in value.split(",") if v.strip()}
+    return frozenset() if events <= {"none", "off"} else frozenset(events)
+
+
 def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
     library = data.get("library", {})
     database = data.get("database", {})
     scan = data.get("scan", {})
     web = data.get("web", {})
     fix = data.get("fix", {})
+    notify = data.get("notify", {})
     checks = dict(data.get("checks", {}))
     disabled = checks.pop("disabled", [])
 
@@ -88,6 +106,10 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         password_hash=str(web.get("password_hash", base.password_hash)),
         secret_key=str(web.get("secret_key", base.secret_key)),
         fix_enabled=bool(fix.get("enabled", base.fix_enabled)),
+        public_url=str(web.get("public_url", base.public_url)),
+        gotify_url=str(notify.get("gotify_url", base.gotify_url)),
+        gotify_token=str(notify.get("gotify_token", base.gotify_token)),
+        notify_on=frozenset(notify.get("on", base.notify_on)),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -130,6 +152,10 @@ def load_settings(
         "TAGDRIFTER_PASSWORD_HASH": ("password_hash", str),
         "TAGDRIFTER_SECRET_KEY": ("secret_key", str),
         "TAGDRIFTER_FIX": ("fix_enabled", _parse_bool),
+        "TAGDRIFTER_PUBLIC_URL": ("public_url", str),
+        "TAGDRIFTER_GOTIFY_URL": ("gotify_url", str),
+        "TAGDRIFTER_GOTIFY_TOKEN": ("gotify_token", str),
+        "TAGDRIFTER_NOTIFY_ON": ("notify_on", _parse_events),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):

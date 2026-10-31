@@ -1,6 +1,6 @@
 {#- Outcome of applying a rename, swapped into the album card's .rename box. -#}
 {% if error %}
-  <p class="rename-problem"><strong>Nothing renamed:</strong> {{ error }}</p>
+  <p class="rename-problem"><strong>{% if partial %}Stopped partway:{% else %}Nothing renamed:{% endif %}</strong> {{ error }}</p>
   <button class="button" hx-get="/rename/preview?album={{ album | urlencode }}" hx-target="closest .rename">Preview again</button>
 {% else %}
   <p class="rename-done">
