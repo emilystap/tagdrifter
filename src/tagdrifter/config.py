@@ -7,6 +7,8 @@ Environment variables (handy in Docker compose):
     TAGDRIFTER_CASE_SENSITIVE  true/false
     TAGDRIFTER_WORKERS         parallel file reads
     TAGDRIFTER_SCHEDULE        cron expression for automatic scans, or "off"
+    TAGDRIFTER_PASSWORD_HASH   web UI password, as printed by `tagdrifter hash-password`
+    TAGDRIFTER_SECRET_KEY      key for signing login sessions (default: generated in the data dir)
 """
 
 from __future__ import annotations
@@ -34,6 +36,10 @@ class Settings:
     # When the web app scans automatically: a 5-field cron expression in the container's time
     # zone (TZ), or "off". Default: daily at 04:00.
     scan_schedule: str = "0 4 * * *"
+    # Web UI login: an scrypt hash from `tagdrifter hash-password`; empty = no login.
+    password_hash: str = field(default="", repr=False)
+    # Signs session cookies. Empty = generate one and keep it next to the database.
+    secret_key: str = field(default="", repr=False)
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -55,6 +61,7 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
     library = data.get("library", {})
     database = data.get("database", {})
     scan = data.get("scan", {})
+    web = data.get("web", {})
     checks = dict(data.get("checks", {}))
     disabled = checks.pop("disabled", [])
 
@@ -73,6 +80,8 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         database_path=Path(database.get("path", base.database_path)),
         workers=int(scan.get("workers", base.workers)),
         scan_schedule=str(scan.get("schedule", base.scan_schedule)),
+        password_hash=str(web.get("password_hash", base.password_hash)),
+        secret_key=str(web.get("secret_key", base.secret_key)),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -112,6 +121,8 @@ def load_settings(
         "TAGDRIFTER_CASE_SENSITIVE": ("case_sensitive", _parse_bool),
         "TAGDRIFTER_WORKERS": ("workers", int),
         "TAGDRIFTER_SCHEDULE": ("scan_schedule", str),
+        "TAGDRIFTER_PASSWORD_HASH": ("password_hash", str),
+        "TAGDRIFTER_SECRET_KEY": ("secret_key", str),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):

@@ -20,6 +20,11 @@ workers = 8                  # parallel tag reads; raise for SMB, lower for spin
 # weekday) in the server's time zone, or "off". Scans are incremental, so daily is cheap.
 schedule = "0 4 * * *"
 
+[web]
+# Require a password for the web UI. Generate the hash with `tagdrifter hash-password`
+# (in Docker: `docker exec -it tagdrifter tagdrifter hash-password`). Unset = no login.
+# password_hash = "scrypt:16384:8:1:..."
+
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).
 disabled = []

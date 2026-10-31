@@ -2,19 +2,27 @@
 
 Server-rendered Jinja templates; HTMX (vendored in static/) swaps partials for filtering,
 paging and scan progress. Each request opens its own Store; scans run in a ScanRunner thread.
+Every POST is CSRF-checked, and with a password configured every page needs a login (auth.py).
 """
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator
+import asyncio
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
 from math import ceil
 from pathlib import Path
 from typing import Annotated
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode
 
 from fastapi import Depends, FastAPI, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -22,6 +30,7 @@ from .. import __version__
 from ..checks import REGISTRY, Severity
 from ..config import Settings
 from ..db import IssueFilter, Store
+from . import auth
 from . import format as fmt
 from .runner import ScanRunner
 from .scheduler import ScanScheduler
@@ -42,7 +51,8 @@ StoreDep = Annotated[Store, Depends(get_store)]
 
 
 def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
-    """Build the app. Raises ValueError for an invalid scan schedule."""
+    """Build the app. Raises ValueError for an invalid scan schedule or password hash."""
+    authenticator = auth.Authenticator(settings)
     runner = runner or ScanRunner(settings)
     scheduler = ScanScheduler(runner, settings.scan_schedule)
 
@@ -60,7 +70,28 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.runner = runner
     app.state.scheduler = scheduler
+    app.state.auth = authenticator
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+
+    @app.middleware("http")
+    async def guard(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        if auth.is_cross_site(request.method, request.headers):
+            return PlainTextResponse("Cross-site request refused.", status_code=403)
+        if (
+            authenticator.enabled
+            and not auth.is_public(request.url.path)
+            and not authenticator.valid_session(request.cookies.get(auth.SESSION_COOKIE))
+        ):
+            login = "/login?" + urlencode({"next": _current_path(request)})
+            if request.headers.get("HX-Request") == "true":
+                # An HTMX swap can't follow a redirect to a full page; ask it to navigate.
+                return Response(status_code=401, headers={"HX-Redirect": login})
+            if request.method == "GET":
+                return RedirectResponse(login, status_code=303)
+            return PlainTextResponse("Login required.", status_code=401)
+        return await call_next(request)
 
     templates = Jinja2Templates(directory=HERE / "templates")
     env = templates.env
@@ -76,6 +107,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "diff_marks": fmt.diff_marks,
         "expected_location": fmt.expected_location,
         "scheduler": scheduler,
+        "auth_enabled": authenticator.enabled,
     }
 
     def is_partial(request: Request, target: str) -> bool:
@@ -221,6 +253,45 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     def scans(request: Request, store: StoreDep) -> HTMLResponse:
         return render(request, "scans.html", page="scans", scans=store.recent_scans(50))
 
+    # --- Login ------------------------------------------------------------------------
+
+    @app.get("/login", response_class=HTMLResponse)
+    def login_page(request: Request, next: str = "/") -> Response:
+        if not authenticator.enabled:
+            return RedirectResponse("/", status_code=303)
+        return render(request, "login.html", next=auth.safe_next(next), failed=False)
+
+    @app.post("/login", response_class=HTMLResponse)
+    async def login(request: Request) -> Response:
+        if not authenticator.enabled:
+            return RedirectResponse("/", status_code=303)
+        # Parsed by hand to avoid the python-multipart dependency for one form.
+        form = parse_qs((await request.body()).decode(errors="replace"))
+        password = form.get("password", [""])[0]
+        target = auth.safe_next(form.get("next", ["/"])[0])
+        # scrypt is deliberately slow; keep it off the event loop.
+        if await asyncio.to_thread(authenticator.check_password, password):
+            response = RedirectResponse(target, status_code=303)
+            response.set_cookie(
+                auth.SESSION_COOKIE,
+                authenticator.new_session(),
+                max_age=auth.SESSION_MAX_AGE,
+                httponly=True,
+                samesite="lax",
+                secure=_is_https(request),
+            )
+            return response
+        await asyncio.sleep(1)  # slow down guessing
+        response = render(request, "login.html", next=target, failed=True)
+        response.status_code = 401
+        return response
+
+    @app.post("/logout")
+    def logout() -> Response:
+        response = RedirectResponse("/login" if authenticator.enabled else "/", status_code=303)
+        response.delete_cookie(auth.SESSION_COOKIE)
+        return response
+
     # --- Scan control -----------------------------------------------------------------
 
     @app.get("/scan/status", response_class=HTMLResponse)
@@ -251,6 +322,22 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         )
 
     return app
+
+
+def _current_path(request: Request) -> str:
+    """Where to return after logging in. For an HTMX request, the page it was made from."""
+    current = request.headers.get("HX-Current-URL")
+    if current:
+        parts = current.split("/", 3)
+        return "/" + (parts[3] if len(parts) > 3 else "")
+    query = f"?{request.url.query}" if request.url.query else ""
+    return request.url.path + query
+
+
+def _is_https(request: Request) -> bool:
+    """Behind a TLS-terminating proxy the app sees http; the proxy says so in a header."""
+    forwarded = request.headers.get("x-forwarded-proto", "").split(",")[0].strip()
+    return request.url.scheme == "https" or forwarded == "https"
 
 
 def _last_scan(store: Store):

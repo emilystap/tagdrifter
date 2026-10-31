@@ -17,8 +17,15 @@
       <a href="/issues" {% if page == "issues" %}aria-current="page"{% endif %}>Issues</a>
       <a href="/scans" {% if page == "scans" %}aria-current="page"{% endif %}>Scans</a>
     </nav>
-    <div id="scan-status" hx-get="/scan/status" hx-trigger="load" hx-swap="outerHTML">
-      <span class="muted">…</span>
+    <div class="topbar-actions">
+      <div id="scan-status" hx-get="/scan/status" hx-trigger="load" hx-swap="outerHTML">
+        <span class="muted">…</span>
+      </div>
+      {% if auth_enabled %}
+      <form class="logout" method="post" action="/logout">
+        <button type="submit" class="button">Log out</button>
+      </form>
+      {% endif %}
     </div>
   </header>
 

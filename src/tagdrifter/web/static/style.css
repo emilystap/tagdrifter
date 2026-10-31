@@ -83,8 +83,8 @@ h2 { font-size: 1rem; margin: 0 0 12px; }
 .topbar nav a:hover { background: var(--bg); text-decoration: none; }
 .topbar nav a[aria-current="page"] { color: var(--text); background: var(--bg); font-weight: 600; }
 
+.topbar-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; }
 .scan-status {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -287,11 +287,31 @@ details summary { cursor: pointer; }
 .details dt { color: var(--muted); }
 .details dd { margin: 0; }
 
+/* --- Login -------------------------------------------------------------------------- */
+
+.logout { margin: 0; }
+.login-body { min-height: 100vh; display: grid; place-items: center; }
+.login { width: 100%; max-width: 360px; padding: 16px; }
+.login-panel { display: flex; flex-direction: column; gap: 10px; }
+.login-panel .brand { font-size: 1.2rem; margin: 0 0 6px; }
+.login-panel label { color: var(--muted); font-size: 0.85rem; }
+.login-panel input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+.login-panel input[aria-invalid="true"] { border-color: var(--error); }
+.login-error { color: var(--error); margin: 0; font-size: 0.9rem; }
+
 /* --- Small screens ------------------------------------------------------------------ */
 
 @media (max-width: 760px) {
   .topbar { padding: 10px 16px; gap: 12px; }
-  .scan-status { margin-left: 0; width: 100%; justify-content: space-between; }
+  .topbar-actions { margin-left: 0; width: 100%; }
+  .scan-status { flex: 1; justify-content: space-between; }
   main { padding: 16px; }
   .footer { padding: 0 16px 16px; }
   .columns { grid-template-columns: 1fr; }

@@ -25,3 +25,5 @@ services:
       TAGDRIFTER_SCHEDULE: "0 4 * * *" # cron (min hour day month weekday), or "off"
       TAGDRIFTER_CASE_SENSITIVE: "true" # match the dataset's case sensitivity
       TAGDRIFTER_WORKERS: "8" # parallel tag reads; mainly affects the first scan
+      # Optional login: output of `docker exec -it tagdrifter tagdrifter hash-password`
+      # TAGDRIFTER_PASSWORD_HASH: "scrypt:16384:8:1:..."

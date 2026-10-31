@@ -69,11 +69,14 @@ present, are in the git-ignored `CLAUDE.local.md`.
      column, migration 3; NULL for artist/library scope, which group by subject).
      `Store.open_issue_groups` / `open_issues_in_groups`; `/issues?view=album` (default) or
      `view=list`. `format.album_changes` derives the folder rename shown on each card.
-   - **5b next: authentication and CSRF protection**, before anything can write. Optional
-     single-user password (hashed, from env/config; off when unset) with a session cookie,
-     plus an Origin/`Sec-Fetch-Site` check on every POST (a page on another site could
-     otherwise POST to the UI from the owner's browser, LAN-only or not).
-   - 5c: rename preview + approve per album (rename + move `.lrc`/`.txt` sidecars, prune
+   - 5b ✅ Login + CSRF (`web/auth.py`, stdlib only): `password_hash` /
+     `TAGDRIFTER_PASSWORD_HASH` (scrypt, from `tagdrifter hash-password`; empty = no login),
+     HMAC-signed 30-day session cookie keyed by `secret_key` or `<data dir>/secret_key`.
+     The `guard` middleware refuses cross-site POSTs (`Sec-Fetch-Site`, else `Origin` vs
+     `Host`) and, with a password, sends unauthenticated requests to `/login` (HTMX ones via
+     `HX-Redirect`); `/login`, `/healthz` and `/static/` are public. Every new POST route is
+     covered automatically. The login form is parsed by hand (no python-multipart).
+   - **5c next**: rename preview + approve per album (rename + move `.lrc`/`.txt` sidecars, prune
      empty dirs; v1's `organize_artist_directory` has the logic). Only MBID-tagged files, never
      overwrite, re-check each file before renaming, an undo journal, off unless enabled
      (needs the library mounted read-write).
