@@ -24,7 +24,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, later a first-run password setup | ⏳ |
-| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, then titles and artist credits, then Picard-style retagging | ⏳ |
+| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, then Picard-style retagging | ⏳ |
 
 ## Quick start (local)
 
@@ -80,7 +80,8 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
 - **MusicBrainz lookups (optional)**: with `TAGDRIFTER_MUSICBRAINZ=true`, each release in the
   library is looked up on MusicBrainz (at most one request a second; in the background a few
   at a time at random times of day, as MusicBrainz asks, or all at once after *Scan now*) and
-  cached for 45-75 days; the `mb.*` checks compare tags and audio lengths with it. The
+  cached for 45-75 days; the `mb.*` checks compare tags, titles, artist credits and audio
+  lengths with it. The
   dashboard shows how many releases are cached. See
   [docs/deployment.md](docs/deployment.md#optional-musicbrainz-lookups).
 - **Login (optional)**: set a password hash and every page needs a login; sessions last 30
@@ -134,6 +135,9 @@ docker run -p 8080:8080 -v /path/to/music:/music:ro -v tagdrifter-data:/data tag
 | `mb.release_unknown` | album | Release MBID MusicBrainz doesn't have (deleted) or has merged into another (error) |
 | `mb.track_mismatch` | album | A track's release-track or recording MBID doesn't match the tagged release (a different version, or a stale tag) |
 | `mb.numbering` | album | Track/disc numbers (per track) or track/disc totals (per album) differ from MusicBrainz |
+| `mb.album` | album | Album title or release group MBID differs from MusicBrainz (Picard's English translations accepted) |
+| `mb.track_title` | album | A track's title differs from MusicBrainz, letter case included (translations accepted) |
+| `mb.artist_credit` | album | Artist names (`ARTIST`, `ARTISTS`) or MBIDs differ from the track's MusicBrainz credit, per track; album artists vs the release credit, once per album |
 | `mb.duration` | album | A track's audio length is off from MusicBrainz by more than 3 s (configurable): live vs studio, edits, the wrong release |
 | `album.placement` | album | Album under the wrong artist folder (v1's placement audit) |
 | `album.inconsistent_tags` | album | Tracks in one folder disagree on album artist, album, release MBID, … |
