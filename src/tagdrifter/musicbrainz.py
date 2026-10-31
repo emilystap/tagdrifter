@@ -20,7 +20,9 @@ schedule (https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting). So:
 `sync_releases` fetches what is missing or due, and `refresh_releases` the releases someone
 asked for (*Refresh from MusicBrainz*, roadmap 6b-3); the checks only ever read the cache
 (`Store.mb_releases`), so scans stay offline. `release_group_releases` is only ever called
-when someone asks (the release page's *Compare with other releases*, roadmap 6d).
+when someone asks (the release page's *Compare with other releases*, roadmap 6d), and so are
+`recording` and `isrc` (`lookup_tracks`: *Look up these tracks*, for files that fit no
+release in their release group), at most `MAX_TRACK_LOOKUPS` requests per click.
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ import gzip
 import json
 import logging
 import random
+import re
 import threading
 import time
 import urllib.error
@@ -61,6 +64,17 @@ REFRESH_MIN_AGE = 300.0  # seconds: a release fetched more recently isn't refres
 # API's maximum), and no more than this many requests, so a huge release group stays cheap.
 BROWSE_LIMIT = 100
 MAX_BROWSE_PAGES = 3
+# A recording with every release it's on (up to 25, the lookup's limit) and the length of its
+# track on each; enough to tell which releases a file's audio could have come from.
+RECORDING_INC = "releases+media"
+MAX_TRACK_LOOKUPS = 10  # requests per click on *Look up these tracks* (about 15 s)
+_ISRC = re.compile(r"[A-Z]{2}[A-Z0-9]{3}[0-9]{7}")
+
+
+def normalize_isrc(value: str) -> str:
+    """An ISRC in its canonical form (upper case, no hyphens), or "" if it isn't one."""
+    value = value.strip().replace("-", "").upper()
+    return value if _ISRC.fullmatch(value) else ""
 
 
 class MusicBrainzError(Exception):
@@ -206,6 +220,22 @@ class MusicBrainzClient:
                 break
         return {"release-count": max(count, len(releases)), "releases": releases}
 
+    def recording(self, mbid: str) -> dict:
+        """A recording with the releases it's on (at most 25) and its track on each
+        (`media[].tracks`, with the length). Raises ReleaseNotFound for an unknown recording,
+        or MusicBrainzError."""
+        if not is_mbid(mbid):
+            raise ValueError(f"not an MBID: {mbid!r}")
+        return self._get(f"/recording/{mbid.lower()}?inc={RECORDING_INC}&fmt=json", mbid)
+
+    def isrc(self, code: str) -> dict:
+        """The recordings with this ISRC (`recordings`, with their lengths). Raises
+        ReleaseNotFound when MusicBrainz has none, or MusicBrainzError."""
+        isrc = normalize_isrc(code)
+        if not isrc:
+            raise ValueError(f"not an ISRC: {code!r}")
+        return self._get(f"/isrc/{isrc}?fmt=json", isrc)
+
     def _get(self, path: str, what: str) -> dict:
         request = urllib.request.Request(
             self.api_root + path,
@@ -333,6 +363,54 @@ def refresh_releases(
         if not _fetch(store, client, mbid, now, result):
             break
     return result
+
+
+def lookup_tracks(
+    store: Store,
+    client: MusicBrainzClient,
+    keys: Iterable[tuple[str, str]],
+    *,
+    now: datetime | None = None,
+    min_age: float = REFRESH_MIN_AGE,
+    limit: int = MAX_TRACK_LOOKUPS,
+) -> SyncResult:
+    """Per-track lookups someone asked for: `keys` are ("recording", MBID) or ("isrc", ISRC)
+    pairs, in the order they matter. Ones never looked up go first; only when every one is
+    cached are they looked up again (those older than `min_age` seconds). At most `limit`
+    requests; stops at the first MusicBrainzError. `due` counts what was left to look up."""
+    now = now or datetime.now(UTC)
+    wanted = list(dict.fromkeys(_lookup_key(kind, key) for kind, key in keys))
+    cached = store.mb_lookups(wanted)
+    todo = [k for k in wanted if k not in cached]
+    if not todo:
+        todo = [
+            k
+            for k in wanted
+            if (now - datetime.fromisoformat(cached[k][1])).total_seconds() >= min_age
+        ]
+    result = SyncResult(due=len(todo), skipped=len(wanted) - len(todo))
+    for kind, key in todo[:limit]:
+        try:
+            data = client.recording(key) if kind == "recording" else client.isrc(key)
+        except ReleaseNotFound:
+            store.save_mb_lookup(kind, key, None)
+            result.not_found += 1
+        except MusicBrainzError as exc:
+            result.error = str(exc)
+            result.retry_after = exc.retry_after
+            break
+        else:
+            store.save_mb_lookup(kind, key, data)
+            result.fetched += 1
+    return result
+
+
+def _lookup_key(kind: str, key: str) -> tuple[str, str]:
+    if kind == "recording" and is_mbid(key):
+        return kind, key.lower()
+    if kind == "isrc" and normalize_isrc(key):
+        return kind, normalize_isrc(key)
+    raise ValueError(f"not a lookup: {kind} {key!r}")
 
 
 def _fetch(

@@ -118,6 +118,18 @@ MIGRATIONS: list[str] = [
           AND julianday(scans.started_at) - julianday(b.finished_at) < 60.0 / 86400
     );
     """,
+    # 8: per-track lookups on request (6d follow-up, library.track_sources): a recording with
+    # the releases it's on (`kind` 'recording', key = recording MBID) or the recordings with
+    # an ISRC ('isrc', key = the ISRC); zlib-compressed JSON, NULL = MusicBrainz has none
+    """
+    CREATE TABLE mb_lookups (
+        kind       TEXT NOT NULL,
+        key        TEXT NOT NULL, -- lower-case MBID, or upper-case ISRC
+        fetched_at TEXT NOT NULL,
+        data       BLOB,
+        PRIMARY KEY (kind, key)
+    );
+    """,
 ]
 
 # Why a scan ran. Follow-up rescans (FOLLOW_UP_REASONS) are hidden from the Scans page by
@@ -664,6 +676,32 @@ class Store:
             "SELECT fetched_at, data FROM mb_release_groups WHERE mbid = ?", (mbid.lower(),)
         ).fetchone()
         return (json.loads(zlib.decompress(row["data"])), row["fetched_at"]) if row else None
+
+    def save_mb_lookup(self, kind: str, key: str, data: Mapping[str, Any] | None) -> None:
+        """Cache a per-track lookup (kind 'recording' or 'isrc'); None = not found."""
+        blob = zlib.compress(json.dumps(data, ensure_ascii=False).encode()) if data else None
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO mb_lookups (kind, key, fetched_at, data) VALUES (?, ?, ?, ?)"
+                " ON CONFLICT(kind, key) DO UPDATE SET fetched_at=excluded.fetched_at,"
+                " data=excluded.data",
+                (kind, key, utcnow(), blob),
+            )
+
+    def mb_lookups(
+        self, keys: Iterable[tuple[str, str]]
+    ) -> dict[tuple[str, str], tuple[dict | None, str]]:
+        """Cached per-track lookups by (kind, key): (data or None if not found, fetched_at).
+        Keys never looked up are absent."""
+        found = {}
+        for kind, key in set(keys):
+            row = self.conn.execute(
+                "SELECT fetched_at, data FROM mb_lookups WHERE kind = ? AND key = ?", (kind, key)
+            ).fetchone()
+            if row:
+                data = json.loads(zlib.decompress(row["data"])) if row["data"] else None
+                found[kind, key] = (data, row["fetched_at"])
+        return found
 
     def mb_cache_counts(self) -> tuple[int, int]:
         """(library releases cached, library releases) for the dashboard."""

@@ -12,3 +12,10 @@ ones were removed to keep the files small. MusicBrainz data is CC0.
   recorded 2026-10-31), trimmed to 4 of CAKE – Prolonging the Magic's 13 releases: the 2023
   Deluxe Edition (15 tracks), the 1998 US CD whose lengths the files match, the US clean
   version and the 17-track Japanese CD.
+- `let_me_go_recording.json`: a recording lookup for CAKE – Let Me Go
+  (`/ws/2/recording/235efc48-16f8-4b48-8688-bf88010c1a32?inc=releases+media+isrcs&fmt=json`,
+  recorded 2026-10-31; the app asks without `isrcs`): the 12 releases it's on with its
+  track's length on each, including the 1999 single (3:55).
+- `let_me_go_isrc.json`: an ISRC lookup (`/ws/2/isrc/USCA19886895?inc=releases&fmt=json`,
+  recorded 2026-10-31; `inc=releases` adds nothing, so the app leaves it out): two
+  recordings share the ISRC, the tagged one (3:56) and a 3:30 one.

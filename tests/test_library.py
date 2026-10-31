@@ -177,9 +177,10 @@ CAKE_1998 = "d0c81325-1494-4afe-84be-3466f3858ccc"  # US CD, 13 tracks: the file
 CAKE_FOLDER = "CAKE/Prolonging the Magic"
 
 
-def cake_album(tmp_path, **settings_kw):
+def cake_album(tmp_path, lengths=None, **settings_kw):
     """Tracks 9, 11 and 14, tagged with the 2023 release but with the 1998 CD's lengths
-    (14 isn't on the CD), like the owner's files."""
+    (14 isn't on the CD), like the owner's files; `lengths` overrides some (by position).
+    Track 11 has its real ISRC."""
     group = fixture("prolonging_the_magic_group")["releases"]
     new, old = (
         MbRelease.from_json(next(r for r in group if r["id"] == mbid))
@@ -188,7 +189,7 @@ def cake_album(tmp_path, **settings_kw):
     lib = tmp_path / "music"
     for position in (9, 11, 14):
         t = new.track_at(1, position)
-        length = (old.track_at(1, position) or t).length_ms
+        length = (lengths or {}).get(position) or (old.track_at(1, position) or t).length_ms
         tags = {
             "musicbrainz_albumid": CAKE_2023,
             "musicbrainz_releasegroupid": CAKE_GROUP,
@@ -200,7 +201,7 @@ def cake_album(tmp_path, **settings_kw):
             "album": "Prolonging the Magic",
             "artist": "CAKE",
             "albumartist": "CAKE",
-        }
+        } | ({"isrc": "USCA19886895"} if position == 11 else {})
         build_flac(lib / CAKE_FOLDER / f"{position:02d}.flac", tags, length_ms=length)
     settings = settings_for(lib, tmp_path, **settings_kw)
     scan(settings)

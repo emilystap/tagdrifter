@@ -39,7 +39,7 @@ from ..checks import REGISTRY, Severity
 from ..checks.builtin_musicbrainz import DEFAULT_TOLERANCE_SECONDS
 from ..config import Settings
 from ..db import FOLLOW_UP_REASONS, SCAN_REASONS, IssueFilter, Store
-from ..musicbrainz import SyncResult
+from ..musicbrainz import MAX_TRACK_LOOKUPS, SyncResult
 from ..notify import Notifications, NotifyError
 from ..renamer import (
     RenameError,
@@ -136,10 +136,12 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "scan_duration": fmt.scan_duration,
         "timestamp": fmt.timestamp,
         "track_length": fmt.track_length,
+        "length_diff": fmt.length_diff,
     }
     env.globals |= {
         "version": __version__,
         "settings": settings,
+        "max_track_lookups": MAX_TRACK_LOOKUPS,
         "diff_marks": fmt.diff_marks,
         "expected_location": fmt.expected_location,
         "scheduler": scheduler,
@@ -404,6 +406,42 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             comparison=comparison,
             message=message,
             refused=refused,
+        )
+
+    @app.post("/library/tracks", response_class=HTMLResponse)
+    async def track_lookup(request: Request, folder: str = "", id: str = "") -> Response:
+        """*Look up these tracks*: for the files that fit no release in the release group,
+        look up their recordings and ISRCs (a few per click), then show the comparison
+        again with what they found."""
+        group_id = id.lower()
+        with Store(settings.database_path) as store:
+            album = library.album_detail(store, folder)
+            if album is None or group_id not in album.release_group_ids:
+                raise HTTPException(404, "No such album or release group.")
+            comparison = library.compare_release_group(
+                store, album, group_id, duration_tolerance_ms()
+            )
+        if comparison is None or comparison.tracks is None:
+            raise HTTPException(409, "Compare with other releases first.")
+        message, refused = "", False
+        try:
+            result = await asyncio.to_thread(mb_sync.lookup_tracks, comparison.tracks.lookup_keys)
+        except LookupRefused as exc:
+            message, refused = str(exc), True
+        else:
+            message, refused = _track_lookup_message(result), bool(result.error)
+            with Store(settings.database_path) as store:
+                comparison = library.compare_release_group(
+                    store, album, group_id, duration_tolerance_ms()
+                )
+        return render(
+            request,
+            "_release_group.html",
+            album=album,
+            group_id=group_id,
+            comparison=comparison,
+            track_message=message,
+            track_refused=refused,
         )
 
     def duration_tolerance_ms() -> int:
@@ -704,6 +742,22 @@ def _refresh_message(result: SyncResult, rescanning: bool) -> str:
     if result.changed:
         parts.append("Rescanning…" if rescanning else "A scan is running; the next scan uses it.")
     return " ".join(parts)
+
+
+def _track_lookup_message(result: SyncResult) -> str:
+    """What *Look up these tracks* did, when the results alone don't say."""
+    if result.error:
+        return f"Stopped: {result.error}. Lookups are paused for a while."
+    asked = result.fetched + result.not_found
+    if not asked:
+        return "Looked up a few minutes ago; showing that."
+    left = result.due - asked
+    if left:
+        return (
+            f"Made {asked} lookups; {left} more to go. Press the button again for the next"
+            f" {min(left, MAX_TRACK_LOOKUPS)} (a few at a time, to go easy on MusicBrainz)."
+        )
+    return ""
 
 
 FILTER_FIELDS = ("check", "severity", "artist", "mbid", "q", "scan")

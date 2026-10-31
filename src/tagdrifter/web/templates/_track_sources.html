@@ -1,0 +1,97 @@
+{#- Track by track, inside the release group comparison when no release fits every file (6d
+    follow-up). Expects `album`, `group_id`, `comparison` (with `tracks`, a
+    library.TrackSources) and optionally `track_message` / `track_refused`. -#}
+{% set ts = comparison.tracks %}
+{% set shown = 3 %}
+<div class="track-sources">
+  <h3>Track by track</h3>
+  <p class="small">
+    {% if ts.cover | length > 1 %}
+      No release fits every file, but {{ ts.cover | length }} fit {{ ts.tracks | length - ts.unexplained | length }} of them between them,
+      as if the folder was put together from several releases:
+    {% elif ts.cover %}
+      The best fit leaves {{ ts.unexplained | length }} file{% if ts.unexplained | length != 1 %}s{% endif %} that fit no release in this release group:
+    {% else %}
+      No file fits any release in this release group.
+    {% endif %}
+  </p>
+  {% if ts.cover %}
+    <ul class="small cover-list">
+      {% for key, fit, n in ts.keyed_cover %}
+        <li><span class="cover-key">{{ key }}</span> <a href="{{ fit.url }}" rel="noreferrer" target="_blank">{{ fit.label }}</a>{% if fit.tagged %}<span class="badge info">tagged</span>{% endif %}: {{ n }} file{% if n != 1 %}s{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <div class="table-wrap">
+    <table class="table track-sources-table">
+      <thead>
+        <tr><th class="num">#</th><th>Title</th><th class="num">Length</th><th>Fits</th></tr>
+      </thead>
+      <tbody>
+        {% for t in ts.tracks %}
+          {% set meta = t.file.meta %}
+          <tr{% if not t.explained %} class="unexplained"{% endif %}>
+            <td class="num">{% if meta.is_multi_disc %}{{ meta.disc_number }}-{% endif %}{{ meta.track_number }}</td>
+            <td>{{ meta.title or t.file.name }}</td>
+            <td class="num">{{ meta.length_ms | track_length }}</td>
+            <td class="small">
+              {% if t.explained %}
+                <span class="cover-key" title="{{ t.release.label }}">{{ t.cover_key }}</span>
+                {% if t.group_fits > 1 %}<span class="muted">and {{ t.group_fits - 1 }} more in the group</span>{% endif %}
+              {% else %}
+                <div class="rename-problem">Nothing in this release group</div>
+                {% if t.looked_up %}
+                  {% if not t.recording_found %}
+                    <div class="muted">MusicBrainz has no recording with this file’s MBID.</div>
+                  {% elif t.fits_elsewhere %}
+                    <div>On other releases:</div>
+                    <ul class="appearances">
+                      {% for a in t.fits_elsewhere[:shown] %}
+                        <li><a href="{{ a.url }}" rel="noreferrer" target="_blank">{{ a.title }}</a> <span class="muted">{{ a.details }}{% if a.number %} · track {{ a.number }}{% endif %} · {{ a.diff_ms | length_diff }}</span></li>
+                      {% endfor %}
+                    </ul>
+                    {% if t.fits_elsewhere | length > shown %}<div class="muted">and {{ t.fits_elsewhere | length - shown }} more</div>{% endif %}
+                  {% elif t.elsewhere %}
+                    {% set a = t.elsewhere[0] %}
+                    <div class="muted">
+                      On {{ t.elsewhere | map(attribute="release_id") | unique | list | length }} other release{% if t.elsewhere | map(attribute="release_id") | unique | list | length != 1 %}s{% endif %}, none within {{ comparison.tolerance_s }} s;
+                      closest: <a href="{{ a.url }}" rel="noreferrer" target="_blank">{{ a.title }}</a> ({{ a.details }}{% if a.diff_ms is not none %} · {{ a.diff_ms | length_diff }}{% endif %}).
+                    </div>
+                  {% else %}
+                    <div class="muted">Its recording is on no other release.</div>
+                  {% endif %}
+                {% endif %}
+                {% if t.other_isrc_recordings %}
+                  <div>Same ISRC ({{ t.isrc }}):
+                    {% for r in t.other_isrc_recordings %}
+                      <a href="{{ r.url }}" rel="noreferrer" target="_blank">{{ r.title }}</a>{% if r.disambiguation %} <span class="muted">({{ r.disambiguation }})</span>{% endif %}{% if r.diff_ms is not none %} <span class="{{ 'fits' if r.fits else 'muted' }}">{{ r.diff_ms | length_diff }}{% if r.fits %}, fits{% endif %}</span>{% endif %}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                  </div>
+                {% elif t.isrc_looked_up and t.looked_up %}
+                  <div class="muted">No other recording has its ISRC.</div>
+                {% endif %}
+                {% if not t.lookup_keys %}
+                  <div class="muted">No recording MBID or ISRC to look up.</div>
+                {% elif t.pending %}
+                  <div class="muted">Not looked up yet.</div>
+                {% endif %}
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if track_message %}<p class="small {{ 'rename-problem' if track_refused else 'muted' }}">{{ track_message }}</p>{% endif %}
+  {% if ts.lookup_keys and settings.musicbrainz_enabled %}
+    {% set pending = ts.pending | length %}
+    <form hx-post="/library/tracks?{{ {'folder': album.folder, 'id': group_id} | urlencode }}"
+          hx-target="closest section" hx-swap="outerHTML" hx-disabled-elt="find button">
+      <button class="button" type="submit">{% if pending %}Look up {{ "this track" if pending == 1 else "these " ~ pending ~ " tracks" }}{% else %}Look up again{% endif %}</button>
+      <span class="muted small">
+        {% if pending %}Which other releases their recordings are on, and other recordings with their ISRCs: up to {{ max_track_lookups }} lookups a click.{% endif %}
+      </span>
+      <span class="lookup-busy muted small">Looking up…</span>
+    </form>
+  {% endif %}
+</div>
