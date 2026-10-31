@@ -32,6 +32,7 @@
     {% endfor %}
     {% if not album.releases %}<span class="muted">No release MBID in the tags.</span>{% endif %}
   </div>
+  {% if settings.musicbrainz_enabled and album.releases %}{% include "_mb_refresh.html" %}{% endif %}
   {% if album.releases | length > 1 %}
     <p class="rename-problem small">The tracks in this folder are tagged with {{ album.releases | length }} different releases.</p>
   {% endif %}
@@ -92,6 +93,7 @@
 {% for r in album.releases %}
 <section class="panel album-section">
   <h2>MusicBrainz tracklist{% if album.releases | length > 1 %} <span class="muted small path">{{ r.id }}</span>{% endif %}</h2>
+  {% if r.cached %}<p class="muted small">Looked up {{ r.fetched_at | ago }}.</p>{% endif %}
   {% if not r.cached %}
     <p class="muted small">
       {% if settings.musicbrainz_enabled %}Not looked up yet; background lookups will get to it.{% else %}MusicBrainz lookups are off (<code>[musicbrainz] enabled</code>).{% endif %}

@@ -374,9 +374,11 @@ details summary { cursor: pointer; }
 .track-tags .table { margin-top: 6px; }
 .release-fits tr.fit-all td { background: var(--ok-bg); }
 .release-fits .badge { margin-left: 6px; }
-.release-group form { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.release-group form, .mb-refresh {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px;
+}
 .lookup-busy { display: none; }
-.release-group form.htmx-request .lookup-busy { display: inline; }
+form.htmx-request .lookup-busy { display: inline; }
 .more-releases { margin-top: 8px; }
 .release-fits .nowrap { white-space: nowrap; }
 .release-fits .mobile-only { display: none; }

@@ -1,0 +1,9 @@
+{#- *Refresh from MusicBrainz* on the release page (6b-3): looks the album's releases up again
+    now, then rescans. Swapped in place with the outcome. Expects `album`; optionally
+    `message` and `refused` (the message says why nothing was refreshed). -#}
+<form class="mb-refresh" hx-post="/library/refresh?{{ {'folder': album.folder} | urlencode }}"
+      hx-target="this" hx-swap="outerHTML" hx-disabled-elt="find button">
+  <button class="button" type="submit">Refresh from MusicBrainz</button>
+  <span class="lookup-busy muted small">Looking up…</span>
+  {% if message %}<span class="small {{ 'rename-problem' if refused else 'muted' }}">{{ message }}</span>{% endif %}
+</form>

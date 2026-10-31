@@ -105,8 +105,8 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
      click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
      with `describe()` and `send(Notification)`.
-   - **Next**: the owner's pick: 6b-3 (refresh on demand; the release page exists now), 7b
-     (embedded cover art) or 6c (retagging).
+   - **Next**: the owner's pick: 7b (embedded cover art) or 6c (retagging); later the 6d
+     follow-ups (per-track analysis, AcoustID).
    - Later: ntfy/webhook notifiers.
    - 5f ✅ Bulk renames (owner's request: ~700 `path.track_location` issues, 130 albums).
      `/issues` (album view, fix on) has a checkbox per renamable card (`form="bulk-form"`) and
@@ -245,17 +245,21 @@ present, are in the git-ignored `CLAUDE.local.md`.
        / release title or the primary `en` alias. Maenarawanai's release and track titles
        are already Latin in MusicBrainz (e.g. track "sekigae Gattuso", recording
        "席替ガットゥーゾ"), so track titles compare with the *track* title first.
-   - 6b-3: refresh one release on demand (owner's request). A *Refresh from MusicBrainz*
-     button on an album's issue card (and the CLI) re-fetches that album's release(s) now
-     instead of waiting for `refresh_after`, then rescans. Useful after editing the release on
-     MusicBrainz, or to confirm a fix. Keep it gentle: one request per release through the
-     shared `RateLimiter`, refused while lookups are paused after an error, and a no-op
-     (with a message) if the release was fetched in the last few minutes, so repeated clicks
-     can't hammer the API. Already covered without it: a release MBID changed by retagging
-     is a release the cache doesn't have yet, so the next lookups fetch it like a new album
-     (`mb_releases_due` puts never-fetched releases first). The old release's row is left
-     behind: never refreshed (only library releases are looked up), just a few KB; prune
-     rows no longer in the library at the same time.
+   - 6b-3 ✅ Refresh on demand (owner's request): *Refresh from MusicBrainz* in the release
+     page header (`_mb_refresh.html`, `POST /library/refresh?folder=`) and `tagdrifter
+     refresh <folder or release MBID>... [--no-scan]` look the album's releases up again now,
+     then rescan (`ScanRunner.rescan`, `scan-started` so the page reloads when it's done).
+     `musicbrainz.refresh_releases` shares `_fetch` with `sync_releases` (new
+     `refresh_after` too), skips releases fetched less than `REFRESH_MIN_AGE` (5 min) ago and
+     stops at the first error. `MusicBrainzSync.refresh` claims the run like a sync (refused
+     while one is running), refuses while lookups are off or paused, and a failure pauses
+     lookups (`_pause`, shared with failed runs and 6d). The tracklist shows when each release
+     was looked up (`ReleaseView.fetched_at`). Retagging to another release needs no button:
+     it's a new release for the next lookups. `Store.prune_mb_cache` (after each sync run
+     without errors) drops releases no longer tagged on any file, unless more than 10% of the
+     cache (at least 20) would go, which looks like a missing library and would mean
+     refetching it all. Release group browses (6d) aren't pruned. The CLI uses its own rate
+     limiter and doesn't see the server's pause (like `tagdrifter rename`).
    - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
    - 6d ✅ *Compare with other releases* on the release page (for `mb.duration`; about 150
      on the owner's library). The 2026-10-31 API probe (CAKE, Prolonging the Magic) found
@@ -274,8 +278,18 @@ present, are in the git-ignored `CLAUDE.local.md`.
      (`_release_group.html`; the album page shows a cached comparison without a request).
      First result: the owner's files are the 1998 CD master; the tagged 2023 Deluxe Edition
      differs on 2 tracks (MusicBrainz data or a different master).
-     - Later, if needed: for files nothing in the release group fits, a per-track recording
-       lookup (`inc=releases+media`) and ISRC lookup, to find other recordings / compilations.
+     - Later (owner's request, after trying 6d on the library): when no release fits every
+       file, analyse tracks one by one, to tell apart folders assembled from several
+       releases (one track per source release). Per file that fits nothing in the release
+       group: a recording lookup (`inc=releases+media`, the same recording on other
+       releases, e.g. compilations) and an ISRC lookup (other recordings with the file's
+       ISRC), then show per track which releases fit it. One click per album, a request or
+       two per unexplained track, cached, through the shared limiter.
+     - Later (owner's idea): AcoustID fingerprints (Chromaprint `fpcalc` on the audio, then
+       the AcoustID API) to identify the recording from the audio itself, when the tags or
+       lengths can't. Open points: needs `fpcalc` in the image and an AcoustID API key
+       (free, per application), decodes audio (slow over SMB, so only on request and
+       cached), and AcoustID's own rate limit (3 requests/s) and terms.
      - Set aside: ignoring leading/trailing silence (too loose; needs a FLAC decoder), a
        percent tolerance, accepting a known difference per album.
 7. Library browser (owner's request): a *Library* tab to look up any release, not just ones
@@ -295,7 +309,6 @@ present, are in the git-ignored `CLAUDE.local.md`.
      any tag identical on every track; differing values highlighted with track counts),
      embedded picture descriptions, then each track's remaining tags. Issue cards link their
      folder to the album page. The file column hides below 760 px.
-   - Later: the 6b-3 *Refresh from MusicBrainz* button belongs on the release page.
    - 7b: embedded cover art.
      Cover art from the **embedded** PICTURE block (every file in the target library has
      one), not the Cover Art Archive: no extra requests to anyone, and it shows what Navidrome

@@ -15,10 +15,12 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
-from . import __version__
+from . import __version__, library
 from .checks import REGISTRY
 from .config import Settings, load_settings
+from .core import is_mbid
 from .db import IssueFilter, Store
+from .musicbrainz import MusicBrainzClient, refresh_releases
 from .renamer import apply_albums, library_writable, plan_albums
 from .scanner import ScanProgress, run_scan
 
@@ -267,6 +269,38 @@ def cmd_rename(settings: Settings, args: argparse.Namespace) -> int:
     return 1 if result.failed else 0
 
 
+def cmd_refresh(settings: Settings, args: argparse.Namespace) -> int:
+    """Look albums' releases up on MusicBrainz again now (after editing them there), then
+    rescan. One request per release; releases fetched minutes ago are skipped."""
+    if not settings.musicbrainz_enabled:
+        print("error: MusicBrainz lookups are off; set [musicbrainz] enabled = true.",
+              file=sys.stderr)  # fmt: skip
+        return 2
+    ids: list[str] = []
+    with Store(settings.database_path) as store:
+        for target in args.target:
+            if is_mbid(target):
+                ids.append(target.lower())
+                continue
+            album = library.album_detail(store, target)
+            if album is None or not album.releases:
+                print(f"error: {target}: not an album folder with a release MBID (as of the "
+                      "last scan), nor a release MBID.", file=sys.stderr)  # fmt: skip
+                return 2
+            ids += [r.id for r in album.releases]
+        client = MusicBrainzClient(contact=settings.musicbrainz_contact)
+        result = refresh_releases(store, client, ids)
+    print(
+        f"{result.fetched} looked up, {result.not_found} not found on MusicBrainz, "
+        f"{result.skipped} skipped (looked up minutes ago)."
+    )
+    if result.error:
+        print(f"error: {result.error}", file=sys.stderr)
+    if result.changed and not args.no_scan:
+        return cmd_scan(settings, argparse.Namespace(full=False)) or (1 if result.error else 0)
+    return 1 if result.error else 0
+
+
 def cmd_checks(settings: Settings, args: argparse.Namespace) -> int:
     width = max(len(c) for c in REGISTRY)
     for check_id, cls in sorted(REGISTRY.items()):
@@ -391,6 +425,21 @@ def build_parser() -> argparse.ArgumentParser:
     rename.add_argument("--yes", "-y", action="store_true", help="don't ask for confirmation")
     rename.add_argument("--no-scan", action="store_true", help="don't rescan afterwards")
     rename.set_defaults(func=cmd_rename)
+
+    refresh = sub.add_parser(
+        "refresh",
+        help="look albums' releases up on MusicBrainz again now, then rescan",
+        description=(
+            "Fetch the releases of these albums from MusicBrainz again (after editing them "
+            "there), then rescan so the checks use them. One request per release; releases "
+            "fetched in the last few minutes are skipped. Needs [musicbrainz] enabled."
+        ),
+    )
+    refresh.add_argument(
+        "target", nargs="+", help="album folder (e.g. 'CAKE/Prolonging the Magic') or release MBID"
+    )
+    refresh.add_argument("--no-scan", action="store_true", help="don't rescan afterwards")
+    refresh.set_defaults(func=cmd_refresh)
 
     checks = sub.add_parser("checks", help="list available checks")
     checks.set_defaults(func=cmd_checks)
