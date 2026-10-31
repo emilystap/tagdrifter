@@ -25,6 +25,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, bulk renames ✅, later a first-run password setup | ⏳ |
 | 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, then Picard-style retagging | ⏳ |
+| 7 | Library browser: search any album, release page with tags and the MusicBrainz tracklist ✅, then embedded cover art | ⏳ |
 
 ## Quick start (local)
 
@@ -61,6 +62,13 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   counts (and the other way round). Proposed renames show the current and
   expected path with the differing characters highlighted. Filtered views have their own URL,
   so they can be bookmarked.
+- **Library**: every album folder, searchable by artist, album, folder or release MBID, from
+  the scan's cache (browsing never reads the disk or calls MusicBrainz). An album's page shows
+  its tracks, the album-wide tags once (highlighting any that differ between tracks), each
+  track's other tags, embedded pictures, open issues (with *Preview renames*), links to the
+  release and release group on musicbrainz.org, and, once the release has been looked up, the
+  MusicBrainz tracklist beside the files with title and length differences marked. Issue cards
+  link to their album's page.
 - **Scans**: scan history with files read and issues opened/resolved; the new count links
   to the issues first seen in that scan (`/issues?scan=N`).
 - **Scan now** (top bar, every page): runs a scan in the background with live progress; the page
@@ -182,6 +190,7 @@ src/tagdrifter/
   checks/        Check framework (base.py) and built-in checks
   config.py      Settings: defaults < config.toml < TAGDRIFTER_* env vars < CLI flags
   renamer.py     Rename plans (preview), apply with a journal, undo
+  library.py     Library browser: album list, search and release pages from the cache
   notify.py      Notifications (Gotify): new issues after a scan, failures
   musicbrainz.py MusicBrainz client (rate-limited) and release cache sync
   db.py          SQLite: file/tag cache, scan history, issue lifecycle

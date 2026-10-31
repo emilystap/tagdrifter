@@ -105,7 +105,7 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
      click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
      with `describe()` and `send(Notification)`.
-   - **Next**: the owner's pick. 6b-3 is better after 6c (retagging); 7 stands alone.
+   - **Next**: the owner's pick: 7b (embedded cover art) or 6c (retagging); 6b-3 after 6c.
    - Later: ntfy/webhook notifiers.
    - 5f ✅ Bulk renames (owner's request: ~700 `path.track_location` issues, 130 albums).
      `/issues` (album view, fix on) has a checkbox per renamable card (`form="bulk-form"`) and
@@ -258,14 +258,24 @@ present, are in the git-ignored `CLAUDE.local.md`.
    - 6c: Picard-style retagging with preview + approve; lookups for releases missing MBIDs.
 7. Library browser (owner's request): a *Library* tab to look up any release, not just ones
    with issues.
-   - Search by artist, album or release MBID; results grouped by album folder (one row per
-     release, from the `files` cache, so browsing never touches the disk or the network).
-   - Release page: the album folder, each track's current path and its tags (all of them, in a
-     compact table; differences between tracks highlighted for album-level tags), audio
-     length, the album's open issues, and links to the release (and release group) on
-     musicbrainz.org. With the cache, show the MusicBrainz tracklist beside the files. The
-     6b-3 *Refresh from MusicBrainz* button and the 5c rename preview belong here too.
-   - Cover art from the **embedded** PICTURE block (every file in the target library has
+   - 7a ✅ `library.py` + `/library` (search, paged 50 per page) and
+     `/library/album?folder=` (`album.html`). Everything comes from the `files` cache
+     (`Store.library_file_rows`: `json_extract` of five tags, about 0.1 s for 7,000 files, so
+     no in-process cache yet) and the MusicBrainz cache (`Store.mb_releases(ids)`, now a
+     `WHERE IN`): browsing never touches the disk or the network. An album = a folder with
+     audio files below the library root (loose root files aren't albums). Search: every word
+     must appear in the folder, album artist, album titles or release MBIDs (NFC, casefolded).
+     Release page: header (title, artist, date, length, musicbrainz.org release and release
+     group links), open issues (with *Preview renames* when `rename_candidates` has it),
+     tracks, the MusicBrainz tracklist per tagged release (`_tracklist`: by release track
+     MBID, else disc + track number; title and ±s length differences marked; "not looked up
+     yet" / "lookups are off" / "MusicBrainz has no release"), album tags (`ALBUM_TAGS`, plus
+     any tag identical on every track; differing values highlighted with track counts),
+     embedded picture descriptions, then each track's remaining tags. Issue cards link their
+     folder to the album page. The file column hides below 760 px.
+   - Later: the 6b-3 *Refresh from MusicBrainz* button belongs on the release page.
+   - 7b: embedded cover art.
+     Cover art from the **embedded** PICTURE block (every file in the target library has
      one), not the Cover Art Archive: no extra requests to anyone, and it shows what Navidrome
      shows. `core/flac.py` skips PICTURE blocks today (they can be several MB); add a reader
      that returns the front cover (type 3, else the first) on demand, served by a route that

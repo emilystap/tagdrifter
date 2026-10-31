@@ -350,3 +350,30 @@ details summary { cursor: pointer; }
 .bulk-progress progress { flex: 1 1 120px; }
 .bulk-status form { margin: 0; }
 .group-head input[type="checkbox"] { margin: 0; }
+
+/* Library */
+.library-table td { overflow-wrap: anywhere; }
+.library-table .badge { margin-left: 6px; }
+.crumbs { margin: 0 0 12px; }
+.album-section, .album-head { margin-bottom: 16px; }
+.album-title { font-size: 1.4rem; margin: 0; overflow-wrap: anywhere; }
+.album-artist { font-size: 1.05rem; margin: 2px 0 4px; }
+.album-folder { margin-top: 6px; overflow-wrap: anywhere; }
+.album-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
+.album-section h2 { display: flex; align-items: center; gap: 8px; }
+.album-section .issue { background: var(--bg); }
+.album-section td { overflow-wrap: break-word; }
+.album-section td.path { overflow-wrap: anywhere; min-width: 12em; }
+.tracklist tr.unmatched td { background: var(--warning-bg); }
+.table.tags th { width: 30%; overflow-wrap: anywhere; color: var(--text); font-weight: 400; }
+.table.tags td { overflow-wrap: anywhere; }
+.table.tags tr.differs th code { color: var(--warning); font-weight: 600; }
+.tag-value { white-space: pre-wrap; max-height: 9em; overflow-y: auto; }
+.track-tags { margin: 0; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.track-tags:last-child { border-bottom: 0; }
+.track-tags .table { margin-top: 6px; }
+.mobile-only { display: none; }
+@media (max-width: 760px) {
+  .album-section .col-file { display: none; }
+  .album-section .mobile-only { display: inline; }
+}
