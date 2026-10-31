@@ -581,6 +581,31 @@ class Store:
             for r in self.conn.execute(sql, params)
         }
 
+    def mb_release_fetched_at(self, mbids: Iterable[str]) -> dict[str, str]:
+        """When each of these releases was last looked up (absent: never)."""
+        params = sorted({m.lower() for m in mbids})
+        rows = self.conn.execute(
+            "SELECT mbid, fetched_at FROM mb_releases"
+            f" WHERE mbid IN ({','.join('?' * len(params))})",
+            params,
+        )
+        return {r["mbid"]: r["fetched_at"] for r in rows}
+
+    def prune_mb_cache(self, max_fraction: float = 0.1, min_allowed: int = 20) -> int:
+        """Remove cached releases no longer tagged on any file (the album was retagged to
+        another release, or deleted). Returns how many were removed. Does nothing when more
+        than `max_fraction` of the cache (at least `min_allowed`) would go: that looks like a
+        missing or half-scanned library, and refetching it all would load MusicBrainz for
+        nothing. Release group browses (6d) are kept: they're fetched only on request."""
+        ids = self.library_release_ids()
+        cached = [r[0] for r in self.conn.execute("SELECT mbid FROM mb_releases")]
+        orphans = [m for m in cached if m not in ids]
+        if not ids or not orphans or len(orphans) > max(min_allowed, max_fraction * len(cached)):
+            return 0
+        with self.conn:
+            self.conn.executemany("DELETE FROM mb_releases WHERE mbid = ?", ((m,) for m in orphans))
+        return len(orphans)
+
     def save_mb_release_group(self, mbid: str, data: Mapping[str, Any]) -> None:
         blob = zlib.compress(json.dumps(data, ensure_ascii=False).encode())
         with self.conn:

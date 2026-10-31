@@ -201,6 +201,7 @@ class ReleaseView:
     cached: bool  # looked up at least once
     release: MbRelease | None  # None: not looked up yet, or MusicBrainz doesn't have it
     rows: tuple[TracklistRow, ...] = ()
+    fetched_at: str = ""  # when it was last looked up
 
     @property
     def url(self) -> str:
@@ -258,6 +259,7 @@ def album_detail(store: Store, folder: str) -> AlbumDetail | None:
 
     release_ids = sorted({t.release_id for t in readable if t.release_id})
     data = store.mb_releases(release_ids)
+    fetched_at = store.mb_release_fetched_at(release_ids)
     releases = []
     for rid in release_ids:
         release = MbRelease.from_json(data[rid]) if data.get(rid) else None
@@ -269,6 +271,7 @@ def album_detail(store: Store, folder: str) -> AlbumDetail | None:
                 _tracklist(release, [t for t in readable if t.release_id == rid])
                 if release
                 else (),
+                fetched_at.get(rid, ""),
             )
         )
     group_ids = {

@@ -39,6 +39,7 @@ from ..checks import REGISTRY, Severity
 from ..checks.builtin_musicbrainz import DEFAULT_TOLERANCE_SECONDS
 from ..config import Settings
 from ..db import IssueFilter, Store
+from ..musicbrainz import SyncResult
 from ..notify import Notifications, NotifyError
 from ..renamer import (
     RenameError,
@@ -352,6 +353,30 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             ],
         )
 
+    @app.post("/library/refresh", response_class=HTMLResponse)
+    async def refresh_album(request: Request, folder: str = "") -> HTMLResponse:
+        """*Refresh from MusicBrainz*: look the album's releases up again now (not ones
+        fetched minutes ago), then rescan so the checks use them."""
+        with Store(settings.database_path) as store:
+            album = library.album_detail(store, folder)
+        if album is None or not album.releases:
+            raise HTTPException(404, "No such album, or it has no release MBID.")
+        try:
+            result = await asyncio.to_thread(mb_sync.refresh, [r.id for r in album.releases])
+        except LookupRefused as exc:
+            return render(request, "_mb_refresh.html", album=album, message=str(exc), refused=True)
+        rescanning = result.changed and app.state.runner.rescan()
+        response = render(
+            request,
+            "_mb_refresh.html",
+            album=album,
+            message=_refresh_message(result, rescanning),
+            refused=bool(result.error),
+        )
+        if rescanning:
+            response.headers["HX-Trigger"] = "scan-started"
+        return response
+
     @app.post("/library/release-group", response_class=HTMLResponse)
     async def release_group_lookup(request: Request, folder: str = "", id: str = "") -> Response:
         """*Compare with other releases*: look up the release group's releases (unless
@@ -623,6 +648,29 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         )
 
     return app
+
+
+def _refresh_message(result: SyncResult, rescanning: bool) -> str:
+    """What *Refresh from MusicBrainz* did, in a sentence or two."""
+    parts = []
+    if result.fetched:
+        parts.append(f"Refreshed {result.fetched} release{'s' * (result.fetched != 1)}.")
+    if result.not_found:
+        parts.append(
+            "MusicBrainz no longer has "
+            + (
+                "this release."
+                if result.not_found == 1
+                else f"{result.not_found} of these releases."
+            )
+        )
+    if result.skipped:
+        parts.append("Looked up minutes ago, so not asked again.")
+    if result.error:
+        parts.append(f"Stopped: {result.error}. Lookups are paused for a while.")
+    if result.changed:
+        parts.append("Rescanning…" if rescanning else "A scan is running; the next scan uses it.")
+    return " ".join(parts)
 
 
 FILTER_FIELDS = ("check", "severity", "artist", "mbid", "q", "scan")

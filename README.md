@@ -24,7 +24,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
 | 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, bulk renames ✅, later a first-run password setup | ⏳ |
-| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, other releases ranked by track-length fit ✅, then Picard-style retagging | ⏳ |
+| 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, other releases ranked by track-length fit ✅, refresh on demand ✅, then Picard-style retagging | ⏳ |
 | 7 | Library browser: search any album, release page with tags and the MusicBrainz tracklist ✅, then embedded cover art | ⏳ |
 
 ## Quick start (local)
@@ -41,6 +41,7 @@ uv run tagdrifter issues --mbid no       # only issues on files without release/
 uv run tagdrifter checks                 # available checks and whether they're enabled
 uv run tagdrifter scans                  # scan history
 uv run tagdrifter rename --dry-run       # proposed renames for every album (bulk; see below)
+uv run tagdrifter refresh "CAKE/Prolonging the Magic"  # look its release up on MusicBrainz again
 uv run tagdrifter serve                  # web UI on http://127.0.0.1:8080
 ```
 
@@ -99,7 +100,10 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   library is looked up on MusicBrainz (at most one request a second; in the background a few
   at a time at random times of day, as MusicBrainz asks, or all at once after *Scan now*) and
   cached for 45-75 days; the `mb.*` checks compare tags, titles, artist credits and audio
-  lengths with it. The
+  lengths with it. After editing a release on MusicBrainz, *Refresh from MusicBrainz* on the
+  album's page (or `tagdrifter refresh <album folder or release MBID>`) looks it up again
+  now and rescans; a release looked up in the last 5 minutes isn't asked for again.
+  Releases no longer tagged on any file are dropped from the cache. The
   dashboard shows how many releases are cached. See
   [docs/deployment.md](docs/deployment.md#optional-musicbrainz-lookups).
 - **Login (optional)**: set a password hash and every page needs a login; sessions last 30

@@ -17,7 +17,8 @@ schedule (https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting). So:
 - responses are requested gzip-compressed;
 - the User-Agent names the project and, if configured, the operator's contact address.
 
-`sync_releases` fetches what is missing or due; the checks only ever read the cache
+`sync_releases` fetches what is missing or due, and `refresh_releases` the releases someone
+asked for (*Refresh from MusicBrainz*, roadmap 6b-3); the checks only ever read the cache
 (`Store.mb_releases`), so scans stay offline. `release_group_releases` is only ever called
 when someone asks (the release page's *Compare with other releases*, roadmap 6d).
 """
@@ -32,7 +33,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
@@ -55,6 +56,7 @@ BACKOFF = (15.0, 60.0)  # waits after a 503 before retrying; then give up for th
 MAX_RETRY_WAIT = 300.0  # a longer Retry-After ends the run instead of blocking the thread
 REFRESH_DAYS = (45, 75)  # a cached release is looked up again after this many days
 NOT_FOUND_REFRESH_DAYS = (30, 60)
+REFRESH_MIN_AGE = 300.0  # seconds: a release fetched more recently isn't refreshed on request
 # Browsing a release group's releases with their tracklists: 100 releases per request (the
 # API's maximum), and no more than this many requests, so a huge release group stays cheap.
 BROWSE_LIMIT = 100
@@ -260,6 +262,7 @@ class SyncResult:
     due: int = 0  # releases missing from the cache or due for a refresh
     fetched: int = 0
     not_found: int = 0
+    skipped: int = 0  # asked for, but fetched less than REFRESH_MIN_AGE ago
     error: str | None = None  # why the run stopped early
     retry_after: float | None = None  # how long MusicBrainz asked us to wait, if it did
 
@@ -292,19 +295,61 @@ def sync_releases(
     for done, mbid in enumerate(due, 1):
         if stop is not None and stop.is_set():
             break
-        try:
-            data = client.release(mbid)
-        except ReleaseNotFound:
-            store.save_mb_release(mbid, None, _refresh_after(now, NOT_FOUND_REFRESH_DAYS))
-            result.not_found += 1
-        except MusicBrainzError as exc:
-            result.error = str(exc)
-            result.retry_after = exc.retry_after
-            log.warning("MusicBrainz sync stopped after %d of %d: %s", done - 1, len(due), exc)
+        if not _fetch(store, client, mbid, now, result):
+            log.warning(
+                "MusicBrainz sync stopped after %d of %d: %s", done - 1, len(due), result.error
+            )
             break
-        else:
-            store.save_mb_release(mbid, data, _refresh_after(now, REFRESH_DAYS))
-            result.fetched += 1
         if progress:
             progress(done, len(due))
+    if not result.error:
+        pruned = store.prune_mb_cache()
+        if pruned:
+            log.info("MusicBrainz cache: removed %d releases no longer in the library", pruned)
     return result
+
+
+def refresh_releases(
+    store: Store,
+    client: MusicBrainzClient,
+    mbids: Iterable[str],
+    *,
+    now: datetime | None = None,
+    min_age: float = REFRESH_MIN_AGE,
+) -> SyncResult:
+    """Fetch these releases now, whatever their `refresh_after` (someone asked: they edited
+    the release on MusicBrainz, or want to confirm a fix). Releases fetched less than
+    `min_age` seconds ago are skipped, so repeated clicks can't hammer the API. Stops at the
+    first MusicBrainzError."""
+    now = now or datetime.now(UTC)
+    ids = sorted({m.lower() for m in mbids if is_mbid(m)})
+    fetched_at = store.mb_release_fetched_at(ids)
+    result = SyncResult(due=len(ids))
+    for mbid in ids:
+        last = fetched_at.get(mbid)
+        if last and (now - datetime.fromisoformat(last)).total_seconds() < min_age:
+            result.skipped += 1
+            continue
+        if not _fetch(store, client, mbid, now, result):
+            break
+    return result
+
+
+def _fetch(
+    store: Store, client: MusicBrainzClient, mbid: str, now: datetime, result: SyncResult
+) -> bool:
+    """Look up one release into the cache, counting it in `result`. Returns False (with
+    `result.error` set) when MusicBrainz failed and the run should stop."""
+    try:
+        data = client.release(mbid)
+    except ReleaseNotFound:
+        store.save_mb_release(mbid, None, _refresh_after(now, NOT_FOUND_REFRESH_DAYS))
+        result.not_found += 1
+    except MusicBrainzError as exc:
+        result.error = str(exc)
+        result.retry_after = exc.retry_after
+        return False
+    else:
+        store.save_mb_release(mbid, data, _refresh_after(now, REFRESH_DAYS))
+        result.fetched += 1
+    return True

@@ -16,9 +16,11 @@ ways (both via musicbrainz.sync_releases, at most 1 request/s):
 A run that stopped on an error (MusicBrainz overloaded or unreachable) pauses all lookups
 for an hour, or longer if MusicBrainz asked (Retry-After). Only one run happens at a time.
 
-The release page's *Compare with other releases* (`lookup_release_group`) is the one other
-kind of request: one click, one release group (1-3 requests), through the same rate limiter
-and pause, and never repeated within `GROUP_REFETCH_AFTER` of the last lookup.
+Two more kinds of request come from a click on the release page, through the same rate
+limiter and pause: *Refresh from MusicBrainz* (`refresh`, one request per release of the
+album, skipped for releases fetched in the last few minutes) and *Compare with other
+releases* (`lookup_release_group`, 1-3 requests, never repeated within
+`GROUP_REFETCH_AFTER`).
 When anything was fetched, a rescan applies it to the mb.* checks (cheap: tags come from the
 cache).
 """
@@ -29,13 +31,19 @@ import logging
 import random
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from ..config import Settings
 from ..db import Store
-from ..musicbrainz import MusicBrainzClient, MusicBrainzError, SyncResult, sync_releases
+from ..musicbrainz import (
+    MusicBrainzClient,
+    MusicBrainzError,
+    SyncResult,
+    refresh_releases,
+    sync_releases,
+)
 from .format import parse_ts
 
 log = logging.getLogger(__name__)
@@ -153,13 +161,7 @@ class MusicBrainzSync:
         sent). Raises LookupRefused when lookups are off or paused, another lookup of a
         release group is running, or MusicBrainz failed (which pauses lookups, as a failed
         run does)."""
-        if not self.enabled:
-            raise LookupRefused("MusicBrainz lookups are off.")
-        paused = self.status().paused_until_time
-        if paused is not None:
-            raise LookupRefused(
-                f"MusicBrainz lookups are paused after an error, until {paused:%H:%M} UTC."
-            )
+        self._check_allowed()
         if not self._group_lock.acquire(blocking=False):
             raise LookupRefused("Another release group is being looked up; try again shortly.")
         try:
@@ -172,9 +174,7 @@ class MusicBrainzSync:
                 data = self.client.release_group_releases(mbid)
             except MusicBrainzError as exc:
                 with self._lock:
-                    wait = max(self.error_cooldown, exc.retry_after or 0)
-                    self._paused_until = self._clock() + wait
-                log.info("MusicBrainz lookups paused for %.0f min: %s", wait / 60, exc)
+                    self._pause(exc.retry_after)
                 raise LookupRefused(f"{exc}. Lookups are paused for a while.") from exc
             with Store(self.settings.database_path) as store:
                 store.save_mb_release_group(mbid, data)
@@ -186,6 +186,36 @@ class MusicBrainzSync:
             return True
         finally:
             self._group_lock.release()
+
+    def refresh(self, mbids: Iterable[str]) -> SyncResult:
+        """Look up these releases again now, because someone asked (refresh_releases skips
+        any fetched in the last few minutes). Raises LookupRefused when lookups are off,
+        paused or already running. A failure pauses lookups, as a failed run does. Doesn't
+        rescan: the caller does when `result.changed`."""
+        ids = list(mbids)
+        self._check_allowed()
+        if not self._claim(background=False, total=len(ids)):
+            raise LookupRefused("MusicBrainz lookups are running; try again when they finish.")
+        try:
+            with Store(self.settings.database_path) as store:
+                result = refresh_releases(store, self.client, ids)
+        except Exception as exc:  # never let a bug here take down the app
+            log.exception("MusicBrainz refresh failed")
+            result = SyncResult(error=f"{type(exc).__name__}: {exc}")
+        log.info(
+            "MusicBrainz refresh: %d looked up, %d not found, %d fetched minutes ago%s",
+            result.fetched,
+            result.not_found,
+            result.skipped,
+            f"; stopped: {result.error}" if result.error else "",
+        )
+        with self._lock:
+            self._busy = False
+            self._last = result
+            self._finished_at = self._clock()
+            if result.error:
+                self._pause(result.retry_after)
+        return result
 
     # --- Status -------------------------------------------------------------------------
 
@@ -212,6 +242,21 @@ class MusicBrainzSync:
             thread.join(timeout)
 
     # --- Internals ----------------------------------------------------------------------
+
+    def _check_allowed(self) -> None:
+        if not self.enabled:
+            raise LookupRefused("MusicBrainz lookups are off.")
+        paused = self.status().paused_until_time
+        if paused is not None:
+            raise LookupRefused(
+                f"MusicBrainz lookups are paused after an error, until {paused:%H:%M} UTC."
+            )
+
+    def _pause(self, retry_after: float | None) -> None:
+        """No lookups for a while after an error (call with the lock held)."""
+        wait = max(self.error_cooldown, retry_after or 0)
+        self._paused_until = self._clock() + wait
+        log.info("MusicBrainz lookups paused for %.0f min", wait / 60)
 
     def _due_count(self) -> int:
         if self._paused_until is not None and self._clock() < self._paused_until:
@@ -265,9 +310,7 @@ class MusicBrainzSync:
             self._last = result
             self._finished_at = self._clock()
             if result.error:
-                wait = max(self.error_cooldown, result.retry_after or 0)
-                self._paused_until = self._finished_at + wait
-                log.info("MusicBrainz lookups paused for %.0f min", wait / 60)
+                self._pause(result.retry_after)
         if result.changed and self.rescan is not None:
             self.rescan()
 
