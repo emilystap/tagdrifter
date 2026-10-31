@@ -16,11 +16,12 @@ ways (both via musicbrainz.sync_releases, at most 1 request/s):
 A run that stopped on an error (MusicBrainz overloaded or unreachable) pauses all lookups
 for an hour, or longer if MusicBrainz asked (Retry-After). Only one run happens at a time.
 
-Two more kinds of request come from a click on the release page, through the same rate
-limiter and pause: *Refresh from MusicBrainz* (`refresh`, one request per release of the
-album, skipped for releases fetched in the last few minutes) and *Compare with other
-releases* (`lookup_release_group`, 1-3 requests, never repeated within
-`GROUP_REFETCH_AFTER`).
+More requests come from clicks on the release page, through the same rate limiter and
+pause: *Refresh from MusicBrainz* (`refresh`, one request per release of the album, skipped
+for releases fetched in the last few minutes), *Compare with other releases*
+(`lookup_release_group`, 1-3 requests, never repeated within `GROUP_REFETCH_AFTER`) and
+*Look up these tracks* (`lookup_tracks`, a recording and an ISRC lookup per file that fits
+no release in its release group, at most `MAX_TRACK_LOOKUPS` requests a click).
 When anything was fetched, a rescan applies it to the mb.* checks (cheap: tags come from the
 cache).
 """
@@ -41,6 +42,7 @@ from ..musicbrainz import (
     MusicBrainzClient,
     MusicBrainzError,
     SyncResult,
+    lookup_tracks,
     refresh_releases,
     sync_releases,
 )
@@ -103,7 +105,7 @@ class MusicBrainzSync:
         self._thread: threading.Thread | None = None  # the last run after a scan
         self._trickle: threading.Thread | None = None
         self._next_background: float | None = None
-        self._group_lock = threading.Lock()  # one release group lookup at a time
+        self._click_lock = threading.Lock()  # one release group / track lookup at a time
         self._paused_until: float | None = None
         self._done = 0
         self._total = 0
@@ -162,8 +164,8 @@ class MusicBrainzSync:
         release group is running, or MusicBrainz failed (which pauses lookups, as a failed
         run does)."""
         self._check_allowed()
-        if not self._group_lock.acquire(blocking=False):
-            raise LookupRefused("Another release group is being looked up; try again shortly.")
+        if not self._click_lock.acquire(blocking=False):
+            raise LookupRefused("Another lookup is running; try again shortly.")
         try:
             with Store(self.settings.database_path) as store:
                 cached = store.mb_release_group(mbid)
@@ -185,7 +187,32 @@ class MusicBrainzSync:
             )
             return True
         finally:
-            self._group_lock.release()
+            self._click_lock.release()
+
+    def lookup_tracks(self, keys: Iterable[tuple[str, str]]) -> SyncResult:
+        """Per-track lookups ("recording", MBID) / ("isrc", ISRC) someone asked for, into
+        the cache (musicbrainz.lookup_tracks: ones never looked up first, at most
+        `MAX_TRACK_LOOKUPS` requests, nothing repeated within `GROUP_REFETCH_AFTER`). Raises
+        LookupRefused when lookups are off or paused, or another lookup is running. A failure
+        pauses lookups, as a failed run does, and is in `result.error`."""
+        self._check_allowed()
+        if not self._click_lock.acquire(blocking=False):
+            raise LookupRefused("Another lookup is running; try again shortly.")
+        try:
+            with Store(self.settings.database_path) as store:
+                result = lookup_tracks(store, self.client, keys, min_age=GROUP_REFETCH_AFTER)
+        finally:
+            self._click_lock.release()
+        log.info(
+            "MusicBrainz track lookups: %d looked up, %d not found%s",
+            result.fetched,
+            result.not_found,
+            f"; stopped: {result.error}" if result.error else "",
+        )
+        if result.error:
+            with self._lock:
+                self._pause(result.retry_after)
+        return result
 
     def refresh(self, mbids: Iterable[str]) -> SyncResult:
         """Look up these releases again now, because someone asked (refresh_releases skips

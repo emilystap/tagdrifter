@@ -72,7 +72,13 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   link to their album's page. *Compare with other releases* (MusicBrainz lookups on) fetches
   every release of the album's release group once, when you click it, and ranks them by how
   well their track lengths fit your files, with links to musicbrainz.org: handy for
-  `mb.duration` issues, which usually mean the files are a different edition.
+  `mb.duration` issues, which usually mean the files are a different edition. When no
+  release fits every file, *Track by track* shows which releases fit them between them (a
+  folder put together from several releases, e.g. a CD plus a deluxe edition's bonus
+  tracks), from the same lookup. For files that fit nothing in the release group, *Look up
+  these tracks* asks MusicBrainz which other releases (singles, compilations) their
+  recordings are on, and which other recordings share their ISRC: at most 10 requests a
+  click, cached.
 - **Scans**: scan history, 50 per page, with why each scan ran (*Scan now*, schedule,
   command line, after renames, undo or MusicBrainz lookups), files read and issues
   opened/resolved; the new count links to the issues first seen in that scan

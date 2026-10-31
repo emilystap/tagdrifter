@@ -1,7 +1,8 @@
 {#- Other releases in one release group, ranked by how well their track lengths fit this
     album's files (6d). Swapped in place by *Compare with other releases*. Expects `album`,
     `group_id`, `comparison` (library.GroupComparison, or None before the first lookup) and
-    optionally `message` (`refused`: it says why the lookup didn't happen). -#}
+    optionally `message` (`refused`: it says why the lookup didn't happen). When no release
+    fits every file, the track-by-track view follows (`_track_sources.html`). -#}
 {% macro fit_rows(fits, files) %}
   {% for f in fits %}
     <tr{% if f.fits == files and not f.unmatched %} class="fit-all"{% endif %}>
@@ -77,4 +78,5 @@
   {% elif not comparison %}
     <p class="muted small">MusicBrainz lookups are off (<code>[musicbrainz] enabled</code>).</p>
   {% endif %}
+  {% if comparison and comparison.tracks %}{% include "_track_sources.html" %}{% endif %}
 </section>

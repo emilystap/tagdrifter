@@ -40,6 +40,14 @@ def track_length(ms: int | None) -> str:
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
+def length_diff(ms: int | None) -> str:
+    """A length difference in seconds with its sign: "+0.3 s", "-26 s" (whole seconds from
+    10 s)."""
+    if ms is None:
+        return PLACEHOLDER
+    return f"{ms / 1000:+.1f} s" if abs(ms) < 9950 else f"{round(ms / 1000):+d} s"
+
+
 def scan_duration(row) -> str:
     start, end = parse_ts(row["started_at"]), parse_ts(row["finished_at"])
     return duration((end - start).total_seconds()) if start and end else PLACEHOLDER

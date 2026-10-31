@@ -111,8 +111,9 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
      click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
      with `describe()` and `send(Notification)`.
-   - **Next**: the owner's pick: 7b (embedded cover art) or 6c (retagging); later the 6d
-     follow-ups (per-track analysis, AcoustID).
+   - **Next**: the owner's pick: 6c (retagging; "retag to the release that fits" could start
+     from 6d's results) or 7b (embedded cover art, set aside as mostly cosmetic); later
+     AcoustID (6d).
    - Later: ntfy/webhook notifiers.
    - 5f ✅ Bulk renames (owner's request: ~700 `path.track_location` issues, 130 albums).
      `/issues` (album view, fix on) has a checkbox per renamable card (`form="bulk-form"`) and
@@ -284,17 +285,29 @@ present, are in the git-ignored `CLAUDE.local.md`.
      (`_release_group.html`; the album page shows a cached comparison without a request).
      First result: the owner's files are the 1998 CD master; the tagged 2023 Deluxe Edition
      differs on 2 tracks (MusicBrainz data or a different master).
-     - Later (owner's request, after trying 6d on the library): when no release fits every
-       file, analyse tracks one by one, to tell apart folders assembled from several
-       releases (one track per source release). Per file that fits nothing in the release
-       group: a recording lookup (`inc=releases+media`, the same recording on other
-       releases, e.g. compilations) and an ISRC lookup (other recordings with the file's
-       ISRC), then show per track which releases fit it. One click per album, a request or
-       two per unexplained track, cached, through the shared limiter.
+     - ✅ Track by track (owner's request, after trying 6d on the library), for folders
+       assembled from several releases. When no release fits every file, `GroupComparison
+       .tracks` (`library.track_sources`, `_track_sources.html`) puts each file down to a
+       release of the group, greedily using as few releases as possible (lettered A, B, ...),
+       from the cached browse alone (`ReleaseFit.fitting`: paths that fit). Files that fit
+       nothing get *Look up these tracks* (`POST /library/tracks`,
+       `MusicBrainzSync.lookup_tracks`, the shared one-at-a-time lock, limiter and pause): a
+       recording lookup (`/recording/<id>?inc=releases+media`: the releases it's on, at most
+       25, with its track's length on each; releases of the group are left out) and an ISRC
+       lookup (`/isrc/<isrc>`: other recordings with that ISRC and their lengths; not
+       followed further). `musicbrainz.lookup_tracks`: keys never looked up first, at most
+       `MAX_TRACK_LOOKUPS` (10) requests a click, then *Look up again* refetches only after
+       `GROUP_REFETCH_AFTER`. Cached in `mb_lookups` (migration 8, kind + key, NULL = not
+       found), never refreshed automatically or pruned. The 2026-10-31 probe (CAKE, Prolonging
+       the Magic): the owner's folder is a 1998 CD plus the 2023 Deluxe Edition's two live
+       bonus tracks; Let Me Go's ISRC is on a second recording (3:30) that fits the file,
+       while the tagged one is 3:56. A browse by recording (`/release?recording=`) has no
+       track lengths with `inc=media`, so it's no use here.
      - Later (owner's idea): AcoustID fingerprints (Chromaprint `fpcalc` on the audio, then
        the AcoustID API) to identify the recording from the audio itself, when the tags or
        lengths can't. Open points: needs `fpcalc` in the image and an AcoustID API key
-       (free, per application), decodes audio (slow over SMB, so only on request and
+       (free, per application), decodes audio (the deployment reads the library from local
+       disks, not over SMB, but it's still a full decode per file, so only on request and
        cached), and AcoustID's own rate limit (3 requests/s) and terms.
      - Set aside: ignoring leading/trailing silence (too loose; needs a FLAC decoder), a
        percent tolerance, accepting a known difference per album.

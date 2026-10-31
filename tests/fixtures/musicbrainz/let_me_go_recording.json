@@ -1,0 +1,631 @@
+{
+ "first-release-date": "1998-10-06",
+ "length": 236000,
+ "id": "235efc48-16f8-4b48-8688-bf88010c1a32",
+ "isrcs": [
+  "USCA19886895"
+ ],
+ "title": "Let Me Go",
+ "video": false,
+ "disambiguation": "",
+ "releases": [
+  {
+   "quality": "normal",
+   "barcode": "731453809222",
+   "date": "1998-10-06",
+   "title": "Prolonging the Magic",
+   "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "release-events": [
+    {
+     "date": "1998-10-06",
+     "area": {
+      "disambiguation": "",
+      "type": null,
+      "sort-name": "United States",
+      "name": "United States",
+      "iso-3166-1-codes": [
+       "US"
+      ],
+      "type-id": null,
+      "id": "489ce91b-6658-3307-9877-795b68554c98"
+     }
+    }
+   ],
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "id": "99337815-88a4-4296-9a39-34abe4d7bd6d",
+   "media": [
+    {
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "format": "CD",
+     "title": "",
+     "tracks": [
+      {
+       "length": 236000,
+       "id": "36f78cc4-51ab-33b3-bc3b-5955dc06cdce",
+       "title": "Let Me Go",
+       "number": "11",
+       "position": 11
+      }
+     ],
+     "id": "e7c179c2-5ffc-3545-8f2d-cc212ce40508",
+     "track-offset": 10,
+     "track-count": 13,
+     "position": 1
+    }
+   ],
+   "packaging": "Jewel Case",
+   "status": "Official",
+   "disambiguation": "",
+   "country": "US"
+  },
+  {
+   "date": "1998-10-06",
+   "title": "Prolonging the Magic",
+   "release-events": [
+    {
+     "area": {
+      "sort-name": "Australia",
+      "type": null,
+      "disambiguation": "",
+      "name": "Australia",
+      "id": "106e0bec-b638-3b37-b731-f53d507dc00e",
+      "type-id": null,
+      "iso-3166-1-codes": [
+       "AU"
+      ]
+     },
+     "date": "1998-10-06"
+    }
+   ],
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+   "text-representation": {
+    "script": "Latn",
+    "language": "eng"
+   },
+   "quality": "normal",
+   "barcode": "731453809222",
+   "packaging": "Jewel Case",
+   "status": "Official",
+   "country": "AU",
+   "disambiguation": "",
+   "id": "ca89196f-166f-4dab-ab1b-2c41574d40a3",
+   "media": [
+    {
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "format": "CD",
+     "tracks": [
+      {
+       "position": 11,
+       "number": "11",
+       "title": "Let Me Go",
+       "length": 236000,
+       "id": "d6721878-7060-4d21-a893-5724bcb512f3"
+      }
+     ],
+     "title": "",
+     "id": "2997de6c-05c8-305a-a81e-372c883613a1",
+     "track-offset": 10,
+     "track-count": 13,
+     "position": 1
+    }
+   ]
+  },
+  {
+   "id": "8312c0bf-27be-415d-a268-c3f2da42557e",
+   "media": [
+    {
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "format": "CD",
+     "title": "",
+     "tracks": [
+      {
+       "title": "Let Me Go",
+       "number": "11",
+       "position": 11,
+       "length": 236000,
+       "id": "eb652b2b-00c5-3b2a-929c-b637bc500bce"
+      }
+     ],
+     "id": "70c822cf-fc60-3527-8ba4-1b236b412516",
+     "track-offset": 10,
+     "track-count": 13,
+     "position": 1
+    }
+   ],
+   "status": "Official",
+   "packaging": null,
+   "country": "US",
+   "disambiguation": "clean version",
+   "barcode": "731453811423",
+   "quality": "normal",
+   "title": "Prolonging the Magic",
+   "date": "1998-10-06",
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "release-events": [
+    {
+     "date": "1998-10-06",
+     "area": {
+      "type-id": null,
+      "id": "489ce91b-6658-3307-9877-795b68554c98",
+      "iso-3166-1-codes": [
+       "US"
+      ],
+      "name": "United States",
+      "type": null,
+      "sort-name": "United States",
+      "disambiguation": ""
+     }
+    }
+   ],
+   "packaging-id": null
+  },
+  {
+   "packaging": "Jewel Case",
+   "status": "Official",
+   "disambiguation": "",
+   "country": "CA",
+   "id": "22d946dd-57a5-40d9-99bc-2959149813b9",
+   "media": [
+    {
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "format": "CD",
+     "tracks": [
+      {
+       "position": 11,
+       "number": "11",
+       "title": "Let Me Go",
+       "id": "1d2b4205-edac-4d09-a426-5c740cdaaf08",
+       "length": 236000
+      }
+     ],
+     "title": "",
+     "id": "5e378fb2-6a4d-3a6d-ae38-8b45a669fd5c",
+     "track-offset": 10,
+     "track-count": 13,
+     "position": 1
+    }
+   ],
+   "title": "Prolonging the Magic",
+   "date": "1998",
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "release-events": [
+    {
+     "area": {
+      "sort-name": "Canada",
+      "type": null,
+      "disambiguation": "",
+      "name": "Canada",
+      "id": "71bbafaa-e825-3e15-8ca9-017dcad1748b",
+      "type-id": null,
+      "iso-3166-1-codes": [
+       "CA"
+      ]
+     },
+     "date": "1998"
+    }
+   ],
+   "barcode": "731453809222",
+   "quality": "normal"
+  },
+  {
+   "packaging": "Jewel Case",
+   "status": "Official",
+   "country": "US",
+   "disambiguation": "",
+   "id": "6b72283b-e90c-4e0a-a48b-73592c1297f1",
+   "media": [
+    {
+     "track-count": 13,
+     "position": 1,
+     "id": "9c7c03e6-24de-3bde-9852-3de61f248f53",
+     "track-offset": 10,
+     "format": "CD",
+     "title": "",
+     "tracks": [
+      {
+       "position": 11,
+       "number": "11",
+       "title": "Let Me Go",
+       "id": "3433bcbe-759f-49dc-8a72-176aa053d836",
+       "length": 236000
+      }
+     ],
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31"
+    }
+   ],
+   "date": "1998",
+   "title": "Prolonging the Magic",
+   "release-events": [
+    {
+     "date": "1998",
+     "area": {
+      "id": "489ce91b-6658-3307-9877-795b68554c98",
+      "type-id": null,
+      "iso-3166-1-codes": [
+       "US"
+      ],
+      "sort-name": "United States",
+      "type": null,
+      "disambiguation": "",
+      "name": "United States"
+     }
+    }
+   ],
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "quality": "normal",
+   "barcode": "261115070000"
+  },
+  {
+   "status": "Official",
+   "packaging": "Jewel Case",
+   "country": "FR",
+   "disambiguation": "made in France by PMDC",
+   "id": "4d1f0d97-401c-40db-9f3b-4e8cfe910313",
+   "media": [
+    {
+     "id": "993c68f2-a14e-49b8-9f3f-7b375b0a3c32",
+     "track-offset": 10,
+     "track-count": 13,
+     "position": 1,
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "format": "CD",
+     "title": "",
+     "tracks": [
+      {
+       "id": "aa69e8bc-7fc9-49fa-bd17-2d93cc5b36ce",
+       "length": 236000,
+       "title": "Let Me Go",
+       "number": "11",
+       "position": 11
+      }
+     ]
+    }
+   ],
+   "date": "1998",
+   "title": "Prolonging the Magic",
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "release-events": [
+    {
+     "date": "1998",
+     "area": {
+      "iso-3166-1-codes": [
+       "FR"
+      ],
+      "type-id": null,
+      "id": "08310658-51eb-3801-80de-5a0739207115",
+      "name": "France",
+      "disambiguation": "",
+      "type": null,
+      "sort-name": "France"
+     }
+    }
+   ],
+   "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "quality": "normal",
+   "barcode": "731453809222"
+  },
+  {
+   "quality": "normal",
+   "barcode": "731453809222",
+   "date": "1998",
+   "title": "Prolonging The Magic",
+   "release-events": [
+    {
+     "date": "1998",
+     "area": {
+      "name": "Europe",
+      "disambiguation": "",
+      "sort-name": "Europe",
+      "type": null,
+      "iso-3166-1-codes": [
+       "XE"
+      ],
+      "id": "89a675c2-3e37-3518-b83c-418bad59a85a",
+      "type-id": null
+     }
+    }
+   ],
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "packaging-id": null,
+   "text-representation": {
+    "script": "Latn",
+    "language": "eng"
+   },
+   "id": "42ea40bf-5968-4022-b9dd-0dcd1ad58522",
+   "media": [
+    {
+     "format": "CD",
+     "tracks": [
+      {
+       "position": 11,
+       "title": "Let Me Go",
+       "number": "11",
+       "id": "78dd9841-16b6-4658-9306-16b2cbcefeb2",
+       "length": 236000
+      }
+     ],
+     "title": "",
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "track-count": 13,
+     "position": 1,
+     "id": "ae919362-ab86-496a-88e3-33c54d5d61b3",
+     "track-offset": 10
+    }
+   ],
+   "packaging": null,
+   "status": "Official",
+   "disambiguation": "",
+   "country": "XE"
+  },
+  {
+   "quality": "normal",
+   "barcode": "4988011360510",
+   "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "release-events": [
+    {
+     "date": "1998",
+     "area": {
+      "id": "2db42837-c832-3c27-b4a3-08198f75693c",
+      "type-id": null,
+      "iso-3166-1-codes": [
+       "JP"
+      ],
+      "sort-name": "Japan",
+      "type": null,
+      "disambiguation": "",
+      "name": "Japan"
+     }
+    }
+   ],
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "date": "1998",
+   "title": "Prolonging The Magic",
+   "id": "a1b7265b-7fad-4e10-9077-cb2fe177b476",
+   "media": [
+    {
+     "position": 1,
+     "track-count": 17,
+     "track-offset": 10,
+     "id": "6eef97a1-85cd-49ac-bcae-f9444e05e450",
+     "tracks": [
+      {
+       "position": 11,
+       "title": "Let Me Go",
+       "number": "11",
+       "length": 236000,
+       "id": "cd8b353d-326c-47c1-b674-91e4e99aa2e1"
+      }
+     ],
+     "title": "",
+     "format": "CD",
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31"
+    }
+   ],
+   "disambiguation": "",
+   "country": "JP",
+   "packaging": "Jewel Case",
+   "status": "Official"
+  },
+  {
+   "text-representation": {
+    "script": "Latn",
+    "language": "eng"
+   },
+   "packaging-id": "ec27701a-4a22-37f4-bfac-6616e0f9750a",
+   "release-events": [
+    {
+     "date": "1999",
+     "area": {
+      "iso-3166-1-codes": [
+       "US"
+      ],
+      "type-id": null,
+      "id": "489ce91b-6658-3307-9877-795b68554c98",
+      "name": "United States",
+      "disambiguation": "",
+      "type": null,
+      "sort-name": "United States"
+     }
+    }
+   ],
+   "status-id": "518ffc83-5cde-34df-8627-81bff5093d92",
+   "title": "Let Me Go",
+   "date": "1999",
+   "barcode": "",
+   "quality": "normal",
+   "country": "US",
+   "disambiguation": "",
+   "packaging": "Jewel Case",
+   "status": "Promotion",
+   "media": [
+    {
+     "track-offset": 1,
+     "id": "7604465f-45b2-3d3a-9592-9e327e1317fa",
+     "position": 1,
+     "track-count": 2,
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "tracks": [
+      {
+       "position": 2,
+       "title": "Let Me Go",
+       "number": "2",
+       "length": 235066,
+       "id": "f6870239-eaae-35b3-aba9-2ece8ea8d688"
+      }
+     ],
+     "title": "",
+     "format": "CD"
+    }
+   ],
+   "id": "dcd9c114-80da-4b28-aa34-5ad9914097e4"
+  },
+  {
+   "status": "Bootleg",
+   "packaging": null,
+   "country": "US",
+   "disambiguation": "",
+   "id": "31939a6a-43a5-4157-b3ca-98f0026032fa",
+   "media": [
+    {
+     "tracks": [
+      {
+       "length": 236000,
+       "id": "5c9c3b52-b621-48a4-86fc-6077575d4303",
+       "number": "18",
+       "title": "Let Me Go",
+       "position": 18
+      }
+     ],
+     "title": "",
+     "format": "CD",
+     "format-id": "9712d52a-4509-3d4b-a1a2-67c88c643e31",
+     "position": 1,
+     "track-count": 21,
+     "track-offset": 17,
+     "id": "0fb12b9a-9c55-32b8-addb-2f5d783526dc"
+    }
+   ],
+   "title": "Pieces of Cake: Greatest Hits",
+   "date": "2014-06-15",
+   "text-representation": {
+    "script": "Latn",
+    "language": "eng"
+   },
+   "packaging-id": null,
+   "status-id": "1156806e-d06a-38bd-83f0-cf2284a808b9",
+   "release-events": [
+    {
+     "area": {
+      "iso-3166-1-codes": [
+       "US"
+      ],
+      "type-id": null,
+      "id": "489ce91b-6658-3307-9877-795b68554c98",
+      "name": "United States",
+      "disambiguation": "",
+      "type": null,
+      "sort-name": "United States"
+     },
+     "date": "2014-06-15"
+    }
+   ],
+   "barcode": "784672277570",
+   "quality": "normal"
+  },
+  {
+   "disambiguation": "Deluxe Edition",
+   "country": "XW",
+   "packaging": "None",
+   "status": "Official",
+   "id": "045161e0-16c7-4278-873e-5b649303ac21",
+   "media": [
+    {
+     "title": "",
+     "tracks": [
+      {
+       "position": 11,
+       "title": "Let Me Go",
+       "number": "11",
+       "id": "c998a827-7c9e-45fb-bf45-762665e82f5a",
+       "length": 236000
+      }
+     ],
+     "format": "Digital Media",
+     "format-id": "907a28d9-b3b2-3ef6-89a8-7b18d91d4794",
+     "position": 1,
+     "track-count": 15,
+     "track-offset": 10,
+     "id": "ec619816-388b-32b1-a932-4abbf8c8de60"
+    }
+   ],
+   "text-representation": {
+    "script": "Latn",
+    "language": "eng"
+   },
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "release-events": [
+    {
+     "date": "2023-03-10",
+     "area": {
+      "name": "[Worldwide]",
+      "disambiguation": "",
+      "type": null,
+      "sort-name": "[Worldwide]",
+      "iso-3166-1-codes": [
+       "XW"
+      ],
+      "type-id": null,
+      "id": "525d4e18-3d00-31b9-a58b-a146a916de8f"
+     }
+    }
+   ],
+   "packaging-id": "119eba76-b343-3e02-a292-f0f00644bb9b",
+   "title": "Prolonging the Magic",
+   "date": "2023-03-10",
+   "barcode": null,
+   "quality": "normal"
+  },
+  {
+   "barcode": "614223811420",
+   "quality": "normal",
+   "title": "Prolonging the Magic",
+   "text-representation": {
+    "language": "eng",
+    "script": "Latn"
+   },
+   "packaging-id": "119eba76-b343-3e02-a292-f0f00644bb9b",
+   "status-id": "4e304316-386d-3409-af2e-78857eec5cfe",
+   "id": "4c04837e-f3eb-49b4-8644-96fb629bb90c",
+   "media": [
+    {
+     "format-id": "907a28d9-b3b2-3ef6-89a8-7b18d91d4794",
+     "title": "",
+     "tracks": [
+      {
+       "id": "fc360fb7-ac27-4fc8-bdcc-84338a85d853",
+       "length": 209000,
+       "position": 11,
+       "number": "11",
+       "title": "Let Me Go"
+      }
+     ],
+     "format": "Digital Media",
+     "track-offset": 10,
+     "id": "92cf2cfe-44b6-3034-ac57-954e1b1e52f4",
+     "position": 1,
+     "track-count": 13
+    }
+   ],
+   "packaging": "None",
+   "status": "Official",
+   "disambiguation": ""
+  }
+ ]
+}

@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import PurePosixPath
 
 from .core import TrackMeta, is_mbid
 from .core.mbrelease import MbRelease, MbTrack
 from .core.sanitize import nfc
 from .db import Store
+from .musicbrainz import normalize_isrc
 
 # Tags that should be the same on every track of a release (Picard's album-level tags). When
 # they differ between an album's tracks, the release page highlights them.
@@ -309,6 +310,13 @@ class ReleaseFit:
     worst_ms: int  # largest difference among matched files (0 if none)
     mean_ms: float  # mean absolute difference among matched files
     tagged: bool  # the files are tagged with this release
+    fitting: frozenset[str] = frozenset()  # paths of the files that fit
+
+    @property
+    def label(self) -> str:
+        """Title, then what tells it apart from its siblings: "Title (1998 · US · CD)"."""
+        details = [self.raw("date"), self.raw("country"), self.formats]
+        return f"{self.release.title} ({' · '.join(d for d in details if d)})"
 
     @property
     def url(self) -> str:
@@ -340,6 +348,7 @@ class GroupComparison:
     fits: tuple[ReleaseFit, ...]  # best fit first
     tolerance_ms: int
     files: int  # readable files compared
+    tracks: TrackSources | None = None  # track by track, when no release fits every file
 
     @property
     def url(self) -> str:
@@ -368,6 +377,7 @@ def compare_release_group(
         ),
         key=lambda f: f.sort_key,
     )
+    fits_all = bool(fits) and fits[0].fits == len(files)
     return GroupComparison(
         release_group_id=release_group_id,
         fetched_at=fetched_at,
@@ -375,6 +385,7 @@ def compare_release_group(
         fits=tuple(fits),
         tolerance_ms=tolerance_ms,
         files=len(files),
+        tracks=None if fits_all or not fits else track_sources(store, files, fits, tolerance_ms),
     )
 
 
@@ -388,6 +399,7 @@ def fit_release(
     by_recording = {t.recording_id: t for t in release.tracks if recordings[t.recording_id] == 1}
     used: set[str] = set()
     diffs: list[int] = []
+    fitting: set[str] = set()
     unknown = unmatched = 0
     for f in files:
         candidates = (
@@ -406,6 +418,8 @@ def fit_release(
             unknown += 1
         else:
             diffs.append(abs(f.meta.length_ms - track.length_ms))
+            if diffs[-1] <= tolerance_ms:
+                fitting.add(f.path)
     return ReleaseFit(
         release=release,
         fits=sum(d <= tolerance_ms for d in diffs),
@@ -416,7 +430,229 @@ def fit_release(
         worst_ms=max(diffs, default=0),
         mean_ms=sum(diffs) / len(diffs) if diffs else 0.0,
         tagged=tagged,
+        fitting=frozenset(fitting),
     )
+
+
+# --- Track by track (6d follow-up) -----------------------------------------------------
+# When no release in the release group fits every file, the folder may have been put together
+# from several releases. First, from the cached release group alone: which releases fit the
+# files between them. Then, for files that fit none of them and only when someone asks
+# (*Look up these tracks*): the other releases each file's recording is on (compilations,
+# singles), and the recordings that share its ISRC.
+
+
+@dataclass(frozen=True)
+class Appearance:
+    """A file's recording on a release outside the release group."""
+
+    release_id: str
+    title: str
+    date: str
+    country: str
+    format: str
+    number: str  # the track number as printed ("3", "A1")
+    diff_ms: int | None  # file length minus the track's; None if MusicBrainz has no length
+    fits: bool
+
+    @property
+    def url(self) -> str:
+        return f"{MUSICBRAINZ_URL}/release/{self.release_id}"
+
+    @property
+    def details(self) -> str:
+        return " · ".join(d for d in (self.date, self.country, self.format) if d)
+
+
+@dataclass(frozen=True)
+class IsrcRecording:
+    """A recording with the same ISRC as a file."""
+
+    id: str
+    title: str
+    disambiguation: str
+    diff_ms: int | None  # file length minus the recording's
+    fits: bool  # within the tolerance (a recording's length is typical, not exact)
+    tagged: bool  # the file's own recording
+
+    @property
+    def url(self) -> str:
+        return f"{MUSICBRAINZ_URL}/recording/{self.id}"
+
+
+@dataclass(frozen=True)
+class TrackSource:
+    file: TrackFile
+    release: ReleaseFit | None  # the release of the group this file is put down to, if any
+    group_fits: int  # releases in the group the file fits
+    cover_key: str  # the letter of that release in TrackSources.cover ("" if none)
+    recording_id: str
+    isrc: str
+    looked_up: str = ""  # when its recording was looked up ("" = not yet)
+    recording_found: bool = True
+    elsewhere: tuple[Appearance, ...] = ()  # best first: those that fit, then the closest
+    isrc_looked_up: bool = False
+    isrc_recordings: tuple[IsrcRecording, ...] = ()
+
+    @property
+    def explained(self) -> bool:
+        return self.release is not None
+
+    @property
+    def fits_elsewhere(self) -> tuple[Appearance, ...]:
+        return tuple(a for a in self.elsewhere if a.fits)
+
+    @property
+    def other_isrc_recordings(self) -> tuple[IsrcRecording, ...]:
+        return tuple(r for r in self.isrc_recordings if not r.tagged)
+
+    @property
+    def lookup_keys(self) -> tuple[tuple[str, str], ...]:
+        keys = [("recording", self.recording_id)] if self.recording_id else []
+        return tuple(keys + ([("isrc", self.isrc)] if self.isrc else []))
+
+    @property
+    def pending(self) -> bool:
+        """Unexplained, and lookups that haven't happened yet could help."""
+        return not self.explained and bool(
+            (self.recording_id and not self.looked_up) or (self.isrc and not self.isrc_looked_up)
+        )
+
+
+@dataclass(frozen=True)
+class TrackSources:
+    cover: tuple[tuple[ReleaseFit, int], ...]  # releases that fit the files between them
+    tracks: tuple[TrackSource, ...]  # in track order
+
+    @property
+    def keyed_cover(self) -> tuple[tuple[str, ReleaseFit, int], ...]:
+        return tuple((cover_key(i), fit, n) for i, (fit, n) in enumerate(self.cover))
+
+    @property
+    def unexplained(self) -> tuple[TrackSource, ...]:
+        return tuple(t for t in self.tracks if not t.explained)
+
+    @property
+    def pending(self) -> tuple[TrackSource, ...]:
+        return tuple(t for t in self.tracks if t.pending)
+
+    @property
+    def lookup_keys(self) -> tuple[tuple[str, str], ...]:
+        """What *Look up these tracks* asks MusicBrainz, in track order."""
+        return tuple(k for t in self.unexplained for k in t.lookup_keys)
+
+
+def track_sources(
+    store: Store, files: Sequence[TrackFile], fits: Sequence[ReleaseFit], tolerance_ms: int
+) -> TrackSources:
+    """Put each file down to a release of the group it fits, using as few releases as
+    possible (the one that fits most files, then the one that fits most of the rest, ...);
+    for the files left over, what the cached per-track lookups say."""
+    left = {f.path for f in files}
+    cover: list[tuple[ReleaseFit, int]] = []
+    release_of: dict[str, ReleaseFit] = {}
+    while left:
+        best = max(fits, key=lambda fit: len(fit.fitting & left))  # ties: the better fit
+        covered = best.fitting & left
+        if not covered:
+            break
+        cover.append((best, len(covered)))
+        release_of.update(dict.fromkeys(covered, best))
+        left -= covered
+    keys = {id(fit): cover_key(i) for i, (fit, _) in enumerate(cover)}
+    group_ids = {fit.release.id for fit in fits}
+    tracks = []
+    for f in files:
+        recording_id = f.tag("musicbrainz_trackid").lower()
+        tracks.append(
+            TrackSource(
+                file=f,
+                release=release_of.get(f.path),
+                cover_key=keys.get(id(release_of.get(f.path)), ""),
+                group_fits=sum(f.path in fit.fitting for fit in fits),
+                recording_id=recording_id if is_mbid(recording_id) else "",
+                isrc=normalize_isrc(f.tag("isrc")),
+            )
+        )
+    cached = store.mb_lookups(k for t in tracks if not t.explained for k in t.lookup_keys)
+    for i, t in enumerate(tracks):
+        if t.explained:
+            continue
+        recording = cached.get(("recording", t.recording_id))
+        isrc = cached.get(("isrc", t.isrc))
+        tracks[i] = replace(
+            t,
+            looked_up=recording[1] if recording else "",
+            recording_found=recording is None or recording[0] is not None,
+            elsewhere=_appearances(recording and recording[0], t.file, group_ids, tolerance_ms),
+            isrc_looked_up=isrc is not None,
+            isrc_recordings=_isrc_recordings(
+                isrc and isrc[0], t.file, t.recording_id, tolerance_ms
+            ),
+        )
+    return TrackSources(cover=tuple(cover), tracks=tuple(tracks))
+
+
+def cover_key(index: int) -> str:
+    """A, B, ... Z, then 27, 28, ..."""
+    return chr(ord("A") + index) if index < 26 else str(index + 1)
+
+
+def _diff(f: TrackFile, length_ms: object) -> int | None:
+    if not isinstance(length_ms, int) or not length_ms or not f.meta.length_ms:
+        return None
+    return f.meta.length_ms - length_ms
+
+
+def _appearances(
+    data: dict | None, f: TrackFile, group_ids: set[str], tolerance_ms: int
+) -> tuple[Appearance, ...]:
+    """The releases outside the group that a recording lookup lists, closest length first."""
+    found = []
+    for release in (data or {}).get("releases") or ():
+        release_id = str(release.get("id") or "").lower()
+        if not release_id or release_id in group_ids:
+            continue
+        for medium in release.get("media") or ():
+            for track in medium.get("tracks") or ():
+                diff = _diff(f, track.get("length"))
+                found.append(
+                    Appearance(
+                        release_id=release_id,
+                        title=str(release.get("title") or ""),
+                        date=str(release.get("date") or ""),
+                        country=str(release.get("country") or ""),
+                        format=str(medium.get("format") or ""),
+                        number=str(track.get("number") or ""),
+                        diff_ms=diff,
+                        fits=diff is not None and abs(diff) <= tolerance_ms,
+                    )
+                )
+    return tuple(
+        sorted(found, key=lambda a: (a.diff_ms is None, abs(a.diff_ms or 0), a.date, a.title))
+    )
+
+
+def _isrc_recordings(
+    data: dict | None, f: TrackFile, recording_id: str, tolerance_ms: int
+) -> tuple[IsrcRecording, ...]:
+    """The recordings an ISRC lookup lists."""
+    found = []
+    for r in (data or {}).get("recordings") or ():
+        rid = str(r.get("id") or "").lower()
+        if rid:
+            diff = _diff(f, r.get("length"))
+            found.append(
+                IsrcRecording(
+                    id=rid,
+                    title=str(r.get("title") or ""),
+                    disambiguation=str(r.get("disambiguation") or ""),
+                    diff_ms=diff,
+                    fits=diff is not None and abs(diff) <= tolerance_ms,
+                    tagged=rid == recording_id,
+                )
+            )
+    return tuple(found)
 
 
 def _split_tags(

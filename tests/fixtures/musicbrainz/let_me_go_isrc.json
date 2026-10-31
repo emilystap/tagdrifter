@@ -1,0 +1,21 @@
+{
+ "isrc": "USCA19886895",
+ "recordings": [
+  {
+   "first-release-date": "1998-10-06",
+   "video": false,
+   "length": 236000,
+   "id": "235efc48-16f8-4b48-8688-bf88010c1a32",
+   "title": "Let Me Go",
+   "disambiguation": ""
+  },
+  {
+   "title": "Let Me Go",
+   "id": "bbd1b7ad-01b0-469f-8ac6-667040a3051d",
+   "disambiguation": "",
+   "first-release-date": "1998-10-06",
+   "video": false,
+   "length": 210000
+  }
+ ]
+}
