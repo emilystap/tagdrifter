@@ -103,7 +103,7 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `Notifications`, which sends from a daemon thread and only logs errors. `public_url` adds
      click-through links. Dashboard panel + `POST /notify/test`. Another service = a class
      with `describe()` and `send(Notification)`.
-   - **Next**: step 6b-2 below.
+   - **Next**: the owner's pick among 5f (bulk renames), 6b-3 and 7.
    - Later: ntfy/webhook notifiers.
    - 5f: bulk renames (owner's request; ~700 `path.track_location` issues are tedious one
      album at a time). Select albums on `/issues` (a checkbox per album card, "select all
@@ -209,17 +209,25 @@ present, are in the git-ignored `CLAUDE.local.md`.
        against the live API sparingly (a handful of releases via `sync_releases(limit=...)`).
      - First sample (20 releases): Songs for the Deaf has 16 tracks in MusicBrainz but 17 in
        the tags; two CAKE tracks are 7 s and 26 s shorter than MusicBrainz.
-   - **6b-2 next**: text checks against the cache (no new requests needed):
-     - `mb.album`: album title, album artist credit, release group.
-     - `mb.track_title`: title, including letter case.
-     - `mb.artist_credit`: artist MBIDs (set and order) and names vs the track's artist credit,
-       both directions; album artists vs the release credit.
+   - 6b-2 ✅ Text checks against the cache (no new requests), in
+     `checks/builtin_musicbrainz.py`; `MbRelease` / `MbTrack` now carry `MbCredit` artist
+     credits, translated titles (`title_alias`) and the release group:
+     - `mb.album` (once per album): album title, release group MBID.
+     - `mb.track_title` (per track): title, including letter case. Skipped when the release
+       track MBID isn't on the release (`mb.track_mismatch`'s job).
+     - `mb.artist_credit`: per track, ARTIST (`credit_matches`: each artist by any of its
+       names, joinphrases exact), ARTISTS (count and names) and artist MBIDs (missing, extra,
+       order) vs the track's credit; once per album, the same for ALBUMARTIST /
+       ALBUMARTISTS / album artist MBIDs vs the release credit. Missing tags are left to
+       `tags.naming` / `tags.mbids`.
+     - First run (36 folders, ~350 tracks, incl. all 8 ATARASHII GAKKO! releases, both
+       soundtrack compilations and several multi-artist credits): no issues.
      - Comparison rules follow the owner's Picard 3 settings (personal tool; don't generalize
        yet): no ASCII punctuation conversion (compare exactly, case-sensitive); artist names
        standardized for *variations only*, and artist, album and track names translated to
        the `en` locale when available. Picard (source, master) translates from **aliases**:
        artist aliases, the release's own aliases (album) and recording aliases (titles),
-       taking the primary alias whose locale matches (`en_*` then `en`), with "Artist name"
+       taking the primary alias whose locale matches (exactly `en`, then any `en_*`), with "Artist name"
        / "Recording name" types preferred; it doesn't follow pseudo-release relationships.
        So: artist names match the credited name, the artist's name or its primary `en`
        alias (新しい学校のリーダーズ → "ATARASHII GAKKO!"); titles match the MusicBrainz track

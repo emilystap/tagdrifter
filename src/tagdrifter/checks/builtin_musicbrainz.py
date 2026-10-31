@@ -7,6 +7,10 @@ problem is a track's. Picard's tag mapping: musicbrainz_albumid = release,
 musicbrainz_releasetrackid = track, musicbrainz_trackid = recording, discnumber = medium
 position, tracknumber = position on the medium (not the printed number, e.g. "A1"),
 totaltracks = the medium's track count, totaldiscs = the release's number of media.
+
+The text checks (mb.album, mb.track_title, mb.artist_credit) compare exactly, letter case
+included, as the owner's Picard writes them (no punctuation conversion), but accept Picard's
+English translations and standardized artist names (core/mbrelease.py).
 """
 
 from __future__ import annotations
@@ -14,9 +18,18 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from ..core import TrackMeta
-from ..core.mbrelease import MbRelease, MbTrack
-from ..core.metadata import RECORDING_MBID_KEYS, first_tag, parse_index
+from ..core.mbrelease import MbCredit, MbRelease, MbTrack, credit_matches, credit_text
+from ..core.metadata import (
+    ALBUM_ARTIST_KEYS,
+    ALBUM_ARTISTS_KEYS,
+    ARTIST_KEYS,
+    ARTISTS_KEYS,
+    RECORDING_MBID_KEYS,
+    first_tag,
+    parse_index,
+)
 from .base import AlbumContext, Check, Issue, Scope, Severity, TrackContext, register
+from .builtin_tags import _mbids, _names
 
 TOTAL_TRACKS_KEYS = ("totaltracks", "tracktotal")
 TOTAL_DISCS_KEYS = ("totaldiscs", "disctotal")
@@ -200,3 +213,147 @@ class Duration(Check):
                     length_ms=length,
                     musicbrainz_length_ms=track.length_ms,
                 )
+
+
+# --- Text: titles and artist credits (6b-2) ---------------------------------------------
+
+
+def _vs(label: str, tagged: str, expected: str) -> str:
+    case = " (letter case)" if tagged.casefold() == expected.casefold() else ""
+    return f"{label} {tagged!r} vs {expected!r} in MusicBrainz{case}"
+
+
+def _matched_track(meta: TrackMeta, release: MbRelease) -> MbTrack | None:
+    """The release's track for this file, unless its release track MBID isn't on the release
+    (mb.track_mismatch's job; comparing with whatever sits at its position would mislead)."""
+    track, by_id = _locate(meta, release)
+    if not by_id and _tag(meta, "musicbrainz_releasetrackid"):
+        return None
+    return track
+
+
+@register
+class AlbumTitle(Check):
+    id = "mb.album"
+    scope = Scope.ALBUM
+    description = (
+        "Album title or release group MBID differs from the release in MusicBrainz (English "
+        "translations, as Picard makes them, are accepted)."
+    )
+
+    def run(self, ctx: AlbumContext) -> Iterable[Issue]:
+        problems: dict[tuple[str, str], str] = {}
+        for t, release in _tracks_with_release(ctx):
+            album = t.meta.album
+            if album and album not in (release.title, release.title_alias):
+                expected = release.title_alias or release.title
+                problems.setdefault(("album", album), _vs("Album", album, expected))
+            group = _tag(t.meta, "musicbrainz_releasegroupid").lower()
+            if group and release.release_group_id and group != release.release_group_id:
+                problems.setdefault(
+                    ("group", group),
+                    f"Release group MBID {group} vs {release.release_group_id} "
+                    f"({release.release_group_title!r}) in MusicBrainz",
+                )
+        if problems:
+            yield self.issue(ctx.rel_path, "; ".join(problems.values()))
+
+
+@register
+class TrackTitle(Check):
+    id = "mb.track_title"
+    scope = Scope.ALBUM
+    description = (
+        "Track title differs from MusicBrainz, letter case included (English translations, as "
+        "Picard makes them, are accepted)."
+    )
+
+    def run(self, ctx: AlbumContext) -> Iterable[Issue]:
+        for t, release in _tracks_with_release(ctx):
+            track = _matched_track(t.meta, release)
+            title = t.meta.title
+            if track is None or not title or title in (track.title, track.title_alias):
+                continue
+            expected = track.title_alias or track.title
+            yield self.issue(
+                t.rel_path, _vs("Title", title, expected), title=title, musicbrainz=expected
+            )
+
+
+def _credit_problems(
+    meta: TrackMeta,
+    credit: tuple[MbCredit, ...],
+    *,
+    label: str,
+    name_keys: tuple[str, ...],
+    names_keys: tuple[str, ...],
+    names_tag: str,
+    id_key: str,
+) -> list[str]:
+    """How a track's artist tags (e.g. ARTIST, ARTISTS, MUSICBRAINZ_ARTISTID) differ from an
+    artist credit. Missing tags are other checks' business (tags.naming, tags.mbids)."""
+    if not credit:
+        return []
+    problems = []
+    value = first_tag(meta.tags, name_keys)
+    if value and not credit_matches(value, credit):
+        problems.append(_vs(label, value, credit_text(credit)))
+    names = _names(meta, names_keys)
+    if names and (
+        len(names) != len(credit)
+        or any(n not in c.names for n, c in zip(names, credit, strict=True))
+    ):
+        expected = "; ".join(c.picard_name for c in credit)
+        problems.append(_vs(names_tag, "; ".join(names), expected))
+    ids = [i.lower() for i in _mbids(meta, id_key)]
+    wanted = [c.artist_id for c in credit]
+    if ids and ids != wanted:
+        missing = [c.picard_name for c in credit if c.artist_id not in ids]
+        extra = len([i for i in ids if i not in wanted])
+        parts = [f"none for {', '.join(missing)}"] if missing else []
+        if extra:
+            parts.append(f"{extra} not in the MusicBrainz credit")
+        problems.append(
+            f"{label} MBIDs: {'; '.join(parts) or 'in a different order from MusicBrainz'}"
+        )
+    return problems
+
+
+@register
+class ArtistCredit(Check):
+    id = "mb.artist_credit"
+    scope = Scope.ALBUM
+    description = (
+        "Artist or album artist names or MBIDs differ from the artist credits in MusicBrainz "
+        "(per track for artists, once per album for album artists)."
+    )
+
+    def run(self, ctx: AlbumContext) -> Iterable[Issue]:
+        album: dict[str, None] = {}  # album-level problems, in order, once each
+        for t, release in _tracks_with_release(ctx):
+            for problem in _credit_problems(
+                t.meta,
+                release.artists,
+                label="Album artist",
+                name_keys=ALBUM_ARTIST_KEYS,
+                names_keys=ALBUM_ARTISTS_KEYS,
+                names_tag="ALBUMARTISTS",
+                id_key="musicbrainz_albumartistid",
+            ):
+                album.setdefault(problem)
+            track = _matched_track(t.meta, release)
+            if track is None:
+                continue
+            problems = _credit_problems(
+                t.meta,
+                track.artists,
+                label="Artist",
+                name_keys=ARTIST_KEYS,
+                names_keys=ARTISTS_KEYS,
+                names_tag="ARTISTS",
+                id_key="musicbrainz_artistid",
+            )
+            if problems:
+                yield self.issue(t.rel_path, "; ".join(problems))
+        if album:
+            yield self.issue(ctx.rel_path, "; ".join(album))

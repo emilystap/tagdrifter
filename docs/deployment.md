@@ -135,7 +135,9 @@ With `TAGDRIFTER_MUSICBRAINZ: "true"` in the app's `environment`, Tag Drifter lo
 release in the library on [MusicBrainz](https://musicbrainz.org) (by `musicbrainz_albumid`)
 and the `mb.*` checks compare your tags and audio lengths with it: a track tagged with
 another version's recording, track or disc numbers that changed, a release that was merged
-or deleted, a length that doesn't match (live vs studio, edits, the wrong release).
+or deleted, a length that doesn't match (live vs studio, edits, the wrong release), and
+titles or artist credits that differ from MusicBrainz (compared exactly, letter case
+included; English translations of names and titles, as Picard makes them, are accepted).
 
 MusicBrainz is a small non-profit, so Tag Drifter is careful with its API:
 
