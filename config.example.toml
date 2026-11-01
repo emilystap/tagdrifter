@@ -52,6 +52,12 @@ enabled = false
 # the project URL. Optional, but MusicBrainz asks for a contact. Env:
 # TAGDRIFTER_MUSICBRAINZ_CONTACT.
 # contact = "you@example.com"
+# Another MusicBrainz server, such as a musicbrainz-docker mirror of your own: the server or
+# its /ws/2 web service root. Default: musicbrainz.org. Env: TAGDRIFTER_MUSICBRAINZ_API_ROOT.
+# api_root = "http://mirror:5000"
+# Seconds from each response to the next request (default 1.5). Can't be lower for
+# musicbrainz.org; 0 is fine for a server of your own. Env: TAGDRIFTER_MUSICBRAINZ_INTERVAL.
+# interval = 0
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

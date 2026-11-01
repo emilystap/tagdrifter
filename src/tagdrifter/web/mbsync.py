@@ -42,6 +42,7 @@ from ..musicbrainz import (
     MusicBrainzClient,
     MusicBrainzError,
     SyncResult,
+    client_for,
     lookup_tracks,
     refresh_releases,
     sync_releases,
@@ -92,7 +93,7 @@ class MusicBrainzSync:
         clock: Callable[[], float] = time.time,
     ) -> None:
         self.settings = settings
-        self.client = client or MusicBrainzClient(contact=settings.musicbrainz_contact)
+        self.client = client or client_for(settings)
         self.trickle_interval = trickle_interval
         self.trickle_batch = trickle_batch
         self.error_cooldown = error_cooldown

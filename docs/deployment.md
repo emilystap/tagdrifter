@@ -171,6 +171,16 @@ always links to this project; to add your own address (recommended, so MusicBrai
 `TAGDRIFTER_MUSICBRAINZ_CONTACT: "you@example.com"`. It is sent only to MusicBrainz, in the
 User-Agent header: `TagDrifter/0.1.0 ( you@example.com ; https://github.com/emilystap/tagdrifter )`.
 
+### Your own MusicBrainz server (optional)
+
+If you run a MusicBrainz mirror (e.g. [musicbrainz-docker](https://github.com/metabrainz/musicbrainz-docker)),
+point Tag Drifter at it with `TAGDRIFTER_MUSICBRAINZ_API_ROOT: "http://mirror:5000"` (the
+server, or its `/ws/2` web service root) and, since it's yours, drop the wait between
+requests with `TAGDRIFTER_MUSICBRAINZ_INTERVAL: "0"` (seconds; default 1.5). Everything
+else (caching, refresh timing, the pause after errors) stays the same, and links in the UI
+still go to musicbrainz.org. The interval can't go below 1.5 s while the server is
+musicbrainz.org: Tag Drifter refuses to start with such a setting.
+
 For the first full lookup, press *Scan now* once lookups are on: ~600 releases take about 25
 minutes (the dashboard's *MusicBrainz* panel shows progress), and Tag Drifter rescans when
 it's done so the issues appear right away. Left to the background lookups alone, the first

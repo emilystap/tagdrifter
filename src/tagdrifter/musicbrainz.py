@@ -17,6 +17,10 @@ schedule (https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting). So:
 - responses are requested gzip-compressed;
 - the User-Agent names the project and, if configured, the operator's contact address.
 
+Everything can be pointed at another server instead (`client_for`: `[musicbrainz] api_root`,
+e.g. a musicbrainz-docker mirror), which may then allow a shorter `interval`; musicbrainz.org
+itself never gets less than `MIN_INTERVAL`.
+
 `sync_releases` fetches what is missing or due, and `refresh_releases` the releases someone
 asked for (*Refresh from MusicBrainz*, roadmap 6b-3); the checks only ever read the cache
 (`Store.mb_releases`), so scans stay offline. `release_group_releases` is only ever called
@@ -35,6 +39,7 @@ import re
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -42,6 +47,7 @@ from datetime import UTC, datetime, timedelta
 from email.utils import parsedate_to_datetime
 
 from . import __version__
+from .config import Settings
 from .core import is_mbid
 from .db import Store
 
@@ -163,6 +169,57 @@ class RateLimiter:
 
 # Shared by every client in the process, so two syncs can never double the rate.
 LIMITER = RateLimiter()
+_MIRROR_LIMITERS: dict[tuple[str, float], RateLimiter] = {}  # likewise, per other server
+_MIRROR_LOCK = threading.Lock()
+
+
+def normalize_api_root(value: str) -> str:
+    """A web service root as the client wants it: http(s), no trailing slash, ending in
+    /ws/2 (added when only the server is given). "" = musicbrainz.org."""
+    value = value.strip().rstrip("/")
+    if not value:
+        return API_ROOT
+    parts = urllib.parse.urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname or parts.query:
+        raise ValueError(
+            f"musicbrainz api_root must be an http(s) URL such as http://mirror:5000: {value!r}"
+        )
+    return value if parts.path.endswith("/ws/2") else value + "/ws/2"
+
+
+def is_public_server(api_root: str) -> bool:
+    """musicbrainz.org itself (or one of its subdomains, e.g. beta, test)."""
+    host = urllib.parse.urlsplit(api_root).hostname or ""
+    return host == "musicbrainz.org" or host.endswith(".musicbrainz.org")
+
+
+def client_for(settings: Settings) -> MusicBrainzClient:
+    """The client for the configured server: musicbrainz.org (the shared `LIMITER`) unless
+    `musicbrainz_api_root` names another, which gets its own shared limiter with
+    `musicbrainz_interval`. Raises ValueError for a bad root, or an interval below
+    `MIN_INTERVAL` for musicbrainz.org."""
+    api_root = normalize_api_root(settings.musicbrainz_api_root)
+    interval = settings.musicbrainz_interval
+    if interval is not None and interval < 0:
+        raise ValueError(f"musicbrainz interval can't be negative: {interval}")
+    if is_public_server(api_root):
+        if interval is not None and interval < MIN_INTERVAL:
+            raise ValueError(
+                f"musicbrainz interval can't be below {MIN_INTERVAL:g} s for musicbrainz.org "
+                "(its rate limit); a shorter one is only for a server of your own (api_root)"
+            )
+        limiter = LIMITER if interval in (None, MIN_INTERVAL) else _limiter(api_root, interval)
+    else:
+        limiter = _limiter(api_root, MIN_INTERVAL if interval is None else interval)
+    return MusicBrainzClient(
+        api_root=api_root, limiter=limiter, contact=settings.musicbrainz_contact
+    )
+
+
+def _limiter(api_root: str, interval: float) -> RateLimiter:
+    with _MIRROR_LOCK:
+        return _MIRROR_LIMITERS.setdefault((api_root, interval), RateLimiter(interval))
+
 
 Opener = Callable[..., object]
 # Looked up at request time, so tests can block real requests (tests/conftest.py).

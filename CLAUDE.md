@@ -191,7 +191,14 @@ present, are in the git-ignored `CLAUDE.local.md`.
        so adding checks never needs a refetch. Process-wide `RateLimiter`: ≥1.5 s from each
        response to the next request (not start to start, so jitter can't bunch them), gzip; User-Agent `TagDrifter/<ver> ( <contact> ; <repo URL> )`, where the
        optional `musicbrainz_contact` / `TAGDRIFTER_MUSICBRAINZ_CONTACT` is the operator's
-       address (validated: one line, no parentheses). A 503 backs off 15 s and 60 s, or the
+       address (validated: one line, no parentheses). Clients come from
+       `musicbrainz.client_for(settings)`: `musicbrainz_api_root` /
+       `TAGDRIFTER_MUSICBRAINZ_API_ROOT` points at another server (a mirror; "/ws/2" added if
+       missing) with its own shared limiter and `musicbrainz_interval` /
+       `TAGDRIFTER_MUSICBRAINZ_INTERVAL` (default 1.5 s); an interval below `MIN_INTERVAL`
+       for musicbrainz.org (or a subdomain) is refused at startup. The owner decided against
+       running a mirror for now (2026-11-01); the setting keeps the option open for bulk or
+       search-heavy work (6c). UI links stay on musicbrainz.org. A 503 backs off 15 s and 60 s, or the
        `Retry-After` if longer; a Retry-After over 5 min ends the run at once. Then the run
        ends (`MusicBrainzError.retry_after`). `sync_releases` fetches releases missing from the cache first, then
        refreshes due (`refresh_after`: random 45-75 days; not found: 30-60), stopping at the

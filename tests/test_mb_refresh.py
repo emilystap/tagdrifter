@@ -162,7 +162,7 @@ def test_no_refresh_button_when_lookups_are_off(tmp_path) -> None:
 def test_cli_refresh(tmp_path, monkeypatch, capsys) -> None:
     settings = album(tmp_path, musicbrainz_enabled=True)
     client, opener = client_with((200, DOOLITTLE), (404, None))
-    monkeypatch.setattr(cli, "MusicBrainzClient", lambda **_: client)
+    monkeypatch.setattr(cli, "client_for", lambda _settings: client)
     args = argparse.Namespace(target=[FOLDER, OTHER.upper()], no_scan=True)
     assert cli.cmd_refresh(settings, args) == 0
     assert len(opener.requests) == 2
