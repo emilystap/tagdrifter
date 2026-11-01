@@ -9,7 +9,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 
 > **A personal project, shared as-is.** Tag Drifter is built around one library's conventions:
 > FLAC files tagged with [Picard](https://picard.musicbrainz.org/) / MusicBrainz, on a
-> case-sensitive ZFS dataset served over SMB. The naming rules are opinionated and not
+> case-sensitive filesystem that's also shared over SMB. The naming rules are opinionated and not
 > configurable yet. By default it only reports; renaming files is opt-in. The web UI's
 > login is optional and basic, so keep it on your LAN. AI relied on heavily during
 > development - use at your own peril.
@@ -22,7 +22,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 1 | Pure core: sanitization, metadata, expected paths, album placement | ✅ |
 | 2 | Incremental scanner, SQLite, pluggable checks, CLI | ✅ |
 | 3 | Web UI (FastAPI + Jinja/HTMX) | ✅ |
-| 4 | Scheduler, Docker image, TrueNAS compose deployment | ✅ |
+| 4 | Scheduler, Docker image, compose deployment | ✅ |
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, bulk renames ✅, later a first-run password setup | ⏳ |
 | 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, other releases ranked by track-length fit ✅, refresh on demand ✅, then Picard-style retagging | ⏳ |
 | 7 | Library browser: search any album, release page with tags and the MusicBrainz tracklist ✅, then embedded cover art | ⏳ |
@@ -41,7 +41,7 @@ uv run tagdrifter issues --mbid no       # only issues on files without release/
 uv run tagdrifter checks                 # available checks and whether they're enabled
 uv run tagdrifter scans                  # scan history
 uv run tagdrifter rename --dry-run       # proposed renames for every album (bulk; see below)
-uv run tagdrifter refresh "CAKE/Prolonging the Magic"  # look its release up on MusicBrainz again
+uv run tagdrifter refresh "Artist/Album"   # look its release up on MusicBrainz again
 uv run tagdrifter serve                  # web UI on http://127.0.0.1:8080
 ```
 
@@ -125,13 +125,13 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
 `GET /healthz` returns `{"status": "ok", ...}` for container health checks and never needs a
 login. Keep the UI on your LAN either way.
 
-## Docker / TrueNAS SCALE
+## Docker
 
 The image is published to `ghcr.io/emilystap/tagdrifter` by GitHub Actions. It runs as UID/GID
-568 (TrueNAS's `apps` user), serves on port 8080, reads the library at `/music` (mount it
-`:ro` unless you enable renaming) and keeps its database in `/data`. [`compose.yaml`](compose.yaml) is ready for TrueNAS's
-*Install via YAML* once you fill in your dataset paths; [docs/deployment.md](docs/deployment.md)
-walks through permissions, the first scan and updates.
+568 by default (change it with `user:`), serves on port 8080, reads the library at `/music`
+(mount it `:ro` unless you enable renaming) and keeps its database in `/data`.
+[`compose.yaml`](compose.yaml) is ready once you fill in your paths;
+[docs/deployment.md](docs/deployment.md) walks through permissions, the first scan and updates.
 
 ```bash
 docker build -t tagdrifter .
@@ -216,7 +216,7 @@ src/tagdrifter/
                  MusicBrainzSync (mbsync.py), BulkRenamer (bulk.py), Jinja
                  templates, static/ (CSS, vendored htmx.min.js 2.0.4)
 tests/           pytest suite; builds real FLAC files on the fly (no fixtures to commit)
-docs/            Naming conventions, TrueNAS deployment
+docs/            Naming conventions, deployment
 Dockerfile, compose.yaml, .github/workflows/ (CI: lint + tests; Image: build, smoke test, GHCR)
 ```
 

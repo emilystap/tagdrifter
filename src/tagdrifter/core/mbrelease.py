@@ -3,7 +3,7 @@
 Only the fields the checks compare are pulled out; `raw` keeps the whole response for checks
 that need more.
 
-Translations follow the owner's Picard settings (artist names, album and track titles
+Translations follow the supported Picard settings (artist names, album and track titles
 translated to the `en` locale): Picard takes the *primary* alias whose locale matches, the
 full locale first (`en_GB`), then the language (`en`), and never follows pseudo-releases.
 """
@@ -16,7 +16,7 @@ from typing import Any
 
 from .sanitize import nfc
 
-TRANSLATION_LOCALES = ("en",)  # Picard's translation_locales (owner's setting)
+TRANSLATION_LOCALES = ("en",)  # Picard's translation_locales
 
 
 def translated(aliases: Any, preferred_type: str = "") -> str:

@@ -47,7 +47,7 @@ def is_mismatch(match: PathMatch, *, case_sensitive: bool) -> bool:
 def find_case_collisions(names: Iterable[str]) -> list[list[str]]:
     """Groups of sibling names that differ only by case (or Unicode normalization).
 
-    These coexist on a case-sensitive ZFS dataset but collide for SMB/Windows clients, which
+    These coexist on a case-sensitive filesystem but collide for SMB/Windows clients, which
     may show only one of them.
     """
     groups: dict[str, set[str]] = defaultdict(set)

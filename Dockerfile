@@ -29,7 +29,7 @@ LABEL org.opencontainers.image.title="Tag Drifter" \
       org.opencontainers.image.source="https://github.com/emilystap/tagdrifter" \
       org.opencontainers.image.licenses="GPL-3.0-or-later"
 
-# 568:568 is TrueNAS SCALE's "apps" user; override with `user:` in compose if needed.
+# The default user; run as another with `user:` in compose (it needs read access to the library).
 ARG UID=568
 ARG GID=568
 RUN groupadd --gid "${GID}" tagdrifter \
