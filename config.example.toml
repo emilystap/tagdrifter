@@ -6,7 +6,7 @@
 
 [library]
 path = "M:/music"            # in Docker this will be "/music"
-# Treat names differing only by letter case as different (match your ZFS dataset setting).
+# Treat names differing only by letter case as different (match your filesystem).
 case_sensitive = true
 audio_extensions = [".flac"]
 sidecar_extensions = [".lrc", ".txt"]

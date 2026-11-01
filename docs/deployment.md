@@ -1,49 +1,52 @@
-# Deploying on TrueNAS SCALE
+# Deploying with Docker
 
 Tag Drifter runs as one container: the web UI plus scheduled scans. The image is built by GitHub
 Actions and published to `ghcr.io/emilystap/tagdrifter` (`latest` from `main`, `X.Y.Z` from
-version tags). These steps assume TrueNAS SCALE 24.10 (Electric Eel) or later, where apps are
-Docker Compose projects.
+version tags). The image is public, so it pulls without registry credentials.
+[`compose.yaml`](../compose.yaml) works with Docker Compose, or with a NAS whose app installer
+accepts a compose file.
 
-The image is public, so TrueNAS pulls it without registry credentials.
+## 1. Create a directory for the app's data
 
-## 1. Create a dataset for the app's data
+The container runs as UID/GID 568 by default; set `user:` in `compose.yaml` to another account
+if you prefer (it needs read access to the library). Create a directory for the database and
+give that user write access, e.g.:
 
-Create a dataset for the database, e.g. `POOL/apps/tagdrifter` with a `data` directory in it,
-and give the `apps` user (UID/GID 568) write access:
-
-- *Datasets* → select it → *Permissions* → *Edit* → owner user `apps`, group `apps`, apply
-  recursively; or from a shell: `chown -R 568:568 /mnt/POOL/apps/tagdrifter`.
+```bash
+mkdir -p /srv/tagdrifter/data
+sudo chown -R 568:568 /srv/tagdrifter/data
+```
 
 The database holds the tag cache, scan history and issues. It's rebuilt by the next scan if
-lost (only issue history is lost), but snapshot the dataset with your other app data anyway.
+lost (only issue history is lost), but back it up with your other app data anyway.
 
 ## 2. Check library permissions
 
-The container runs as `568:568` and mounts the library **read-only**. The `apps` user needs
-read and traverse access to every folder of the music dataset. If the dataset uses an SMB ACL
-preset, add an ACL entry for the `apps` user (or group) with *Read* permission, applied
-recursively. A quick check from the TrueNAS shell:
+The library is mounted **read-only**. The container's user needs read and traverse access to
+every folder of the library. If its permissions come from ACLs (e.g. a share set up for SMB),
+add an entry for that user (or group) with read permission, applied recursively. A quick
+check from the host:
 
 ```bash
-sudo -u apps find /mnt/POOL/media/music -maxdepth 2 | head
+sudo -u '#568' find /path/to/music -maxdepth 2 | head
 ```
 
-## 3. Install via YAML
+## 3. Edit compose.yaml and start it
 
-*Apps* → *Discover Apps* → ⋮ → *Install via YAML*. Name it `tagdrifter` and paste
-[`compose.yaml`](../compose.yaml) after editing:
+Edit [`compose.yaml`](../compose.yaml):
 
-- the two `/mnt/POOL/...` host paths (library and data);
+- the `/path/to/...` host paths (library and data);
+- `user`, if you chose another account in step 1;
 - `TZ`, so the schedule and the times in logs are local;
 - `TAGDRIFTER_SCHEDULE` if you want something other than daily at 04:00. It's standard cron:
   `minute hour day month weekday`, e.g. `0 4 * * 1` for Mondays only, or `off`.
-- the published port (`8080:8080`) if 8080 is taken; Navidrome's default is 4533.
+- the published port (`8080:8080`) if 8080 is taken.
 
-The UI is then at `http://<truenas>:8080`. Don't expose it beyond your LAN.
+Then `docker compose up -d` (or paste it into your NAS's compose installer). The UI is then at
+`http://<host>:8080`. Don't expose it beyond your LAN.
 
 **Behind a reverse proxy** (Nginx Proxy Manager, Caddy, Traefik): proxy a hostname to
-`http://<truenas>:<port>`; plain HTTP to the container is fine, with HTTPS terminated at the
+`http://<host>:<port>`; plain HTTP to the container is fine, with HTTPS terminated at the
 proxy. The UI uses root-relative links, so it works over HTTPS without extra headers. It must
 be served at the root of its hostname (e.g. `https://tags.example.com/`), not under a path.
 Keep the proxy host LAN-only (e.g. an access list). If the proxy sends `X-Forwarded-Proto:
@@ -52,25 +55,25 @@ https` (NPM does), the login cookie is marked HTTPS-only.
 ## 4. First scan
 
 The first scan reads every file's tags. It only reads the tag blocks at the start of each file
-(cover art is skipped), so it's quick: several thousand files a minute even over SMB, and
-faster on the NAS's own disks. Press *Scan now* in the top bar, or wait for
+(cover art is skipped), so it's quick: several thousand files a minute even over a network
+share, and faster on local disks. Press *Scan now* in the top bar, or wait for
 the schedule. Later scans re-read only files whose size or modification time changed.
 
 ## Optional: a login
 
 Without a password the UI has no login. To require one:
 
-1. Generate a hash. In the TrueNAS shell, with the app running (type the password twice):
+1. Generate a hash, with the app running (type the password twice):
 
    ```bash
    sudo docker exec -it tagdrifter tagdrifter hash-password
    ```
 
    It prints a line starting `scrypt:`. The password itself is never stored.
-2. Edit the app's YAML and add it under `environment`:
+2. Add it under `environment` in `compose.yaml`:
    `TAGDRIFTER_PASSWORD_HASH: "scrypt:16384:8:1:..."` (the whole line, in quotes). The hash
    contains no `$`, so compose won't try to expand it.
-3. Save. The app restarts and every page asks for the password; *Log out* is in the top bar.
+3. Recreate the container (`docker compose up -d`). Every page now asks for the password; *Log out* is in the top bar.
 
 Sessions last 30 days and are signed with a key generated in `/data/secret_key`. Delete that
 file (or set `TAGDRIFTER_SECRET_KEY`) to log every browser out. `/healthz` never needs a login.
@@ -82,10 +85,10 @@ Tag Drifter can rename an album's tracks (and their folder) to the expected path
 It's off by default and only acts on albums whose every track is readable and MBID-tagged.
 To turn it on:
 
-1. Give the `apps` user **write** access to the library (the same ACL entry as in step 2, with
-   *Modify* instead of *Read*). New folders inherit the dataset's ACL.
-2. Edit the app's YAML: change the library mount from `:ro` to `:rw`, and add
-   `TAGDRIFTER_FIX: "true"` under `environment`. Save; the app restarts.
+1. Give the container's user **write** access to the library (with ACLs, the same entry as
+   in step 2, with modify instead of read permission).
+2. In `compose.yaml`, change the library mount from `:ro` to `:rw` and add
+   `TAGDRIFTER_FIX: "true"` under `environment`, then recreate the container.
 3. On the *Issues* page, album cards with proposed renames get a *Preview renames* button. It
    lists every move (folder, tracks, `.lrc`/`.txt` sidecars) and why an album can't be renamed,
    if it can't. *Rename* applies it, and a scan runs afterwards to update the issues.
@@ -104,9 +107,9 @@ album's artist folder; scans wait while files move. Every rename is recorded on 
 page (top bar), where it can be undone. If a rename fails halfway, the moves already made are
 reversed automatically.
 
-Take a snapshot of the music dataset before your first batch of renames. Your music server
-sees renamed files as moved: Navidrome picks them up on its next scan (its handling of play
-counts and favourites for moved files depends on its version). Set `TAGDRIFTER_FIX` back to
+Take a snapshot or backup of the library before your first batch of renames. Your music
+server sees renamed files as moved and picks them up on its next scan; whether play counts and
+favourites follow moved files depends on the server. Set `TAGDRIFTER_FIX` back to
 `false` and the mount to `:ro` to go back to report-only.
 
 ## Optional: notifications
@@ -120,7 +123,7 @@ Tag Drifter can push to a [Gotify](https://gotify.net) server when something nee
   half-moved (high priority).
 
 1. In Gotify: *Apps* → *Create application* (e.g. "Tag Drifter") and copy its token.
-2. Add to the app's `environment`:
+2. Add to `environment` in `compose.yaml`:
 
    ```yaml
    TAGDRIFTER_GOTIFY_URL: "http://gotify.lan:8080"   # the address the container can reach
@@ -129,17 +132,17 @@ Tag Drifter can push to a [Gotify](https://gotify.net) server when something nee
    # TAGDRIFTER_NOTIFY_ON: "failures"                 # optional; default new_issues,failures
    ```
 
-3. Save; the app restarts. The dashboard's *Notifications* panel shows where they go and has
+3. Recreate the container. The dashboard's *Notifications* panel shows where they go and has
    *Send test notification*, which shows Gotify's reply (e.g. a wrong token).
 
 The token is sent in the `X-Gotify-Key` header, so it doesn't appear in proxy logs. If Gotify
 is unreachable, the scan or rename carries on and the container log says why the notification
-wasn't sent. If Gotify runs as another app on the same TrueNAS, use the host's LAN address and
-Gotify's host port; `localhost` inside the container is the container itself.
+wasn't sent. If Gotify runs in another container on the same host, use the host's LAN address and
+Gotify's published port; `localhost` inside the container is the container itself.
 
 ## Optional: MusicBrainz lookups
 
-With `TAGDRIFTER_MUSICBRAINZ: "true"` in the app's `environment`, Tag Drifter looks up each
+With `TAGDRIFTER_MUSICBRAINZ: "true"` under `environment`, Tag Drifter looks up each
 release in the library on [MusicBrainz](https://musicbrainz.org) (by `musicbrainz_albumid`)
 and the `mb.*` checks compare your tags and audio lengths with it: a track tagged with
 another version's recording, track or disc numbers that changed, a release that was merged
@@ -204,12 +207,12 @@ anyway.
 
 ## Updating
 
-With the `latest` tag: *Apps* → `tagdrifter` → *Update* (or ⋮ → *Pull image*, then restart).
-To pin a version instead, use `ghcr.io/emilystap/tagdrifter:X.Y.Z` in the YAML. Database
+With the `latest` tag: `docker compose pull && docker compose up -d`. To pin a version
+instead, use `ghcr.io/emilystap/tagdrifter:X.Y.Z` in `compose.yaml`. Database
 migrations run automatically on start.
 
 ## Health and logs
 
 The container's health check calls `GET /healthz`, which also reports whether a scan is
 running and when the next scheduled scan is. Each scan logs a line when it starts and a summary
-when it finishes; view them under *Apps* → `tagdrifter` → *Logs*.
+when it finishes; view them with `docker logs tagdrifter`.

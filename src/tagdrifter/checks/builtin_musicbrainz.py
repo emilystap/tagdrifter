@@ -9,7 +9,7 @@ position, tracknumber = position on the medium (not the printed number, e.g. "A1
 totaltracks = the medium's track count, totaldiscs = the release's number of media.
 
 The text checks (mb.album, mb.track_title, mb.artist_credit) compare exactly, letter case
-included, as the owner's Picard writes them (no punctuation conversion), but accept Picard's
+included, as Picard writes them (no punctuation conversion), but accept Picard's
 English translations and standardized artist names (core/mbrelease.py).
 """
 
