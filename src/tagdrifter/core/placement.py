@@ -36,6 +36,18 @@ class PlacementIssue:
     tagged_album_artist: str
     expected_artist_folder: str
     unique_track_artists: int
+    current_album_artist: str = ""  # from MusicBrainz, when it differs from the tags
+
+
+@dataclass(frozen=True, slots=True)
+class CurrentArtist:
+    """The album artist as MusicBrainz names them now: each artist's current name, where the
+    tags may keep the name a release came out under. Folders follow it, so an artist's albums
+    stay together across a name change."""
+
+    name: str  # e.g. "Charli xcx", or "A & B" for a collaboration
+    sort_name: str
+    names: tuple[str, ...]  # one per artist, like ALBUMARTISTS
 
 
 def album_artist_matches_folder(meta: TrackMeta, artist_folder: str) -> bool:
@@ -56,35 +68,42 @@ def audit_album_placement(
     tracks: Sequence[TrackMeta],
     *,
     case_sensitive: bool = True,
+    current: CurrentArtist | None = None,
 ) -> PlacementIssue | None:
     """Check one album (its tracks) against the artist folder it sits in.
 
-    Uses the first track that has an album artist or artist tag, like v1. Returns None
-    when the album is correctly placed or has no usable artist tags.
+    Uses the first track that has an album artist or artist tag, like v1. With `current`
+    (the album artist's current name from MusicBrainz), the folder is checked against that
+    instead of the tags. Returns None when the album is correctly placed or has no usable
+    artist tags.
     """
     primary = next((t for t in tracks if t.albumartist or t.artist), None)
     if primary is None:
         return None
 
     tagged_aa = primary.albumartist or primary.artist
-    tagged_sort = primary.albumartist_sort or tagged_aa
+    album_artist, album_artists = tagged_aa, primary.albumartists
+    album_artist_sort = primary.albumartist_sort or tagged_aa
+    if current is not None:
+        album_artist, album_artists = current.name, current.names
+        album_artist_sort = current.sort_name or current.name
 
     norm_folder = normalize_artist_name(artist_folder)
-    norm_tagged = normalize_artist_name(tagged_aa)
-    norm_sort = normalize_artist_name(tagged_sort)
+    norm_tagged = normalize_artist_name(album_artist)
+    norm_sort = normalize_artist_name(album_artist_sort)
 
-    sanitized_aa = sanitize_folder(tagged_aa)
+    sanitized_aa = sanitize_folder(album_artist)
     candidates = (
         sanitized_aa,
-        sanitize_folder(tagged_sort),
-        sanitize_folder(tagged_aa.replace("$", "s")),
+        sanitize_folder(album_artist_sort),
+        sanitize_folder(album_artist.replace("$", "s")),
     )
     acceptable_folders = {path_key(name, case_sensitive=case_sensitive) for name in candidates}
     is_sanitized_match = (
         path_key(artist_folder, case_sensitive=case_sensitive) in acceptable_folders
     )
 
-    tagged_va = is_various_artists_tag(tagged_aa)
+    tagged_va = is_various_artists_tag(album_artist)
     folder_va = is_various_artists_folder(artist_folder)
 
     issue: PlacementIssueType | None = None
@@ -95,7 +114,7 @@ def audit_album_placement(
         issue = PlacementIssueType.ARTIST_ALBUM_IN_VA_FOLDER
     elif not tagged_va and not folder_va:
         folder_collabs = normalize_collaborators(artist_folder)
-        tagged_collabs = extract_artist_set(primary.albumartists, tagged_aa)
+        tagged_collabs = extract_artist_set(album_artists, album_artist)
         is_artist_match = norm_folder in (norm_tagged, norm_sort) or (
             bool(folder_collabs) and folder_collabs == tagged_collabs
         )
@@ -127,4 +146,5 @@ def audit_album_placement(
         tagged_album_artist=tagged_aa,
         expected_artist_folder=expected_folder,
         unique_track_artists=len({t.artist for t in tracks if t.artist}),
+        current_album_artist=album_artist if album_artist != tagged_aa else "",
     )

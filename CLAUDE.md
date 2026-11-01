@@ -131,6 +131,14 @@ present, are in the git-ignored `CLAUDE.local.md`.
      [--album F ...] [--dry-run] [--yes] [--no-scan]` (needs fix enabled unless `--dry-run`;
      Ctrl+C stops after the current album). The CLI can't hold the server's scan pause.
    - Later: rename across artist folders for `album.placement` issues.
+   - `album.placement` follows the artist's **current** MusicBrainz name once the release is
+     cached (`artist_folder = "musicbrainz"`, the default; `"album_artist"` = the tags):
+     `CurrentArtist` from the release credit (`MbCredit.current_name`: translation, else the
+     artist's name; sort names from the artist). Picard's "variations only"
+     (`StandardizeArtistNames.VARIATIONS`) standardizes every credit except one equal to an
+     ended "Artist name" alias's name or sort name, i.e. a former name (CRASH: "Charli XCX",
+     now Charli xcx), so tags may keep a former name; folders shouldn't, or an artist splits
+     (and case-only splits collide over SMB).
    - Later: non-FLAC formats via mutagen.
    - Later: a conventional first-run login. On first launch with no
      password set, every page leads to a "Set a password" form; the scrypt hash is stored in
