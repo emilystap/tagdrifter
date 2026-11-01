@@ -317,6 +317,48 @@ def test_duration_tolerance() -> None:
     assert not list(Duration().run(brat_album(brat_track(2, 1, **{"~length": "0"}))))
 
 
+def with_pregap() -> dict:
+    """Brat with a hidden track before disc 2's track 1, as MusicBrainz sends one (e.g. Songs
+    for the Deaf's "The Real Song for the Deaf"): the medium's `pregap`, not in track-count."""
+    data = fixture("brat")
+    medium = data["media"][0]
+    pregap = medium["tracks"][0] | {
+        "id": "33333333-3333-4333-8333-333333333333",
+        "position": 0,
+        "number": "0",
+        "title": "Hidden",
+        "length": 93000,
+        "recording": medium["tracks"][0]["recording"]
+        | {"id": "44444444-4444-4444-8444-444444444444", "title": "Hidden", "length": 93000},
+    }
+    data["media"][0] = medium | {"pregap": pregap}
+    return data
+
+
+def test_pregap_is_track_zero() -> None:
+    release = MbRelease.from_json(with_pregap())
+    hidden = release.track_at(2, 0)
+    assert hidden is not None and hidden.title == "Hidden" and hidden.length_ms == 93000
+    assert release.medium(2).track_count == 11  # Picard counts it: 10 + the pregap
+    assert release.medium(3).track_count == 8
+    # Tagged as Picard does: track 0, totaltracks 11 on every track of disc 2.
+    tracks = [
+        brat_track(2, 1, totaltracks="11"),
+        track_ctx(
+            "Charli xcx/Brat/2-00.flac",
+            musicbrainz_albumid=BRAT,
+            musicbrainz_releasetrackid=hidden.id,
+            musicbrainz_trackid=hidden.recording_id,
+            tracknumber="0",
+            discnumber="2",
+            totaltracks="11",
+            totaldiscs="2",
+            **{"~length": "93000"},
+        ),
+    ]
+    assert issues(brat_album(*tracks, release=with_pregap())) == []
+
+
 # --- Scan and web -----------------------------------------------------------------------
 
 

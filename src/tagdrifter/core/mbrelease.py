@@ -111,7 +111,7 @@ class MbTrack:
 class MbMedium:
     position: int
     format: str
-    track_count: int
+    track_count: int  # Picard's totaltracks: the API's track-count, plus the pregap if any
     tracks: tuple[MbTrack, ...]
 
 
@@ -131,8 +131,12 @@ class MbRelease:
         media = []
         for m in data.get("media", ()):
             disc = int(m.get("position") or 1)
+            # A hidden track before track 1 (HTOA) comes separately as the medium's `pregap`,
+            # at position 0, and isn't in its track-count. Picard tags it as track 0 and counts
+            # it in totaltracks.
+            pregap = [m["pregap"]] if m.get("pregap") else []
             tracks = []
-            for t in m.get("tracks", ()):
+            for t in [*pregap, *m.get("tracks", ())]:
                 recording = t.get("recording") or {}
                 tracks.append(
                     MbTrack(
@@ -151,7 +155,12 @@ class MbRelease:
                     )
                 )
             media.append(
-                MbMedium(disc, m.get("format") or "", int(m.get("track-count") or 0), tuple(tracks))
+                MbMedium(
+                    disc,
+                    m.get("format") or "",
+                    int(m.get("track-count") or 0) + len(pregap),
+                    tuple(tracks),
+                )
             )
         group = data.get("release-group") or {}
         return cls(
