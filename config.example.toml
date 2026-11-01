@@ -78,6 +78,9 @@ require_front_cover = true
 # How far a track's audio length may differ from MusicBrainz before mb.duration reports it.
 [checks."mb.duration"]
 tolerance_seconds = 3
+# For releases without track lengths: the gap from the recording's length (from its other
+# releases) before it's reported, as info.
+recording_tolerance_seconds = 30
 
 # Tags that every track in one album folder should agree on.
 [checks."album.inconsistent_tags"]

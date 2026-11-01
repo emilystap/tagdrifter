@@ -217,7 +217,15 @@ present, are in the git-ignored `CLAUDE.local.md`.
        `mb.release_unknown` (404, or the response id differs = merged), `mb.track_mismatch`
        (release-track MBID not on the release, else recording MBID differs),
        `mb.numbering` (track/disc number per track; total tracks/discs once per album),
-       `mb.duration` (file vs MusicBrainz track length, `tolerance_seconds` default 3).
+       `mb.duration` (file vs MusicBrainz track length, `tolerance_seconds` default 3). A
+       release without track lengths (MusicBrainz shows ?:??; often vinyl) falls back to the
+       recording's length (`MbTrack.recording_length_ms`, usually from other releases): only
+       beyond `recording_tolerance_seconds` (default 30), as info, since a few seconds there is
+       another master, not another version. `MbTrack.length_ms` is the release's own length
+       only, so 6d and the tracklist don't count borrowed lengths (the tracklist shows them
+       as "~m:ss"). A medium's hidden track before track 1 comes as its `pregap` (outside
+       `tracks` and `track-count`): parsed as track 0 and counted in `track_count`, as
+       Picard tags it.
        Picard's mapping: tracknumber = track `position` (not `number`, which can be "A1"),
        discnumber = medium `position` (not renumbered from 1), totaldiscs = number of media.
      - Audio length: `core/flac.py` reads STREAMINFO; `read_tags` stores it as the `~length`

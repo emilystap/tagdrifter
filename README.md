@@ -169,7 +169,7 @@ docker run -p 8080:8080 -v /path/to/music:/music:ro -v tagdrifter-data:/data tag
 | `mb.album` | album | Album title or release group MBID differs from MusicBrainz (Picard's English translations accepted) |
 | `mb.track_title` | album | A track's title differs from MusicBrainz, letter case included (translations accepted) |
 | `mb.artist_credit` | album | Artist names (`ARTIST`, `ARTISTS`) or MBIDs differ from the track's MusicBrainz credit, per track; album artists vs the release credit, once per album |
-| `mb.duration` | album | A track's audio length is off from MusicBrainz by more than 3 s (configurable): live vs studio, edits, the wrong release |
+| `mb.duration` | album | A track's audio length is off from MusicBrainz by more than 3 s (configurable): live vs studio, edits, the wrong release. For releases without track lengths, only gaps over 30 s from the recording's length, as info |
 | `album.placement` | album | Album under the wrong artist folder (v1's placement audit) |
 | `album.inconsistent_tags` | album | Tracks in one folder disagree on album artist, album, release MBID, … |
 | `file.unreadable` | album | Audio files whose tags can't be read |

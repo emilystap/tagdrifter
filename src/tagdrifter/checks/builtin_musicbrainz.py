@@ -34,6 +34,10 @@ from .builtin_tags import _mbids, _names
 TOTAL_TRACKS_KEYS = ("totaltracks", "tracktotal")
 TOTAL_DISCS_KEYS = ("totaldiscs", "disctotal")
 DEFAULT_TOLERANCE_SECONDS = 3
+# For a release without track lengths, the file is compared with the recording's length,
+# which comes from other releases: only a gap this large is reported (info), since a few
+# seconds is just another master or a vinyl rip, while tens of seconds suggest another version.
+DEFAULT_RECORDING_TOLERANCE_SECONDS = 30
 
 
 def _tag(meta: TrackMeta, *keys: str) -> str:
@@ -192,27 +196,48 @@ class Duration(Check):
     scope = Scope.ALBUM
     description = (
         "Track's audio length differs from MusicBrainz by more than a tolerance (default 3 s): "
-        "often a different version (live, remaster, edit) or the wrong release."
+        "often a different version (live, remaster, edit) or the wrong release. Where the "
+        "release has no track lengths, only gaps over 30 s from the recording's length (info)."
     )
 
     def run(self, ctx: AlbumContext) -> Iterable[Issue]:
         tolerance_ms = 1000 * float(
             self.options.get("tolerance_seconds", DEFAULT_TOLERANCE_SECONDS)
         )
+        recording_tolerance_ms = 1000 * float(
+            self.options.get("recording_tolerance_seconds", DEFAULT_RECORDING_TOLERANCE_SECONDS)
+        )
         for t, release in _tracks_with_release(ctx):
             track, _ = _locate(t.meta, release)
             length = t.meta.length_ms
-            if track is None or not track.length_ms or not length:
+            if track is None or not length:
                 continue
-            diff = length - track.length_ms
-            if abs(diff) > tolerance_ms:
-                yield self.issue(
-                    t.rel_path,
-                    f"Length {_duration(length)} vs {_duration(track.length_ms)} in MusicBrainz "
-                    f"({'+' if diff > 0 else '-'}{abs(diff) / 1000:.0f} s)",
-                    length_ms=length,
-                    musicbrainz_length_ms=track.length_ms,
-                )
+            if track.length_ms:
+                diff = length - track.length_ms
+                if abs(diff) > tolerance_ms:
+                    yield self.issue(
+                        t.rel_path,
+                        f"Length {_duration(length)} vs {_duration(track.length_ms)} in "
+                        f"MusicBrainz ({_signed_seconds(diff)})",
+                        length_ms=length,
+                        musicbrainz_length_ms=track.length_ms,
+                    )
+            elif track.recording_length_ms:
+                diff = length - track.recording_length_ms
+                if abs(diff) > recording_tolerance_ms:
+                    yield self.issue(
+                        t.rel_path,
+                        f"Length {_duration(length)} vs {_duration(track.recording_length_ms)} "
+                        f"for the recording in MusicBrainz ({_signed_seconds(diff)}); the "
+                        "release has no track lengths, so this may be another version",
+                        severity=Severity.INFO,
+                        length_ms=length,
+                        recording_length_ms=track.recording_length_ms,
+                    )
+
+
+def _signed_seconds(diff_ms: int) -> str:
+    return f"{'+' if diff_ms > 0 else '-'}{abs(diff_ms) / 1000:.0f} s"
 
 
 # --- Text: titles and artist credits (6b-2) ---------------------------------------------

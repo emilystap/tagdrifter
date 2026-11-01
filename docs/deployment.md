@@ -194,7 +194,11 @@ Upgrading to this version re-reads every file once (to record its audio length),
 first scan after updating takes about as long as the very first one.
 
 Tolerance for `mb.duration` (default 3 seconds) is set in `config.toml`:
-`[checks."mb.duration"] tolerance_seconds = 5`.
+`[checks."mb.duration"] tolerance_seconds = 5`. Some releases (often vinyl) have no track
+lengths in MusicBrainz; for those, files are compared with the recording's length instead,
+which usually comes from its other releases, so only a gap over `recording_tolerance_seconds`
+(default 30) is reported, as info: a few seconds is just another master, tens of seconds
+suggest another version.
 
 ## Optional: config.toml
 
