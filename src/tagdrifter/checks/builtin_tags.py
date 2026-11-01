@@ -6,7 +6,8 @@ import re
 from collections import Counter, defaultdict
 from collections.abc import Iterable
 
-from ..core import TrackMeta, audit_album_placement, is_mbid
+from ..core import CurrentArtist, TrackMeta, audit_album_placement, is_mbid
+from ..core.mbrelease import current_credit_text
 from ..core.metadata import (
     ALBUM_ARTIST_KEYS,
     ALBUM_ARTISTS_KEYS,
@@ -371,7 +372,10 @@ def _ranges(numbers: list[int]) -> str:
 class AlbumPlacement(Check):
     id = "album.placement"
     scope = Scope.ALBUM
-    description = "Album is filed under an artist folder that does not match its album artist."
+    description = (
+        "Album is filed under an artist folder that does not match its album artist: the "
+        "artist's current name in MusicBrainz when the release is looked up (configurable)."
+    )
 
     def run(self, ctx: AlbumContext) -> Iterable[Issue]:
         if not ctx.is_directly_under_artist or not ctx.tracks:
@@ -380,18 +384,47 @@ class AlbumPlacement(Check):
             ctx.artist_folder,
             [t.meta for t in ctx.tracks],
             case_sensitive=ctx.settings.case_sensitive,
+            current=self._current_artist(ctx),
         )
         if result:
+            artist = f"tagged album artist is {result.tagged_album_artist!r}"
+            if result.current_album_artist:
+                artist = (
+                    f"album artist is {result.current_album_artist!r} in MusicBrainz now "
+                    f"(tagged {result.tagged_album_artist!r})"
+                )
             yield self.issue(
                 ctx.rel_path,
-                f"{result.issue_type.value}: tagged album artist is "
-                f"{result.tagged_album_artist!r}, "
+                f"{result.issue_type.value}: {artist}, "
                 f"expected folder {result.expected_artist_folder!r}",
                 issue_type=result.issue_type.value,
                 tagged_album_artist=result.tagged_album_artist,
+                current_album_artist=result.current_album_artist,
                 expected_artist_folder=result.expected_artist_folder,
                 unique_track_artists=result.unique_track_artists,
             )
+
+    def _current_artist(self, ctx: AlbumContext) -> CurrentArtist | None:
+        """The release's album artist credit with each artist's current name, so an artist's
+        albums share a folder across a name change, even where Picard keeps the former name
+        in the tags. None (go by the tags) with `artist_folder = "album_artist"`, or when no
+        track's release is looked up yet."""
+        mode = self.options.get("artist_folder", "musicbrainz")
+        if mode not in ("musicbrainz", "album_artist"):
+            raise ValueError(
+                f'album.placement artist_folder must be "musicbrainz" or "album_artist": {mode!r}'
+            )
+        if mode == "album_artist":
+            return None
+        release = next((r for t in ctx.tracks if (r := ctx.release_of(t.meta))), None)
+        if release is None or not release.artists:
+            return None
+        credit = release.artists
+        return CurrentArtist(
+            name=current_credit_text(credit),
+            sort_name="".join((c.sort_name or c.current_name) + c.joinphrase for c in credit),
+            names=tuple(c.current_name for c in credit),
+        )
 
 
 @register

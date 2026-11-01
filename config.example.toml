@@ -82,6 +82,11 @@ tolerance_seconds = 3
 # releases) before it's reported, as info.
 recording_tolerance_seconds = 30
 
+# Artist folders follow the album artist's current name in MusicBrainz once a release is looked
+# up ("musicbrainz"), so a name change doesn't split an artist; "album_artist" goes by the tags.
+[checks."album.placement"]
+artist_folder = "musicbrainz"
+
 # Tags that every track in one album folder should agree on.
 [checks."album.inconsistent_tags"]
 tags = ["albumartist", "album", "musicbrainz_albumid", "musicbrainz_albumartistid"]

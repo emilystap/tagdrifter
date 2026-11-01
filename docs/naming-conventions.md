@@ -9,14 +9,25 @@ The rules Tag Drifter checks a library against. Implemented in `src/tagdrifter/c
 ## Artist Folder (`core/placement.py`)
 
 - **Format:** `{Album Artist}` (sanitized), or `Various Artists` for compilations.
-- Accepted spellings: the sanitized `albumartist`, the sanitized `albumartistsort`
-  (falling back to `artistsort`), or `albumartist` with `$` → `s` (e.g. `Ke$ha` → `Kesha`).
+- **The artist's current name:** when the release has been looked up on MusicBrainz, the
+  album artist is the release's artist credit with each artist's *current* name (translated
+  as Picard does), not the tags. An artist's albums then share one folder across a name
+  change, even where the tags keep the name a release came out under. Picard's "standardize
+  artist name variations only" does keep such names: it leaves a credit alone when it matches
+  one of the artist's ended aliases, which is how MusicBrainz records a former name. E.g.
+  CRASH, credited to "Charli XCX", belongs in `Charli xcx/` with the artist's later albums,
+  and a release credited to "The B-52's" in `The B-52s/`. Set
+  `[checks."album.placement"] artist_folder = "album_artist"` to go by the tags instead.
+  Releases not looked up yet always go by the tags.
+- Accepted spellings: the sanitized album artist, the sanitized album artist sort name
+  (`albumartistsort`, falling back to `artistsort`, or the artists' MusicBrainz sort names),
+  or the album artist with `$` → `s` (e.g. `Ke$ha` → `Kesha`).
 - If `albumartist` is missing, `artist` is used.
 - Issue types: Compilation inside Solo Artist Folder · Solo/Collab Album inside Various Artists ·
   Collab Album placed under Single Contributor · Solo Album placed under Collab Folder ·
   Artist Name Mismatch · Artist Folder Sanitization Mismatch · Artist Folder Letter Case
-  Mismatch (the folder matches an accepted spelling except for case, e.g. `Charli xcx` for
-  `Charli XCX`; only when `case_sensitive` is on).
+  Mismatch (the folder matches an accepted spelling except for case, e.g. `Charli XCX` for
+  `Charli xcx`; only when `case_sensitive` is on).
 
 ## Source of truth
 

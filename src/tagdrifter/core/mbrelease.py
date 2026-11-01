@@ -44,6 +44,7 @@ class MbCredit:
     credited: str  # the name on this credit (may be a variation)
     joinphrase: str  # text after this artist, e.g. " & " or " feat. "
     alias: str = ""  # Picard's translation (primary en alias), if any
+    sort_name: str = ""  # the artist's own sort name
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -54,6 +55,13 @@ class MbCredit:
     @property
     def picard_name(self) -> str:
         return self.alias or self.credited
+
+    @property
+    def current_name(self) -> str:
+        """The artist's name now, translated as Picard would; unlike `picard_name`, never a
+        former name the credit keeps (Picard's "variations only" keeps credits that match an
+        ended alias, e.g. CRASH by "Charli XCX", now Charli xcx)."""
+        return self.alias or self.name or self.credited
 
     @classmethod
     def parse(cls, credit: Any) -> tuple[MbCredit, ...]:
@@ -68,6 +76,7 @@ class MbCredit:
                     credited=nfc(c.get("name") or name),
                     joinphrase=nfc(c.get("joinphrase") or ""),
                     alias=translated(artist.get("aliases"), "Artist name"),
+                    sort_name=nfc(artist.get("sort-name") or ""),
                 )
             )
         return tuple(out)
@@ -76,6 +85,11 @@ class MbCredit:
 def credit_text(credit: tuple[MbCredit, ...]) -> str:
     """The credit as Picard writes it (ARTIST / ALBUMARTIST)."""
     return "".join(c.picard_name + c.joinphrase for c in credit)
+
+
+def current_credit_text(credit: tuple[MbCredit, ...]) -> str:
+    """The credit with each artist's current name (`MbCredit.current_name`)."""
+    return "".join(c.current_name + c.joinphrase for c in credit)
 
 
 def credit_matches(value: str, credit: tuple[MbCredit, ...]) -> bool:

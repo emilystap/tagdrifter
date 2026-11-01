@@ -15,6 +15,7 @@ from .metadata import (
 from .naming import CollisionNotice, TrackTarget, compute_target, resolve_release_collisions
 from .paths import PathMatch, compare_paths, find_case_collisions, is_mismatch, path_key
 from .placement import (
+    CurrentArtist,
     PlacementIssue,
     PlacementIssueType,
     album_artist_matches_folder,
@@ -34,6 +35,7 @@ __all__ = [
     "PICTURES_KEY",
     "SLASH_REPLACEMENT",
     "CollisionNotice",
+    "CurrentArtist",
     "EmbeddedPicture",
     "MetadataReadError",
     "PathMatch",
