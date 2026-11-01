@@ -64,6 +64,12 @@ class Settings:
     # How MusicBrainz can reach whoever runs this instance (an email address or URL), added to
     # the User-Agent next to the project URL. Optional; never sent anywhere else.
     musicbrainz_contact: str = ""
+    # Another MusicBrainz server (your own mirror, e.g. musicbrainz-docker): its web service
+    # root, "http://host:5000" or ".../ws/2". Empty = musicbrainz.org.
+    musicbrainz_api_root: str = ""
+    # Seconds from each response to the next request; None = 1.5. Never below 1.5 for
+    # musicbrainz.org (musicbrainz.client_for refuses it); a mirror of your own can use 0.
+    musicbrainz_interval: float | None = None
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -122,6 +128,12 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         notify_on=frozenset(notify.get("on", base.notify_on)),
         musicbrainz_enabled=bool(musicbrainz.get("enabled", base.musicbrainz_enabled)),
         musicbrainz_contact=str(musicbrainz.get("contact", base.musicbrainz_contact)),
+        musicbrainz_api_root=str(musicbrainz.get("api_root", base.musicbrainz_api_root)),
+        musicbrainz_interval=(
+            float(musicbrainz["interval"])
+            if "interval" in musicbrainz
+            else base.musicbrainz_interval
+        ),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -170,6 +182,8 @@ def load_settings(
         "TAGDRIFTER_NOTIFY_ON": ("notify_on", _parse_events),
         "TAGDRIFTER_MUSICBRAINZ": ("musicbrainz_enabled", _parse_bool),
         "TAGDRIFTER_MUSICBRAINZ_CONTACT": ("musicbrainz_contact", str),
+        "TAGDRIFTER_MUSICBRAINZ_API_ROOT": ("musicbrainz_api_root", str),
+        "TAGDRIFTER_MUSICBRAINZ_INTERVAL": ("musicbrainz_interval", float),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):

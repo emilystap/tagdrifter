@@ -12,6 +12,9 @@
         <span class="muted">The rest are looked up a few at a time in the background, or all at once after you press “Scan now”.</span>
       {% endif %}
     </p>
+    {% if settings.musicbrainz_api_root %}
+      <p class="muted small">Using the MusicBrainz server at <code>{{ settings.musicbrainz_api_root }}</code>{% if settings.musicbrainz_interval is not none %}, {{ "%g" | format(settings.musicbrainz_interval) }} s between requests{% endif %}.</p>
+    {% endif %}
     {% if mb_status.next_background_time and not mb_status.paused_until %}
       <p class="muted small">Background lookups (new releases and refreshes) run at random times through the day, as MusicBrainz asks; next around {{ mb_status.next_background_time | timestamp }}.</p>
     {% endif %}

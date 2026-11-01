@@ -20,7 +20,7 @@ from .checks import REGISTRY
 from .config import Settings, load_settings
 from .core import is_mbid
 from .db import IssueFilter, Store
-from .musicbrainz import MusicBrainzClient, refresh_releases
+from .musicbrainz import client_for, refresh_releases
 from .renamer import apply_albums, library_writable, plan_albums
 from .scanner import ScanProgress, run_scan
 
@@ -295,8 +295,7 @@ def cmd_refresh(settings: Settings, args: argparse.Namespace) -> int:
                       "last scan), nor a release MBID.", file=sys.stderr)  # fmt: skip
                 return 2
             ids += [r.id for r in album.releases]
-        client = MusicBrainzClient(contact=settings.musicbrainz_contact)
-        result = refresh_releases(store, client, ids)
+        result = refresh_releases(store, client_for(settings), ids)
     print(
         f"{result.fetched} looked up, {result.not_found} not found on MusicBrainz, "
         f"{result.skipped} skipped (looked up minutes ago)."

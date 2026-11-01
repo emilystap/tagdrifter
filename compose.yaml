@@ -36,3 +36,5 @@ services:
       # Optional: compare tags with MusicBrainz (1 request/s, each release cached for weeks)
       # TAGDRIFTER_MUSICBRAINZ: "true"
       # TAGDRIFTER_MUSICBRAINZ_CONTACT: "you@example.com" # how MusicBrainz can reach you
+      # TAGDRIFTER_MUSICBRAINZ_API_ROOT: "http://mirror:5000" # your own mirror, if any
+      # TAGDRIFTER_MUSICBRAINZ_INTERVAL: "0" # seconds between requests; mirrors only
