@@ -317,6 +317,83 @@ def test_duration_tolerance() -> None:
     assert not list(Duration().run(brat_album(brat_track(2, 1, **{"~length": "0"}))))
 
 
+def without_track_lengths(recording_length: int | None = 134_000) -> dict:
+    """Brat as a release entered without track lengths (MusicBrainz shows ?:??), its
+    recordings' lengths taken from other releases."""
+    data = fixture("brat")
+    for medium in data["media"]:
+        medium["tracks"] = [
+            t | {"length": None, "recording": t["recording"] | {"length": recording_length}}
+            for t in medium["tracks"]
+        ]
+    return data
+
+
+def test_duration_without_release_lengths() -> None:
+    release = MbRelease.from_json(without_track_lengths())
+    track = release.track_at(2, 1)
+    assert track.length_ms is None and track.recording_length_ms == 134_000
+    # A different master or a vinyl rip: within 30 s of the recording, nothing to report.
+    master = brat_track(2, 1, **{"~length": str(134_000 + 12_000)})
+    assert not list(Duration().run(brat_album(master, release=without_track_lengths())))
+    # Another version (live, an edit): reported, as info, saying where the length is from.
+    live = brat_track(2, 1, **{"~length": str(134_000 + 41_000)})
+    (issue,) = Duration().run(brat_album(live, release=without_track_lengths()))
+    assert issue.severity == "info"
+    assert issue.message == (
+        "Length 2:55 vs 2:14 for the recording in MusicBrainz (+41 s); the release has no "
+        "track lengths, so this may be another version"
+    )
+    assert issue.details["recording_length_ms"] == 134_000
+    wider = Duration({"recording_tolerance_seconds": 60})
+    assert not list(wider.run(brat_album(live, release=without_track_lengths())))
+    # No length anywhere: nothing to compare.
+    unknown = without_track_lengths(recording_length=None)
+    assert not list(Duration().run(brat_album(live, release=unknown)))
+
+
+def with_pregap() -> dict:
+    """Brat with a hidden track before disc 2's track 1, as MusicBrainz sends one (e.g. Songs
+    for the Deaf's "The Real Song for the Deaf"): the medium's `pregap`, not in track-count."""
+    data = fixture("brat")
+    medium = data["media"][0]
+    pregap = medium["tracks"][0] | {
+        "id": "33333333-3333-4333-8333-333333333333",
+        "position": 0,
+        "number": "0",
+        "title": "Hidden",
+        "length": 93000,
+        "recording": medium["tracks"][0]["recording"]
+        | {"id": "44444444-4444-4444-8444-444444444444", "title": "Hidden", "length": 93000},
+    }
+    data["media"][0] = medium | {"pregap": pregap}
+    return data
+
+
+def test_pregap_is_track_zero() -> None:
+    release = MbRelease.from_json(with_pregap())
+    hidden = release.track_at(2, 0)
+    assert hidden is not None and hidden.title == "Hidden" and hidden.length_ms == 93000
+    assert release.medium(2).track_count == 11  # Picard counts it: 10 + the pregap
+    assert release.medium(3).track_count == 8
+    # Tagged as Picard does: track 0, totaltracks 11 on every track of disc 2.
+    tracks = [
+        brat_track(2, 1, totaltracks="11"),
+        track_ctx(
+            "Charli xcx/Brat/2-00.flac",
+            musicbrainz_albumid=BRAT,
+            musicbrainz_releasetrackid=hidden.id,
+            musicbrainz_trackid=hidden.recording_id,
+            tracknumber="0",
+            discnumber="2",
+            totaltracks="11",
+            totaldiscs="2",
+            **{"~length": "93000"},
+        ),
+    ]
+    assert issues(brat_album(*tracks, release=with_pregap())) == []
+
+
 # --- Scan and web -----------------------------------------------------------------------
 
 

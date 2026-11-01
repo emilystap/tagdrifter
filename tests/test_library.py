@@ -154,6 +154,33 @@ def test_musicbrainz_tracklist_beside_the_files(tmp_path) -> None:
     assert f"https://musicbrainz.org/release-group/{release.release_group_id}" in page
 
 
+def test_recording_lengths_marked_when_the_release_has_none(tmp_path) -> None:
+    data = fixture("maenarawanai")
+    for medium in data["media"]:
+        medium["tracks"] = [t | {"length": None} for t in medium["tracks"]]
+    release = MbRelease.from_json(data)
+    t = release.track_at(1, 1)
+    tags = {
+        "musicbrainz_albumid": MAENARAWANAI,
+        "musicbrainz_releasetrackid": t.id,
+        "musicbrainz_trackid": t.recording_id,
+        "tracknumber": "1",
+        "discnumber": "1",
+    }
+    lib = tmp_path / "music"
+    build_flac(lib / AG_FOLDER / "01.flac", tags, length_ms=t.recording_length_ms + 9000)
+    settings = settings_for(lib, tmp_path)
+    scan(settings)
+    with Store(settings.database_path) as store:
+        store.save_mb_release(MAENARAWANAI, data, "2099-01-01")
+        (view,) = album_detail(store, AG_FOLDER).releases
+    assert view.rows[0].length_diff_s == 0  # nothing to compare with on this release
+    with TestClient(create_app(settings)) as c:
+        page = text(c.get("/library/album", params={"folder": AG_FOLDER}))
+    assert "MusicBrainz has no length for some tracks of this release" in page
+    assert ">~3:09</span>" in page and "+9 s</mark>" not in page
+
+
 def test_release_not_looked_up_or_unknown(tmp_path) -> None:
     lib = tmp_path / "music"
     build_flac(lib / "Pixies/Doolittle/01.flac", good_tags())

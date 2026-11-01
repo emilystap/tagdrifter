@@ -100,18 +100,21 @@ class MbTrack:
     position: int  # position on the medium (Picard: tracknumber); `number` may be "A1"
     number: str
     title: str
-    length_ms: int | None
+    length_ms: int | None  # this release's length for the track; None when it has none
     recording_id: str  # Picard: musicbrainz_trackid
     recording_title: str
     title_alias: str = ""  # the recording's translated title (Picard: translate_track_titles)
     artists: tuple[MbCredit, ...] = ()  # the track's artist credit
+    # The recording's own length: usually taken from its other releases, so only a hint for
+    # releases without track lengths (often vinyl entered without a disc ID).
+    recording_length_ms: int | None = None
 
 
 @dataclass(frozen=True)
 class MbMedium:
     position: int
     format: str
-    track_count: int
+    track_count: int  # Picard's totaltracks: the API's track-count, plus the pregap if any
     tracks: tuple[MbTrack, ...]
 
 
@@ -131,8 +134,12 @@ class MbRelease:
         media = []
         for m in data.get("media", ()):
             disc = int(m.get("position") or 1)
+            # A hidden track before track 1 (HTOA) comes separately as the medium's `pregap`,
+            # at position 0, and isn't in its track-count. Picard tags it as track 0 and counts
+            # it in totaltracks.
+            pregap = [m["pregap"]] if m.get("pregap") else []
             tracks = []
-            for t in m.get("tracks", ()):
+            for t in [*pregap, *m.get("tracks", ())]:
                 recording = t.get("recording") or {}
                 tracks.append(
                     MbTrack(
@@ -141,17 +148,23 @@ class MbRelease:
                         position=int(t.get("position") or 0),
                         number=str(t.get("number") or ""),
                         title=nfc(t.get("title") or recording.get("title", "")),
-                        length_ms=t.get("length") or recording.get("length"),
+                        length_ms=t.get("length") or None,
                         recording_id=recording.get("id", "").lower(),
                         recording_title=nfc(recording.get("title", "")),
                         title_alias=translated(recording.get("aliases"), "Recording name"),
                         artists=MbCredit.parse(
                             t.get("artist-credit") or recording.get("artist-credit")
                         ),
+                        recording_length_ms=recording.get("length") or None,
                     )
                 )
             media.append(
-                MbMedium(disc, m.get("format") or "", int(m.get("track-count") or 0), tuple(tracks))
+                MbMedium(
+                    disc,
+                    m.get("format") or "",
+                    int(m.get("track-count") or 0) + len(pregap),
+                    tuple(tracks),
+                )
             )
         group = data.get("release-group") or {}
         return cls(

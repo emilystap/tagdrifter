@@ -105,6 +105,9 @@
     {% if rel.title != (first.album if first else "") and rel.title_alias != (first.album if first else "") %}
       <p class="small">Titled <strong>{{ rel.title }}</strong>{% if rel.title_alias %} ({{ rel.title_alias }}){% endif %} in MusicBrainz.</p>
     {% endif %}
+    {% if r.rows | selectattr("track") | rejectattr("track.length_ms") | list %}
+      <p class="small muted">MusicBrainz has no length for some tracks of this release; <span title="The recording's length, usually from its other releases">~</span> marks the recording's length instead.</p>
+    {% endif %}
     {% if rel.release_group_id and r.rows | selectattr("length_diff_s") | list %}
       <p class="small">Some lengths differ from this release: <a href="#group-{{ rel.release_group_id }}">compare with other releases</a> of the album.</p>
     {% endif %}
@@ -122,7 +125,10 @@
                   {{ row.track.title }}{% if row.track.title_alias %} <span class="muted">({{ row.track.title_alias }})</span>{% endif %}
                   {% if row.title_differs %}<div class="small"><mark>{{ row.file.meta.title }}</mark> <span class="muted">in the tags</span></div>{% endif %}
                 </td>
-                <td class="num">{{ row.track.length_ms | track_length }}</td>
+                <td class="num">
+                  {% if row.track.length_ms or not row.track.recording_length_ms %}{{ row.track.length_ms | track_length }}
+                  {% else %}<span class="muted" title="This release has no length for the track; this is the recording's length, from other releases">~{{ row.track.recording_length_ms | track_length }}</span>{% endif %}
+                </td>
               {% else %}
                 <td class="num">–</td><td class="muted small">Not on this release</td><td></td>
               {% endif %}
