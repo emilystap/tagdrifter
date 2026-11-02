@@ -391,7 +391,18 @@ present, are in the git-ignored `CLAUDE.local.md`.
      [--replace-only-copies] [--yes]`. Needs one read-write mount holding both, and
      `fs.protected_hardlinks` means the container's user must own the library's files or be
      able to read and write them. Scans aren't paused: a sync never touches the library.
-   - 8c: exclusion toggles on the Library pages (artist, album, track).
+   - 8c ✅ Exclusion toggles on the Library pages, from the scan's cache only (no walk, so
+     they show what the rules say, not what the secondary holds): `secondary.album_exclusions`
+     (saved rules leaving out any of the album's audio, per-track matches, and a `Toggle` each
+     for its album artist, the album and every track) and `excluded_by_folder` (list badges),
+     via `Store.file_tags` (just `KEY_TAGS`). `core/secondary.exclusion_for` keys a new rule on
+     the MBID the files share (album artist / release / release track), else a path (artist
+     folder, album folder, file). The album page's *Secondary library* panel (*Exclude this
+     album*, *Exclude every album by X*, *Include again* per matching rule, confirming when a
+     rule covers files outside the album) and a *Secondary* column in Tracks.
+     `POST /library/exclude` (`folder`, `kind` = artist | release | track, `path`) re-derives
+     the rule server side; `/secondary/exclusions/{id}/delete` takes a `next` to return to.
+     Changes apply at the next sync.
    - 8d: automatic sync after scans and renames for changes that never free a last copy;
      the rest waits for approval; failures notify.
 

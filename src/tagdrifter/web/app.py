@@ -11,7 +11,8 @@ send a test one. With `musicbrainz_enabled`, MusicBrainz lookups trickle in at r
 in the background and run at once after a scan someone started (mbsync.py); the dashboard
 shows the cache's progress. With a secondary library set, /secondary shows what keeping it in
 step would change and its exclusions (secondary.py), and with `secondary_sync` applies it
-(secondary_write.py).
+(secondary_write.py); the Library pages show and toggle the exclusions of an album, its album
+artist and its tracks.
 """
 
 from __future__ import annotations
@@ -332,6 +333,8 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         context = {
             "page": "library",
             "q": q,
+            # Audio files left out of the secondary library, per album folder
+            "excluded": secondary.excluded_by_folder(store) if settings.secondary_path else {},
             "albums": found[offset : offset + GROUP_PAGE_SIZE],
             "total": len(albums),
             "entries": len(found),
@@ -363,6 +366,9 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             album=album,
             issues=issues,
             renamable=renamable,
+            exclusions=(
+                secondary.album_exclusions(store, album.folder) if settings.secondary_path else None
+            ),
             groups=[
                 (g, library.compare_release_group(store, album, g, tolerance))
                 for g in album.release_group_ids
@@ -794,11 +800,37 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         return RedirectResponse(f"/secondary?saved={added}", status_code=303)
 
     @app.post("/secondary/exclusions/{exclusion_id}/delete")
-    def secondary_delete_exclusion(exclusion_id: int) -> Response:
+    async def secondary_delete_exclusion(request: Request, exclusion_id: int) -> Response:
+        """Remove an exclusion, then return to `next` (the page it was removed from)."""
         require_secondary()
+        target = auth.safe_next((await _form(request)).get("next") or "/secondary")
         with Store(settings.database_path) as store:
             store.delete_secondary_exclusion(exclusion_id)
-        return RedirectResponse("/secondary", status_code=303)
+        return RedirectResponse(target, status_code=303)
+
+    @app.post("/library/exclude")
+    async def library_exclude(request: Request) -> Response:
+        """Exclude an album's album artist, the album or one of its tracks (`kind` = artist,
+        release or track, with `path`) from the secondary. The rule is worked out here from
+        the cache, as the album page showed it, not taken from the form."""
+        require_secondary()
+        form = await _form(request)
+        folder = form.get("folder", "")
+        with Store(settings.database_path) as store:
+            album = secondary.album_exclusions(store, folder)
+            if album is None:
+                raise HTTPException(404, "No such album.")
+            kind = form.get("kind", "")
+            toggle = (
+                album.tracks.get(form.get("path", ""))
+                if kind == "track"
+                else {"artist": album.artist, "release": album.release}.get(kind)
+            )
+            if toggle is None:
+                raise HTTPException(404, "Nothing to exclude.")
+            store.add_secondary_exclusions([toggle.rule])
+        anchor = "#tracks" if kind == "track" else "#secondary"
+        return RedirectResponse(_album_url(folder) + anchor, status_code=303)
 
     # --- MusicBrainz ------------------------------------------------------------------
 
@@ -913,6 +945,10 @@ async def _form(request: Request) -> dict[str, str]:
     python-multipart dependency for a few small forms."""
     form = parse_qs((await request.body()).decode(errors="replace"))
     return {k: v[0] for k, v in form.items()}
+
+
+def _album_url(folder: str) -> str:
+    return "/library/album?" + urlencode({"folder": folder.strip("/")})
 
 
 def _current_path(request: Request) -> str:

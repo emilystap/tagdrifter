@@ -17,6 +17,7 @@ from tagdrifter.core.secondary import (
     Tree,
     audio_keys,
     excluded_files,
+    exclusion_for,
     normalize_extension,
     plan_sync,
     propose_exclusions,
@@ -170,6 +171,20 @@ def test_excluded_files_follow_their_audio() -> None:
     assert excluded_files(files, audio, rules, (".lrc",)) == {
         p for p in files if p.startswith("A/")
     } | {"B/Z/cover.jpg"}
+
+
+def test_exclusion_for_prefers_a_shared_mbid() -> None:
+    audio = {
+        "A/X/01.flac": AudioKeys(artist=A1, release=R1, track=T1, release_label="A - X"),
+        "A/X/02.flac": AudioKeys(artist=A1, release=R1),
+        "A/Y/01.flac": AudioKeys(artist=A1, release=R2),
+    }
+    x = ["A/X/01.flac", "A/X/02.flac"]
+    assert exclusion_for("release", x, audio, "A/X") == Exclusion("release", R1, "A - X")
+    assert exclusion_for("artist", x, audio, "A") == Exclusion("artist", A1, "A")  # no label
+    # Two releases, or a file without the key: by path
+    assert exclusion_for("release", audio, audio, "A") == Exclusion("path", "A", "A")
+    assert exclusion_for("track", ["A/X/02.flac"], audio, "A/X/02.flac").kind == "path"
 
 
 # --- Bootstrap ----------------------------------------------------------------------------
@@ -390,6 +405,78 @@ def test_secondary_page(libraries) -> None:
         assert kinds == [("extension", ".jpg"), ("extension", ".lrc")]
         page = c.get("/secondary/analysis").text
         assert "Pixies/Doolitle/01 Debaser.lrc" in page  # now unlinked: excluded
+
+
+def test_album_exclusions(libraries) -> None:
+    from tagdrifter.secondary import album_exclusions, excluded_by_folder
+
+    with Store(libraries.database_path) as store:
+        assert album_exclusions(store, "Pixies") is None  # no audio directly in it
+        album = album_exclusions(store, "/Pixies/Doolittle/")
+        assert album is not None and album.excluded == 0 and not album.rules
+        assert (album.release.rule.kind, album.release.saved) == ("release", False)
+        assert album.release.rule.label == "Pixies - Doolittle"
+        assert (album.artist.rule.kind, album.artist.rule.label, album.artist.files) == (
+            "artist",
+            "Pixies",
+            1,  # Other has its own album artist MBID
+        )
+        (track,) = album.tracks.values()
+        assert track.rule.kind == "track" and track.rule.label == "Pixies - Debaser"
+        assert excluded_by_folder(store) == {}
+
+        store.add_secondary_exclusions([album.release.rule])
+        album = album_exclusions(store, "Pixies/Doolittle")
+        assert album.excluded == 1 and album.release.saved and album.release.rule.id
+        # Other/Elsewhere is tagged with the same release MBID, so the rule covers it too.
+        (view,) = album.rules
+        assert (view.rule, view.files) == (album.release.rule, 2)
+        assert album.by_track == {"Pixies/Doolittle/01 Debaser.flac": [album.release.rule]}
+        assert excluded_by_folder(store) == {"Pixies/Doolittle": 1, "Other/Elsewhere": 1}
+
+
+def test_library_exclusion_toggles(libraries) -> None:
+    from fastapi.testclient import TestClient
+
+    from tagdrifter.web import create_app
+
+    url = "/library/album?folder=Pixies%2FDoolittle"
+    with TestClient(create_app(libraries), follow_redirects=False) as c:
+        page = c.get(url).text
+        assert 'id="secondary"' in page and "Every track of this album belongs" in page
+        assert "Exclude every album by Pixies (1 track)" in page
+        assert "Include again" not in page
+
+        form = {"folder": "Pixies/Doolittle", "kind": "release"}
+        response = c.post("/library/exclude", data=form)
+        assert response.headers["location"] == url + "#secondary"
+        page = c.get(url).text
+        assert "This album is left out of the secondary library." in page
+        assert "Include again" in page and "Exclude this album" not in page
+        assert ">excluded</span>" in c.get("/library").text
+        assert "Pixies/Doolitle/01 Debaser.flac" in c.get("/secondary/analysis").text  # unlink
+
+        with Store(libraries.database_path) as store:
+            (rule,) = store.secondary_exclusions()
+        response = c.post(f"/secondary/exclusions/{rule.id}/delete", data={"next": url})
+        assert response.headers["location"] == url
+        assert c.post(f"/secondary/exclusions/{rule.id}/delete").headers["location"] == (
+            "/secondary"
+        )
+
+        path = "Pixies/Doolittle/01 Debaser.flac"
+        response = c.post("/library/exclude", data={**form, "kind": "track", "path": path})
+        assert response.headers["location"] == url + "#tracks"
+        with Store(libraries.database_path) as store:
+            assert [r.kind for r in store.secondary_exclusions()] == ["track"]
+        bad = [{**form, "kind": "nope"}, {**form, "kind": "track"}, {**form, "folder": "Pixies"}]
+        for data in bad:
+            assert c.post("/library/exclude", data=data).status_code == 404
+
+    off = replace(libraries, secondary_path=None)
+    with TestClient(create_app(off)) as c:
+        assert 'id="secondary"' not in c.get(url).text
+        assert c.post("/library/exclude", data=form).status_code == 404
 
 
 def test_secondary_page_problems_and_off(library, tmp_path) -> None:

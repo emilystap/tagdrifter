@@ -610,6 +610,21 @@ class Store:
             f"SELECT path, tags_json IS NULL AS unreadable, {tags} FROM files"
         ).fetchall()
 
+    def file_tags(self, keys: Sequence[str]) -> dict[str, dict[str, tuple[str, ...]] | None]:
+        """{path: {tag: values}} of every cached file, for just these tags (None = unreadable).
+        Much cheaper than load_file_cache when only a few tags are needed."""
+        cols = ", ".join(f"json_extract(tags_json, '$.{k}')" for k in keys)
+        out: dict[str, dict[str, tuple[str, ...]] | None] = {}
+        for path, unreadable, *values in self.conn.execute(
+            f"SELECT path, tags_json IS NULL, {cols} FROM files"
+        ):
+            out[path] = (
+                None
+                if unreadable
+                else {k: tuple(json.loads(v)) for k, v in zip(keys, values, strict=True) if v}
+            )
+        return out
+
     def open_issues_by_album(self) -> dict[str, int]:
         """{album folder: open issue count}, for issues that belong to an album."""
         return dict(

@@ -203,6 +203,7 @@ a.tile:hover { border-color: var(--accent); text-decoration: none; }
 .button:hover { border-color: var(--accent); text-decoration: none; }
 .button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .button.primary:hover { filter: brightness(1.08); }
+.button.compact { padding: 2px 8px; font-size: 0.8rem; }
 
 /* --- Issues ------------------------------------------------------------------------- */
 
@@ -361,11 +362,15 @@ details summary { cursor: pointer; }
 .library-table .badge { margin-left: 6px; }
 .crumbs { margin: 0 0 12px; }
 .album-section, .album-head { margin-bottom: 16px; }
+.album-section { scroll-margin-top: 72px; }  /* clear the sticky header when linked to */
 .album-title { font-size: 1.4rem; margin: 0; overflow-wrap: anywhere; }
 .album-artist { font-size: 1.05rem; margin: 2px 0 4px; }
 .album-folder { margin-top: 6px; overflow-wrap: anywhere; }
 .album-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
 .album-section h2 { display: flex; align-items: center; gap: 8px; }
+.album-section form { margin: 0; }
+.secondary-cell { white-space: nowrap; }
+.secondary-cell form { display: inline-block; margin-left: 4px; }
 .album-section .issue { background: var(--bg); }
 .album-section td { overflow-wrap: break-word; }
 .album-section td.path { overflow-wrap: anywhere; min-width: 12em; }
