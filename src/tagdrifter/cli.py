@@ -19,11 +19,12 @@ from . import __version__, library, secondary
 from .checks import REGISTRY
 from .config import Settings, load_settings
 from .core import is_mbid
-from .core.secondary import EXCLUSION_KINDS, Exclusion, normalize_extension
+from .core.secondary import EXCLUSION_KINDS, Exclusion, normalize_extension, plan_fingerprint
 from .db import IssueFilter, Store
 from .musicbrainz import client_for, refresh_releases
 from .renamer import apply_albums, library_writable, plan_albums
 from .scanner import ScanProgress, run_scan
+from .secondary_write import SyncError, apply_sync
 
 
 class StatusLine:
@@ -384,8 +385,9 @@ def cmd_scans(settings: Settings, args: argparse.Namespace) -> int:
 
 
 def cmd_secondary(settings: Settings, args: argparse.Namespace) -> int:
-    """What keeping the secondary library in step would change, and its exclusions. Reads
-    only, except --save, which saves the proposed exclusions (to the database)."""
+    """What keeping the secondary library in step would change, and its exclusions; with
+    --apply, make those changes (needs [secondary] sync). Otherwise it only reads, except
+    --save and --exclude-type, which save exclusions (to the database)."""
     if settings.secondary_path is None:
         print("error: no secondary library is set; set [secondary] path or "
               "TAGDRIFTER_SECONDARY.", file=sys.stderr)  # fmt: skip
@@ -477,7 +479,48 @@ def cmd_secondary(settings: Settings, args: argparse.Namespace) -> int:
         n = sum(p.files for p in result.proposals)
         print(f"\n{n:,} of the files to link aren't in the secondary today; "
               "`tagdrifter secondary --propose` suggests exclusions for them.")  # fmt: skip
-    print(f"\n{plan.changes:,} change{'s' * (plan.changes != 1)} (nothing is changed yet).")
+    n = plan.changes
+    if not args.apply or not n:
+        note = "run with --apply to make them" if n else "the secondary is in step"
+        print(f"\n{n:,} change{'s' * (n != 1)} ({note}).")
+        return 0
+    if not settings.secondary_sync:
+        print("error: syncing is off; set TAGDRIFTER_SECONDARY_SYNC=true or [secondary] "
+              "sync = true.", file=sys.stderr)  # fmt: skip
+        return 2
+    only_copies = sum(s.only_copy for s in plan.replaces)
+    if only_copies and not args.replace_only_copies:
+        print(f"note: {only_copies:,} only copies won't be replaced (--replace-only-copies).")
+    if not args.yes:
+        if not sys.stdin.isatty():
+            print("error: pass --yes to sync without a prompt.", file=sys.stderr)
+            return 2
+        if input(f"Make these {n:,} changes? [y/N] ").strip().lower() not in ("y", "yes"):
+            return 1
+    status = StatusLine()
+    with Store(settings.database_path) as store:
+        try:
+            synced = apply_sync(
+                settings,
+                store,
+                plan_fingerprint(plan),
+                replace_only_copies=args.replace_only_copies,
+                trigger="cli",
+                progress=lambda done, total: status.update(f"Syncing {done:,}/{total:,}"),
+            )
+        except SyncError as exc:
+            status.clear()
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+    status.clear()
+    made = ", ".join(f"{v:,} {k}" for k, v in synced.applied.items() if k != "mkdir")
+    print(f"Sync #{synced.sync_id}: {made or 'no changes'}.")
+    for why in synced.skipped:
+        print(f"skipped  {why}")
+    if synced.error:
+        print(f"error: stopped at {synced.error}; syncing again picks up from here.",
+              file=sys.stderr)  # fmt: skip
+        return 1
     return 0
 
 
@@ -563,6 +606,14 @@ def build_parser() -> argparse.ArgumentParser:
         action="append",
         metavar="EXT",
         help="leave every file with this extension out of the secondary, e.g. .lrc (repeatable)",
+    )
+    second.add_argument(
+        "--apply", action="store_true", help="make the changes (needs [secondary] sync)"
+    )
+    second.add_argument(
+        "--replace-only-copies",
+        action="store_true",
+        help="with --apply: also replace files in the way that are the only copy of their data",
     )
     second.add_argument("--yes", "-y", action="store_true", help="don't ask for confirmation")
     second.set_defaults(func=cmd_secondary)

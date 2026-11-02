@@ -26,7 +26,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, bulk renames ✅, later a first-run password setup | ⏳ |
 | 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, other releases ranked by track-length fit ✅, refresh on demand ✅, then Picard-style retagging | ⏳ |
 | 7 | Library browser: search any album, release page with tags and the MusicBrainz tracklist ✅, then embedded cover art | ⏳ |
-| 8 | Secondary library kept in step by hard links: plan, exclusions and proposed exclusions ✅, then applying the plan, exclusion toggles on the Library pages and automatic syncs | ⏳ |
+| 8 | Secondary library kept in step by hard links: plan, exclusions and proposed exclusions ✅, syncing ✅, then exclusion toggles on the Library pages and automatic syncs | ⏳ |
 
 ## Quick start (local)
 
@@ -44,6 +44,7 @@ uv run tagdrifter scans                  # scan history
 uv run tagdrifter rename --dry-run       # proposed renames for every album (bulk; see below)
 uv run tagdrifter refresh "Artist/Album"   # look its release up on MusicBrainz again
 uv run tagdrifter secondary              # what keeping the secondary library in step would change
+uv run tagdrifter secondary --apply      # ...and make those changes (needs [secondary] sync)
 uv run tagdrifter serve                  # web UI on http://127.0.0.1:8080
 ```
 
@@ -120,9 +121,11 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
 - **Secondary library (optional)**: with `TAGDRIFTER_SECONDARY` set, *Secondary* shows what
   keeping a second, hard-linked copy of the library in step would change: new files to link,
   links to move after renames, excluded files to unlink. Exclusions follow MusicBrainz IDs (album
-  artist, release, track), a path or a file type (e.g. `.lrc`), and the page proposes the exclusions that describe what an
-  existing copy leaves out. It only reads for now. See
-  [docs/deployment.md](docs/deployment.md#optional-a-secondary-library).
+  artist, release, track), a path or a file type (e.g. `.lrc`), and the page proposes the
+  exclusions that describe what an existing copy leaves out. With `TAGDRIFTER_SECONDARY_SYNC`,
+  *Sync* makes the changes: only hard links are created, moved or removed in the secondary,
+  never the library, and a file that isn't a link to a library file is never removed unasked.
+  See [docs/deployment.md](docs/deployment.md#optional-a-secondary-library).
 - **Login (optional)**: set a password hash and every page needs a login; sessions last 30
   days. Generate the hash with `tagdrifter hash-password` and set it as
   `TAGDRIFTER_PASSWORD_HASH` or `[web] password_hash`. Without one, there's no login (rely on
@@ -215,6 +218,7 @@ src/tagdrifter/
   config.py      Settings: defaults < config.toml < TAGDRIFTER_* env vars < CLI flags
   renamer.py     Rename plans (preview), apply with a journal, undo
   secondary.py   Secondary library: safety checks, walks, sync plan (core/secondary.py)
+  secondary_write.py  The guarded write path and applying a sync, with a journal
   library.py     Library browser: album list, search and release pages from the cache
   notify.py      Notifications (Gotify): new issues after a scan, failures
   musicbrainz.py MusicBrainz client (rate-limited) and release cache sync

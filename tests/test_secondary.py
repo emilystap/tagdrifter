@@ -1,7 +1,7 @@
 """Secondary library (secondary.py, core/secondary.py): the plan that keeps a hard-linked copy
 of the library in step, exclusions, and the exclusions proposed from an existing copy."""
 
-import os
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -25,7 +25,7 @@ from tagdrifter.core.secondary import (
 from tagdrifter.db import Store
 from tagdrifter.secondary import MARKER, analyze, check, validate_settings, walk
 
-from .conftest import build_flac, good_tags, scan, settings_for
+from .conftest import build_flac, good_tags, settings_for
 
 A1 = "aaaaaaaa-0000-4000-8000-000000000001"
 A2 = "aaaaaaaa-0000-4000-8000-000000000002"
@@ -254,33 +254,6 @@ def test_check_needs_the_marker(tmp_path) -> None:
 # --- On disk ------------------------------------------------------------------------------
 
 
-def link(lib: Path, sec: Path, rel: str, dst: str | None = None) -> None:
-    target = sec / (dst or rel)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    os.link(lib / rel, target)
-
-
-@pytest.fixture
-def libraries(tmp_path):
-    """A library of two artists and a secondary that has only Pixies, with Doolittle linked
-    under its old folder name and its cover not linked."""
-    lib, sec = tmp_path / "libraries" / "music", tmp_path / "libraries" / "secondary"
-    build_flac(lib / "Pixies/Doolittle/01 Debaser.flac", good_tags())
-    (lib / "Pixies/Doolittle/01 Debaser.lrc").write_text("[00:00] la")
-    (lib / "Pixies/Doolittle/cover.jpg").write_bytes(b"jpg")
-    other = "99999999-9999-4999-8999-999999999999"
-    tags = good_tags(ALBUMARTIST="Other", ALBUM="Elsewhere", musicbrainz_albumartistid=other)
-    build_flac(lib / "Other/Elsewhere/01 Song.flac", tags)
-    sec.mkdir(parents=True)
-    (sec / MARKER).touch()
-    for name in ("01 Debaser.flac", "01 Debaser.lrc"):
-        link(lib, sec, f"Pixies/Doolittle/{name}", f"Pixies/Doolitle/{name}")
-    (sec / ".DS_Store").write_bytes(b"x")
-    settings = settings_for(lib, tmp_path, secondary_path=sec)
-    scan(settings)
-    return settings
-
-
 def test_walk_records_links(libraries) -> None:
     sec = walk(libraries.secondary_path, libraries.ignore_patterns, skip=frozenset({MARKER}))
     assert sorted(sec.files) == [f"Pixies/Doolitle/01 Debaser.{e}" for e in ("flac", "lrc")]
@@ -456,3 +429,19 @@ def test_secondary_cli(libraries, capsys, monkeypatch) -> None:
     assert main([*args, "secondary", "--exclude-type", "a b"]) == 2
     assert main([*args, "secondary"]) == 0
     assert "Pixies/Doolitle/01 Debaser.lrc  (excluded)" in capsys.readouterr().out
+
+
+def test_the_marker_can_be_turned_off(tmp_path) -> None:
+    lib, sec = tmp_path / "music", tmp_path / "secondary"
+    lib.mkdir()
+    sec.mkdir()
+    settings = settings_for(lib, tmp_path, secondary_path=sec)
+    assert MARKER in check(settings).problems[0]
+    assert "TAGDRIFTER_SECONDARY_MARKER=false" in check(settings).problems[0]
+    assert check(replace(settings, secondary_marker=False)).ok
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("[secondary]\nmarker = false\n", encoding="utf-8")
+    assert load_settings(cfg, env={}).secondary_marker is False
+    env = {"TAGDRIFTER_SECONDARY_MARKER": "false"}
+    assert load_settings(env=env).secondary_marker is False
+    assert load_settings(env={}).secondary_marker is True

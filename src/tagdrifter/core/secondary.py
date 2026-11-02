@@ -367,6 +367,18 @@ def propose_extensions(
     return proposals
 
 
+def plan_fingerprint(plan: SyncPlan) -> str:
+    """Identifies a plan's changes, so applying it can check it's still the one previewed."""
+    rows = [
+        *(f"link {p}" for p in plan.links),
+        *(f"move {m.src}\t{m.dst}" for m in plan.moves),
+        *(f"unlink {p}" for p, _ in plan.unlinks),
+        *(f"replace {s.path} {s.only_copy}" for s in plan.replaces),
+        *(f"rmdir {p}" for p in plan.rmdirs),
+    ]
+    return hashlib.sha256("\n".join(sorted(rows)).encode()).hexdigest()[:16]
+
+
 def proposals_fingerprint(proposals: Iterable[Proposal]) -> str:
     """Identifies a list of proposals, so saving them can check nothing changed since."""
     text = "\n".join(sorted(f"{p.exclusion.kind} {p.exclusion.key}" for p in proposals))

@@ -365,18 +365,32 @@ present, are in the git-ignored `CLAUDE.local.md`.
      then album folders, then tracks, by shared MBID only when no linked file has it, else by
      path; `propose_extensions` adds non-audio extensions with no file in the secondary.
      Over SMB from Windows, inode numbers match the server's but link counts read 1. `secondary.py`: `validate_settings` (startup: not the library, inside it, around it,
-     or a filesystem root), `check` (a `.tagdrifter-secondary` marker file in its root, same
+     or a filesystem root), `check` (a `.tagdrifter-secondary` marker file in its root unless `secondary_marker` /
+     `[secondary] marker` / `TAGDRIFTER_SECONDARY_MARKER` is off; same
      `st_dev`; warnings: separate mounts per `/proc/self/mountinfo`, since link() across mounts
      fails with EXDEV even on one filesystem, and read-only), `walk` (lstat, no symlinks),
      `analyze`. `/secondary` (+ `/secondary/analysis`, loaded after the page; proposals saved
      with a fingerprint; *Exclude a file type*) and `tagdrifter secondary [--propose [--save]]
      [--exclude-type EXT]`.
-   - 8b: apply with journal + undo, through one guarded write module: only link / rename /
-     unlink / mkdir / rmdir via dir fds with `follow_symlinks=False`, sources inside the
-     library and destinations inside the secondary, never a file's contents, never unlinking
-     a link count of 1 without approval for that file; never writes to the library. Needs one
-     read-write mount holding both, and `fs.protected_hardlinks` means the container's user
-     must own the library's files or be able to read and write them.
+   - 8b ✅ Sync (`secondary_write.py`, off unless `secondary_sync` / `[secondary] sync` /
+     `TAGDRIFTER_SECONDARY_SYNC`). `SecondaryWriter` is the only write path: link (library ->
+     secondary), move (link to the new name, then unlink: never overwrites), unlink (only if
+     the inode is the planned one and the link count is above 1, unless approved), mkdir /
+     rmdir (empty only). Never opens a file for writing, never touches the library. Paths are
+     split by hand (no "", ".", ".."); on Linux every component is opened with
+     O_DIRECTORY | O_NOFOLLOW from a dir fd and the *at calls use it (`USE_FDS`), elsewhere
+     each component is lstat'ed (symlinks, junctions refused). `apply_sync` takes the
+     previewed `plan_fingerprint`, re-plans, refuses on problems or warnings (separate mounts,
+     read-only), re-checks the marker, then: unlinks, replaces (only copies skipped unless
+     `replace_only_copies`), moves (waiting for a destination freed by another move; a cycle
+     parks one link as `<name>.tagdrifter-move`), links, rmdirs. Stops at the first error
+     (`_explain` names EXDEV / EROFS / EPERM = protected_hardlinks); retrying is safe since the
+     plan is recomputed. Journal: `secondary_syncs` / `secondary_ops` (migration 10), no undo
+     (everything but replacing an only copy is redone by syncing again). One sync at a time per
+     process (`_LOCK`). `POST /secondary/sync`, *Recent syncs*, `tagdrifter secondary --apply
+     [--replace-only-copies] [--yes]`. Needs one read-write mount holding both, and
+     `fs.protected_hardlinks` means the container's user must own the library's files or be
+     able to read and write them. Scans aren't paused: a sync never touches the library.
    - 8c: exclusion toggles on the Library pages (artist, album, track).
    - 8d: automatic sync after scans and renames for changes that never free a last copy;
      the rest waits for approval; failures notify.

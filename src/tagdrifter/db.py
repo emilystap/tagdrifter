@@ -142,6 +142,25 @@ MIGRATIONS: list[str] = [
         UNIQUE (kind, key)
     );
     """,
+    # 10: secondary library sync journal (secondary_write.py): each change as it was made
+    """
+    CREATE TABLE secondary_syncs (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        started_at  TEXT NOT NULL,
+        finished_at TEXT,
+        status      TEXT NOT NULL, -- running | applied | failed
+        trigger     TEXT NOT NULL, -- manual | cli
+        error       TEXT
+    );
+    CREATE TABLE secondary_ops (
+        id      INTEGER PRIMARY KEY AUTOINCREMENT,
+        sync_id INTEGER NOT NULL REFERENCES secondary_syncs(id),
+        kind    TEXT NOT NULL, -- link | move | unlink | replace | mkdir | rmdir
+        path    TEXT NOT NULL, -- secondary-relative
+        src     TEXT NOT NULL  -- link: library path; move: old path; unlink: why; else ''
+    );
+    CREATE INDEX secondary_ops_sync ON secondary_ops(sync_id);
+    """,
 ]
 
 # Why a scan ran. Follow-up rescans (FOLLOW_UP_REASONS) are hidden from the Scans page by
@@ -796,3 +815,40 @@ class Store:
                 "DELETE FROM secondary_exclusions WHERE id = ?", (exclusion_id,)
             )
         return cursor.rowcount > 0
+
+    def start_secondary_sync(self, trigger: str) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO secondary_syncs (started_at, status, trigger)"
+                " VALUES (?, 'running', ?)",
+                (utcnow(), trigger),
+            )
+        return int(cur.lastrowid)
+
+    def record_secondary_op(self, sync_id: int, kind: str, path: str, src: str = "") -> None:
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO secondary_ops (sync_id, kind, path, src) VALUES (?, ?, ?, ?)",
+                (sync_id, kind, path, src),
+            )
+
+    def finish_secondary_sync(self, sync_id: int, status: str, error: str | None = None) -> None:
+        with self.conn:
+            self.conn.execute(
+                "UPDATE secondary_syncs SET status = ?, error = ?, finished_at = ? WHERE id = ?",
+                (status, error, utcnow(), sync_id),
+            )
+
+    def secondary_syncs(self, limit: int = 20) -> list[sqlite3.Row]:
+        """Recent syncs, newest first, with how many changes each made (folders created
+        along the way not counted)."""
+        return self.conn.execute(
+            "SELECT s.*, (SELECT COUNT(*) FROM secondary_ops o WHERE o.sync_id = s.id"
+            " AND o.kind != 'mkdir') AS changes FROM secondary_syncs s ORDER BY s.id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+    def secondary_ops(self, sync_id: int) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            "SELECT * FROM secondary_ops WHERE sync_id = ? ORDER BY id", (sync_id,)
+        ).fetchall()

@@ -63,8 +63,14 @@ enabled = false
 [secondary]
 # A secondary library: the library's structure made of hard links to its files, minus exclusions
 # (set on the Secondary page). On the same filesystem and, in Docker, under the same mount as
-# the library. Its root must hold an empty `.tagdrifter-secondary` file. Env: TAGDRIFTER_SECONDARY.
+# the library. Its root must hold an empty `.tagdrifter-secondary` file (see `marker`).
+# Env: TAGDRIFTER_SECONDARY.
 # path = "M:/secondary"
+# Allow syncing it (needs write access to the secondary). Env: TAGDRIFTER_SECONDARY_SYNC.
+sync = false
+# Require the `.tagdrifter-secondary` file, so a mistyped path does nothing. Turn it off if
+# whatever reads the secondary would show the file. Env: TAGDRIFTER_SECONDARY_MARKER.
+marker = true
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

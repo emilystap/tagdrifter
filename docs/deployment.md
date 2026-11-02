@@ -207,11 +207,12 @@ files minus the artists, releases, tracks or folders you exclude: for a music se
 person) that should see only part of the library and can't exclude anything itself. Links take
 no extra space, and tag edits made in place show in both. Tag Drifter works out what keeps it
 in step: library files to link, links to move after a rename, excluded files to unlink, empty
-folders to remove. **For now it only shows these changes**; applying them comes later.
+folders to remove. It shows these changes first; *Sync* makes them (when you allow it).
 
 1. Hard links can't cross filesystems (or ZFS datasets), and the container must see both
    folders through **one mount**: a link between two mounts fails even when they're the same
-   filesystem. Put the two side by side in a folder that holds nothing else and mount that:
+   filesystem. Put the two side by side in a folder that holds as little else as possible and
+   mount that. Start read-only to look at the changes first:
 
    ```yaml
        volumes:
@@ -225,7 +226,11 @@ folders to remove. **For now it only shows these changes**; applying them comes 
    the next scan re-read every file. The secondary can't be the library, inside it, or around it.
 2. Create an empty file named `.tagdrifter-secondary` in the secondary folder (e.g.
    `touch /path/to/music_libraries/secondary/.tagdrifter-secondary`). Without it Tag Drifter
-   won't look at the folder, so a mistyped path can't do anything.
+   won't look at the folder, so a mistyped path can't do anything. If whatever reads the
+   secondary would show that file, set `TAGDRIFTER_SECONDARY_MARKER: "false"` instead and
+   double-check the path: a sync to the wrong folder still never deletes anything there (it
+   only removes links to library files whose data exists elsewhere), but it would fill that
+   folder with links.
 3. Open *Secondary* after a scan. If the secondary already exists, it proposes exclusions that
    describe what it leaves out today: an artist folder with no links becomes an album artist
    exclusion, an album a release exclusion, a single track a track exclusion (all by MusicBrainz
@@ -242,9 +247,34 @@ are left out when all the audio in their album (or artist) folder is. A sync nev
 secondary file that isn't a link to a library file; those are listed as left alone, marked
 *only copy* when no other link to them exists.
 
-Writing the links will need the container's user to own the library's files, or to be able to
-read and write them: Linux refuses to hard-link anything else when `fs.protected_hardlinks` is
-on, as it is on most systems.
+### Syncing
+
+To let Tag Drifter make the changes, change the mount to `:rw` and set
+`TAGDRIFTER_SECONDARY_SYNC: "true"` (or `[secondary] sync = true`). *Sync* on the page (or
+`tagdrifter secondary --apply`) then applies exactly the changes it listed; if anything
+changed in between, it asks you to look again.
+
+What a sync can do is narrow, and checked right before each change:
+
+- It creates, moves and removes **hard links in the secondary** and creates and removes empty
+  folders there. It never writes into a file and never changes the library: library files are
+  only ever the source of a link (so the read-write mount doesn't put the library at risk from
+  Tag Drifter, though renames there still need `TAGDRIFTER_FIX`).
+- Every path stays inside the two folders, and symlinks are never followed.
+- A file is removed only if it's still the file the plan saw, and only while another link to
+  its data exists. A file in the way that's the **only copy** of its data is left alone unless
+  you tick *Also replace … only copy* for that sync.
+- Nothing is overwritten; moves that swap names go through a temporary name.
+
+A sync stops at the first error and says why (for example a link refused because of
+permissions). Nothing is lost: the next sync starts from the libraries as they are. Each sync's
+changes are listed under *Recent syncs*. There's no undo: everything a sync does can be redone
+by syncing again (after removing an exclusion, say), except replacing an only copy, which
+needs your tick.
+
+The container's user must own the library's files, or be able to read and write them: Linux
+refuses to hard-link anything else when `fs.protected_hardlinks` is on, as it is on most
+systems.
 
 ## Optional: config.toml
 

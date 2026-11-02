@@ -4,11 +4,12 @@ The secondary is a folder with the library's structure, made of hard links to it
 excluded artists, releases, tracks or paths, for a music server or another reader that can't
 exclude anything itself. Links take no space, and tag edits made in place show in both.
 
-This module only reads (roadmap: applying the plan comes next). Safety rules, checked here:
+This module only reads; secondary_write.py applies the plan. Safety rules, checked here:
 
 - The secondary is set explicitly (`secondary_path`) and is neither the library, inside it,
   nor around it, nor a filesystem root (`validate_settings`, at startup).
-- Its root holds a marker file (MARKER) that you create by hand, so a path pointing at the
+- Its root holds a marker file (MARKER) that you create by hand (unless `secondary_marker`
+  is off), so a path pointing at the
   wrong folder does nothing.
 - Both are on one filesystem (`st_dev`); links between two mounts fail (EXDEV) even when they
   are the same filesystem, so applying will also need them under one mount.
@@ -68,7 +69,7 @@ def validate_settings(settings: Settings) -> None:
 @dataclass
 class Status:
     problems: list[str] = field(default_factory=list)  # nothing can be planned
-    warnings: list[str] = field(default_factory=list)  # fine for a preview, not for applying
+    warnings: list[str] = field(default_factory=list)  # fine for a preview, not for syncing
 
     @property
     def ok(self) -> bool:
@@ -99,6 +100,19 @@ def _mounts() -> list[str]:
     return points
 
 
+def check_marker(settings: Settings) -> None:
+    """Raise ValueError unless the secondary's root holds the marker file (or it isn't
+    required)."""
+    secondary = settings.secondary_path
+    assert secondary is not None
+    if settings.secondary_marker and not (secondary / MARKER).is_file():
+        raise ValueError(
+            f"{secondary} has no {MARKER} file. Create an empty file with that name in it to "
+            "confirm it's the secondary library (a safeguard against a wrong path), or turn "
+            "the check off with TAGDRIFTER_SECONDARY_MARKER=false."
+        )
+
+
 def check(settings: Settings) -> Status:
     """Whether the secondary can be planned (problems) and later written (warnings)."""
     status = Status()
@@ -112,11 +126,10 @@ def check(settings: Settings) -> Status:
     if not library.is_dir():
         status.problems.append(f"The library {library} isn't a folder (or isn't mounted).")
         return status
-    if not (secondary / MARKER).is_file():
-        status.problems.append(
-            f"{secondary} has no {MARKER} file. Create an empty file with that name in it to "
-            "confirm it's the secondary library (a safeguard against a wrong path)."
-        )
+    try:
+        check_marker(settings)
+    except ValueError as exc:
+        status.problems.append(str(exc))
     if secondary.stat().st_dev != library.stat().st_dev:
         status.problems.append(
             "The secondary and the library are on different filesystems, so they can't share "
@@ -133,7 +146,9 @@ def check(settings: Settings) -> Status:
             "even of one filesystem, so mount their common parent folder once instead."
         )
     if not os.access(secondary, os.W_OK):
-        status.warnings.append("The secondary is read-only here, which is fine for a preview.")
+        status.warnings.append(
+            "The secondary is read-only here, so it can't be synced (fine for a preview)."
+        )
     return status
 
 
@@ -185,6 +200,8 @@ class Analysis:
     # MBID rules) aren't known, so only path rules apply to them
     unscanned: int = 0
     main_other: int = 0  # symlinks etc. in the library: not linked
+    main: Tree | None = None  # the walks the plan came from (for applying it)
+    secondary: Tree | None = None
 
 
 def analyze(settings: Settings, store: Store) -> Analysis:
@@ -232,4 +249,5 @@ def analyze(settings: Settings, store: Store) -> Analysis:
     analysis.main_files = len(main.files)
     analysis.excluded = len(excluded)
     analysis.main_other = len(main.other)
+    analysis.main, analysis.secondary = main, secondary
     return analysis
