@@ -1,0 +1,147 @@
+{#- /secondary's contents: status, exclusions, proposed exclusions and the sync plan. -#}
+{% macro listing(title, rows, note="") %}
+  {% if rows %}
+  <details class="group-issues">
+    <summary>{{ title }} ({{ "{:,}".format(rows | length) }})</summary>
+    {% if note %}<p class="muted small">{{ note }}</p>{% endif %}
+    <ul class="moves small">
+      {% for row in rows[:limit] %}{{ caller(row) }}{% endfor %}
+    </ul>
+    {% if rows | length > limit %}
+      <p class="muted small">… {{ "{:,}".format(rows | length - limit) }} more (<code>tagdrifter secondary --limit 0</code> lists all).</p>
+    {% endif %}
+  </details>
+  {% endif %}
+{% endmacro %}
+{% macro rule_cells(rule, files, folder) %}
+  <td><span class="badge">{{ exclusion_kinds[rule.kind] }}</span></td>
+  <td>
+    {{ rule.label }}
+    {% if rule.kind != "path" %}<div class="muted small"><code>{{ rule.key }}</code></div>{% endif %}
+  </td>
+  <td class="num">{{ "{:,}".format(files) }}</td>
+  <td class="path small">{{ folder }}</td>
+{% endmacro %}
+
+{% if not result.status.ok %}
+<section class="panel">
+  <h2>Can’t compare the libraries yet</h2>
+  {% for problem in result.status.problems %}<p class="rename-problem">{{ problem }}</p>{% endfor %}
+</section>
+{% else %}
+{% set plan = result.plan %}
+<section class="tiles">
+  <div class="tile">
+    <span class="tile-label">Linked in place</span>
+    <span class="tile-value">{{ "{:,}".format(plan.unchanged) }}</span>
+    <span class="tile-sub">of {{ "{:,}".format(result.main_files) }} library files</span>
+  </div>
+  <div class="tile">
+    <span class="tile-label">Changes a sync would make</span>
+    <span class="tile-value">{{ "{:,}".format(plan.changes) }}</span>
+    <span class="tile-sub">{{ "{:,}".format(plan.links | length) }} links · {{ "{:,}".format(plan.moves | length) }} moves · {{ "{:,}".format(plan.unlinks | length) }} unlinks</span>
+  </div>
+  <div class="tile">
+    <span class="tile-label">Excluded</span>
+    <span class="tile-value">{{ "{:,}".format(result.excluded) }}</span>
+    <span class="tile-sub">library files left out</span>
+  </div>
+  <div class="tile">
+    <span class="tile-label">Left alone</span>
+    <span class="tile-value">{{ "{:,}".format(plan.strays | length + plan.other | length) }}</span>
+    <span class="tile-sub">secondary files that aren’t links to library files</span>
+  </div>
+</section>
+{% for warning in result.status.warnings %}<p class="muted small">Note: {{ warning }}</p>{% endfor %}
+{% if result.unscanned %}
+  <p class="muted small">Note: {{ "{:,}".format(result.unscanned) }} audio file{% if result.unscanned != 1 %}s{% endif %} changed since the last scan, so only path exclusions apply to {% if result.unscanned != 1 %}them{% else %}it{% endif %} until the next scan.</p>
+{% endif %}
+{% endif %}
+
+<section class="panel">
+  <h2>Exclusions</h2>
+  {% if result.rules %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Kind</th><th>Excludes</th><th class="num">Audio files</th><th>Folder</th><th></th></tr></thead>
+      <tbody>
+        {% for view in result.rules %}
+        <tr>
+          {{ rule_cells(view.rule, view.files, view.folder) }}
+          <td>
+            <form method="post" action="/secondary/exclusions/{{ view.rule.id }}/delete"
+                  onsubmit="return confirm('Remove this exclusion? Its files will be linked at the next sync.')">
+              <button type="submit" class="button">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p class="muted">No exclusions: every library file belongs in the secondary.</p>
+  {% endif %}
+</section>
+
+{% if result.proposals %}
+<section class="panel">
+  <h2>Proposed exclusions</h2>
+  <p class="muted small">
+    {{ "{:,}".format(result.proposals | sum(attribute="files")) }} library audio files have no link
+    in the secondary today. Saving these exclusions keeps them out; otherwise a sync would link them.
+    Album artist, release and track exclusions follow the files’ MusicBrainz IDs, so renaming
+    them doesn’t bring them back.
+  </p>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Kind</th><th>Excludes</th><th class="num">Audio files</th><th>Folder</th></tr></thead>
+      <tbody>
+        {% for p in result.proposals[:limit] %}<tr>{{ rule_cells(p.exclusion, p.files, p.folder) }}</tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if result.proposals | length > limit %}
+    <p class="muted small">… {{ "{:,}".format(result.proposals | length - limit) }} more (<code>tagdrifter secondary --propose --limit 0</code> lists all).</p>
+  {% endif %}
+  <form class="rename-actions" method="post" action="/secondary/exclusions/propose">
+    <input type="hidden" name="fingerprint" value="{{ fingerprint }}">
+    <button type="submit" class="button primary">Save {{ "{:,}".format(result.proposals | length) }} exclusion{% if result.proposals | length != 1 %}s{% endif %}</button>
+  </form>
+</section>
+{% endif %}
+
+{% if result.status.ok %}
+<section class="panel">
+  <h2>Changes a sync would make</h2>
+  {% if not plan.changes and not plan.blocked %}<p class="muted">None: the secondary is in step.</p>{% endif %}
+  {% call(path) listing("Link", plan.links) %}
+    <li><span class="badge">link</span><span class="path">{{ path }}</span></li>
+  {% endcall %}
+  {% call(m) listing("Move (renamed in the library)", plan.moves) %}
+    {% set current, expected = diff_marks(m.src, m.dst) %}
+    <li><span class="badge">move</span><span class="move-paths">
+      <span class="path">{{ current }}</span>
+      <span class="path"><span class="muted" aria-label="becomes">→ </span>{{ expected }}</span>
+    </span></li>
+  {% endcall %}
+  {% call(row) listing("Unlink", plan.unlinks, "The library keeps these files: excluded ones, or a second link to a file that's already linked.") %}
+    <li><span class="badge">{{ row[1] }}</span><span class="path">{{ row[0] }}</span></li>
+  {% endcall %}
+  {% call(s) listing("Replace", plan.replaces, "A different file is where a library file's link belongs, e.g. one replaced in the library instead of edited in place. Files marked only copy exist nowhere else.") %}
+    <li><span class="badge {% if s.only_copy %}warning{% endif %}">{% if s.only_copy %}only copy{% else %}replace{% endif %}</span><span class="path">{{ s.path }}</span></li>
+  {% endcall %}
+  {% call(path) listing("Remove empty folder", plan.rmdirs) %}
+    <li><span class="badge">rmdir</span><span class="path">{{ path }}</span></li>
+  {% endcall %}
+  {% call(row) listing("Blocked", plan.blocked) %}
+    <li><span class="badge error">blocked</span><span class="move-paths"><span class="path">{{ row[0] }}</span><span class="muted">{{ row[1] }}</span></span></li>
+  {% endcall %}
+  {% call(s) listing("Left alone: not links to library files", plan.strays, "Never removed by a sync. Files marked only copy exist nowhere else.") %}
+    <li><span class="badge {% if s.only_copy %}warning{% endif %}">{% if s.only_copy %}only copy{% else %}linked{% endif %}</span><span class="path">{{ s.path }}</span></li>
+  {% endcall %}
+  {% call(path) listing("Left alone: symlinks and other special files", plan.other) %}
+    <li><span class="badge">other</span><span class="path">{{ path }}</span></li>
+  {% endcall %}
+</section>
+{% endif %}

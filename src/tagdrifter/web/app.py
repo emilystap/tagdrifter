@@ -9,7 +9,8 @@ selected and renamed together in the background (bulk.py). Notifications
 (notify.py) go out from the scan runner and for renames left half-done; the dashboard can
 send a test one. With `musicbrainz_enabled`, MusicBrainz lookups trickle in at random times
 in the background and run at once after a scan someone started (mbsync.py); the dashboard
-shows the cache's progress.
+shows the cache's progress. With a secondary library set, /secondary shows what keeping it in
+step would change and its exclusions (secondary.py; reads only for now).
 """
 
 from __future__ import annotations
@@ -34,10 +35,11 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import __version__, library
+from .. import __version__, library, secondary
 from ..checks import REGISTRY, Severity
 from ..checks.builtin_musicbrainz import DEFAULT_TOLERANCE_SECONDS
 from ..config import Settings
+from ..core.secondary import EXCLUSION_KINDS, proposals_fingerprint
 from ..db import FOLLOW_UP_REASONS, SCAN_REASONS, IssueFilter, Store
 from ..musicbrainz import MAX_TRACK_LOOKUPS, SyncResult
 from ..notify import Notifications, NotifyError
@@ -60,6 +62,7 @@ HERE = Path(__file__).parent
 PAGE_SIZE = 100  # issues per page in the flat list
 GROUP_PAGE_SIZE = 50  # albums per page when grouped
 SCAN_PAGE_SIZE = 50  # rows per page of scan history
+SECONDARY_LIST_LIMIT = 200  # rows per list of changes on /secondary
 SEVERITY_ORDER = {Severity.ERROR: 0, Severity.WARNING: 1, Severity.INFO: 2}
 
 
@@ -73,8 +76,9 @@ StoreDep = Annotated[Store, Depends(get_store)]
 
 
 def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
-    """Build the app. Raises ValueError for an invalid scan schedule, password hash or
-    notification setting."""
+    """Build the app. Raises ValueError for an invalid scan schedule, password hash,
+    notification setting or secondary library path."""
+    secondary.validate_settings(settings)
     authenticator = auth.Authenticator(settings)
     notifications = Notifications(settings)
     runner = runner or ScanRunner(settings)
@@ -147,6 +151,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "scheduler": scheduler,
         "auth_enabled": authenticator.enabled,
         "fix_enabled": settings.fix_enabled,
+        "exclusion_kinds": EXCLUSION_KINDS,
         "move_labels": fmt.move_labels,
         "notifications": notifications,
         "mb_sync": mb_sync,
@@ -684,6 +689,59 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
                 )
         app.state.runner.start(reason="undo")
         return RedirectResponse("/renames", status_code=303)
+
+    # --- Secondary library ------------------------------------------------------------
+
+    def require_secondary() -> None:
+        if settings.secondary_path is None:
+            raise HTTPException(404, "No secondary library is set.")
+
+    @app.get("/secondary", response_class=HTMLResponse)
+    def secondary_page(request: Request) -> HTMLResponse:
+        """The page; its contents (both trees walked) load in a second request."""
+        require_secondary()
+        q = request.query_params
+        return render(
+            request, "secondary.html", page="secondary", saved=q.get("saved"), error=q.get("error")
+        )
+
+    @app.get("/secondary/analysis", response_class=HTMLResponse)
+    def secondary_analysis(request: Request, store: StoreDep) -> HTMLResponse:
+        require_secondary()
+        result = secondary.analyze(settings, store)
+        return render(
+            request,
+            "_secondary.html",
+            result=result,
+            fingerprint=proposals_fingerprint(result.proposals),
+            limit=SECONDARY_LIST_LIMIT,
+        )
+
+    @app.post("/secondary/exclusions/propose")
+    async def secondary_save_proposals(request: Request) -> Response:
+        """Save the proposed exclusions, if they're still the ones previewed."""
+        require_secondary()
+        fingerprint = (await _form(request)).get("fingerprint", "")
+
+        def save() -> int | None:
+            with Store(settings.database_path) as store:
+                proposals = secondary.analyze(settings, store).proposals
+                if not proposals or proposals_fingerprint(proposals) != fingerprint:
+                    return None
+                return store.add_secondary_exclusions(p.exclusion for p in proposals)
+
+        added = await asyncio.to_thread(save)
+        if added is None:
+            error = "The libraries changed since the preview; review the proposals again."
+            return RedirectResponse("/secondary?" + urlencode({"error": error}), 303)
+        return RedirectResponse(f"/secondary?saved={added}", status_code=303)
+
+    @app.post("/secondary/exclusions/{exclusion_id}/delete")
+    def secondary_delete_exclusion(exclusion_id: int) -> Response:
+        require_secondary()
+        with Store(settings.database_path) as store:
+            store.delete_secondary_exclusion(exclusion_id)
+        return RedirectResponse("/secondary", status_code=303)
 
     # --- MusicBrainz ------------------------------------------------------------------
 

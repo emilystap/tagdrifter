@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Secondary · Tag Drifter{% endblock %}
+{% block content %}
+<section class="panel">
+  <h2>Secondary library</h2>
+  <p class="muted small">
+    <span class="path">{{ settings.secondary_path }}</span> is a copy of
+    <span class="path">{{ settings.library_path }}</span> made of hard links, minus the exclusions
+    below. This page shows what keeping it in step would change; nothing is changed yet.
+  </p>
+  {% if saved %}<p class="rename-done" role="status">Saved {{ saved }} exclusion{% if saved != "1" %}s{% endif %}.</p>{% endif %}
+  {% if error %}<p class="rename-problem" role="alert">{{ error }}</p>{% endif %}
+</section>
+<div id="secondary" hx-get="/secondary/analysis" hx-trigger="load" hx-swap="innerHTML">
+  <section class="panel"><span class="spinner" aria-hidden="true"></span> Reading both libraries…</section>
+</div>
+{% endblock %}

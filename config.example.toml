@@ -2,7 +2,8 @@
 # Environment variables override these: TAGDRIFTER_LIBRARY, TAGDRIFTER_DB,
 # TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_SCHEDULE, TAGDRIFTER_FIX,
 # TAGDRIFTER_PUBLIC_URL, TAGDRIFTER_GOTIFY_URL, TAGDRIFTER_GOTIFY_TOKEN, TAGDRIFTER_NOTIFY_ON,
-# TAGDRIFTER_MUSICBRAINZ, TAGDRIFTER_MUSICBRAINZ_CONTACT, TAGDRIFTER_CONFIG.
+# TAGDRIFTER_MUSICBRAINZ, TAGDRIFTER_MUSICBRAINZ_CONTACT, TAGDRIFTER_SECONDARY,
+# TAGDRIFTER_CONFIG.
 
 [library]
 path = "M:/music"            # in Docker this will be "/music"
@@ -58,6 +59,12 @@ enabled = false
 # Seconds from each response to the next request (default 1.5). Can't be lower for
 # musicbrainz.org; 0 is fine for a server of your own. Env: TAGDRIFTER_MUSICBRAINZ_INTERVAL.
 # interval = 0
+
+[secondary]
+# A secondary library: the library's structure made of hard links to its files, minus exclusions
+# (set on the Secondary page). On the same filesystem and, in Docker, under the same mount as
+# the library. Its root must hold an empty `.tagdrifter-secondary` file. Env: TAGDRIFTER_SECONDARY.
+# path = "M:/secondary"
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

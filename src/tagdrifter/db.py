@@ -17,6 +17,7 @@ from typing import Any
 
 from .checks import Issue
 from .core import is_mbid
+from .core.secondary import Exclusion
 
 MIGRATIONS: list[str] = [
     # 1: initial schema
@@ -128,6 +129,17 @@ MIGRATIONS: list[str] = [
         fetched_at TEXT NOT NULL,
         data       BLOB,
         PRIMARY KEY (kind, key)
+    );
+    """,
+    # 9: what the secondary library leaves out (core/secondary.py EXCLUSION_KINDS)
+    """
+    CREATE TABLE secondary_exclusions (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind       TEXT NOT NULL, -- artist | release | track | path
+        key        TEXT NOT NULL, -- lower-case MBID(s), or a library-relative path
+        label      TEXT NOT NULL, -- names when it was added, for display
+        created_at TEXT NOT NULL,
+        UNIQUE (kind, key)
     );
     """,
 ]
@@ -756,3 +768,31 @@ class Store:
         if pending_only:
             sql += " AND undone = 0"
         return self.conn.execute(sql + " ORDER BY id", (batch_id,)).fetchall()
+
+    # --- Secondary library ----------------------------------------------------------------
+
+    def secondary_exclusions(self) -> list[Exclusion]:
+        return [
+            Exclusion(r["kind"], r["key"], r["label"], r["id"])
+            for r in self.conn.execute(
+                "SELECT id, kind, key, label FROM secondary_exclusions ORDER BY kind, label, key"
+            )
+        ]
+
+    def add_secondary_exclusions(self, exclusions: Iterable[Exclusion]) -> int:
+        """Save rules (ones already saved are skipped); returns how many were new."""
+        now = utcnow()
+        with self.conn:
+            cursor = self.conn.executemany(
+                "INSERT OR IGNORE INTO secondary_exclusions (kind, key, label, created_at)"
+                " VALUES (?, ?, ?, ?)",
+                [(e.kind, e.key, e.label, now) for e in exclusions],
+            )
+        return cursor.rowcount
+
+    def delete_secondary_exclusion(self, exclusion_id: int) -> bool:
+        with self.conn:
+            cursor = self.conn.execute(
+                "DELETE FROM secondary_exclusions WHERE id = ?", (exclusion_id,)
+            )
+        return cursor.rowcount > 0
