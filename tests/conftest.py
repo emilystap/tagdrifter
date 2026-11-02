@@ -96,6 +96,62 @@ def build_flac(
     return path
 
 
+# One silent MPEG-1 Layer III frame: 128 kbit/s, 44.1 kHz, 417 bytes, 1152 samples.
+MP3_FRAME = b"\xff\xfb\x90\x00" + b"\x00" * 413
+
+
+def build_mp3(
+    path: Path, frames: list | None = None, *, audio_frames: int = 100, v2_version: int = 4
+) -> Path:
+    """Write an MP3 of `audio_frames` silent frames (about 26 ms each) with the given mutagen
+    ID3 frames (None = no ID3 tag at all)."""
+    from mutagen.id3 import ID3
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(MP3_FRAME * audio_frames)
+    if frames is not None:
+        id3 = ID3()
+        for frame in frames:
+            id3.add(frame)
+        id3.save(path, v2_version=v2_version)
+    return path
+
+
+def picard_id3(**overrides: object) -> list:
+    """ID3 frames as Picard writes good_tags() to an MP3, with a 600x400 JPEG front cover.
+    Overrides replace a frame by its HashKey ("TIT2", "TXXX:ARTISTS"); None drops it."""
+    from mutagen.id3 import APIC, TALB, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, UFID
+
+    jpeg = (
+        b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + b"\x00" * 9
+        + b"\xff\xc0\x00\x11\x08" + struct.pack(">HH", 400, 600) + b"\x00" * 10
+    )  # fmt: skip
+    frames = {
+        "TPE2": TPE2(encoding=3, text="Pixies"),
+        "TPE1": TPE1(encoding=3, text="Pixies"),
+        "TALB": TALB(encoding=3, text="Doolittle"),
+        "TIT2": TIT2(encoding=3, text="Debaser"),
+        "TRCK": TRCK(encoding=3, text="1/15"),
+        "TPOS": TPOS(encoding=3, text="1/1"),
+        "TDRC": TDRC(encoding=3, text="1989"),
+        "UFID:http://musicbrainz.org": UFID(
+            owner="http://musicbrainz.org", data=MBIDS["musicbrainz_trackid"].encode()
+        ),
+        "APIC:": APIC(encoding=3, mime="image/jpeg", type=3, desc="", data=jpeg),
+    }
+    for key, desc in [
+        ("musicbrainz_albumid", "MusicBrainz Album Id"),
+        ("musicbrainz_releasegroupid", "MusicBrainz Release Group Id"),
+        ("musicbrainz_artistid", "MusicBrainz Artist Id"),
+        ("musicbrainz_albumartistid", "MusicBrainz Album Artist Id"),
+    ]:
+        frames[f"TXXX:{desc}"] = TXXX(encoding=3, desc=desc, text=MBIDS[key])
+    track_id = "MusicBrainz Release Track Id"
+    frames[f"TXXX:{track_id}"] = TXXX(encoding=3, desc=track_id, text=str(uuid.uuid4()))
+    frames.update(overrides)
+    return [f for f in frames.values() if f is not None]
+
+
 @pytest.fixture
 def flac_factory(tmp_path: Path):
     """Create FLAC files under tmp_path with the given Vorbis comments."""

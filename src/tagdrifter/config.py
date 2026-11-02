@@ -38,7 +38,7 @@ class Settings:
     library_path: Path = Path("/music")
     database_path: Path = Path("data/tagdrifter.db")
     case_sensitive: bool = True
-    audio_extensions: tuple[str, ...] = (".flac",)
+    audio_extensions: tuple[str, ...] = (".flac", ".mp3")
     sidecar_extensions: tuple[str, ...] = (".lrc", ".txt")
     # fnmatch patterns for file/folder names to skip (ZFS snapshots, NAS/OS metadata, ...)
     ignore_patterns: tuple[str, ...] = (".*", "@eaDir", "#recycle", "$RECYCLE.BIN", "Thumbs.db")
