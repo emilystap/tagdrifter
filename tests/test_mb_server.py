@@ -101,3 +101,11 @@ def test_dashboard_names_another_server(library, tmp_path) -> None:
     assert f"MusicBrainz server at <code>{MIRROR}</code>, 0 s between requests" in page
     with TestClient(create_app(settings_for(library, tmp_path, musicbrainz_enabled=True))) as c:
         assert "MusicBrainz server at" not in c.get("/").text
+
+
+def test_footer_credits_musicbrainz_while_lookups_are_on(library, tmp_path) -> None:
+    credit = 'Release data from <a href="https://musicbrainz.org/">MusicBrainz</a>'
+    with TestClient(create_app(settings_for(library, tmp_path, musicbrainz_enabled=True))) as c:
+        assert credit in c.get("/library").text
+    with TestClient(create_app(settings_for(library, tmp_path))) as c:
+        assert credit not in c.get("/library").text
