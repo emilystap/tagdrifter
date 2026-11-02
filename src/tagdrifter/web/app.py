@@ -10,7 +10,8 @@ selected and renamed together in the background (bulk.py). Notifications
 send a test one. With `musicbrainz_enabled`, MusicBrainz lookups trickle in at random times
 in the background and run at once after a scan someone started (mbsync.py); the dashboard
 shows the cache's progress. With a secondary library set, /secondary shows what keeping it in
-step would change and its exclusions (secondary.py; reads only for now).
+step would change and its exclusions (secondary.py), and with `secondary_sync` applies it
+(secondary_write.py).
 """
 
 from __future__ import annotations
@@ -43,6 +44,7 @@ from ..core.secondary import (
     EXCLUSION_KINDS,
     Exclusion,
     normalize_extension,
+    plan_fingerprint,
     proposals_fingerprint,
 )
 from ..db import FOLLOW_UP_REASONS, SCAN_REASONS, IssueFilter, Store
@@ -56,6 +58,7 @@ from ..renamer import (
     plan_albums,
     undo_batch,
 )
+from ..secondary_write import SyncError, apply_sync
 from . import auth
 from . import format as fmt
 from .bulk import BulkRenamer
@@ -702,12 +705,20 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             raise HTTPException(404, "No secondary library is set.")
 
     @app.get("/secondary", response_class=HTMLResponse)
-    def secondary_page(request: Request) -> HTMLResponse:
+    def secondary_page(request: Request, store: StoreDep) -> HTMLResponse:
         """The page; its contents (both trees walked) load in a second request."""
         require_secondary()
         q = request.query_params
+        synced = next(
+            (s for s in store.secondary_syncs(20) if str(s["id"]) == q.get("synced")), None
+        )
         return render(
-            request, "secondary.html", page="secondary", saved=q.get("saved"), error=q.get("error")
+            request,
+            "secondary.html",
+            page="secondary",
+            saved=q.get("saved"),
+            error=q.get("error"),
+            synced=synced,
         )
 
     @app.get("/secondary/analysis", response_class=HTMLResponse)
@@ -719,8 +730,37 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             "_secondary.html",
             result=result,
             fingerprint=proposals_fingerprint(result.proposals),
+            plan_fingerprint=plan_fingerprint(result.plan) if result.plan else "",
+            syncs=store.secondary_syncs(10),
             limit=SECONDARY_LIST_LIMIT,
         )
+
+    @app.post("/secondary/sync")
+    async def secondary_sync(request: Request) -> Response:
+        """Apply the previewed plan (`fingerprint`); `replace_only_copies` approves replacing
+        files that are the only copy of their data."""
+        require_secondary()
+        form = await _form(request)
+
+        def run():
+            with Store(settings.database_path) as store:
+                return apply_sync(
+                    settings,
+                    store,
+                    form.get("fingerprint", ""),
+                    replace_only_copies=form.get("replace_only_copies") == "1",
+                )
+
+        try:
+            result = await asyncio.to_thread(run)
+        except SyncError as exc:
+            return RedirectResponse("/secondary?" + urlencode({"error": str(exc)}), 303)
+        return RedirectResponse(f"/secondary?synced={result.sync_id}", status_code=303)
+
+    @app.get("/secondary/syncs/{sync_id}", response_class=HTMLResponse)
+    def secondary_sync_ops(request: Request, store: StoreDep, sync_id: int) -> HTMLResponse:
+        require_secondary()
+        return render(request, "_secondary_ops.html", ops=store.secondary_ops(sync_id))
 
     @app.post("/secondary/exclusions/propose")
     async def secondary_save_proposals(request: Request) -> Response:

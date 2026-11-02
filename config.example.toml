@@ -65,6 +65,8 @@ enabled = false
 # (set on the Secondary page). On the same filesystem and, in Docker, under the same mount as
 # the library. Its root must hold an empty `.tagdrifter-secondary` file. Env: TAGDRIFTER_SECONDARY.
 # path = "M:/secondary"
+# Allow syncing it (needs write access to the secondary). Env: TAGDRIFTER_SECONDARY_SYNC.
+sync = false
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

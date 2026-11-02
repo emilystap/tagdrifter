@@ -122,6 +122,24 @@
 <section class="panel">
   <h2>Changes a sync would make</h2>
   {% if not plan.changes and not plan.blocked %}<p class="muted">None: the secondary is in step.</p>{% endif %}
+  {% if plan.changes %}
+    {% if not settings.secondary_sync %}
+      <p class="muted small">Syncing is off. Set <code>TAGDRIFTER_SECONDARY_SYNC=true</code> (and mount the folder holding both libraries read-write) to apply these changes.</p>
+    {% elif result.status.warnings %}
+      <p class="muted small">Can’t sync: {{ result.status.warnings | join(" ") }}</p>
+    {% else %}
+      {% set only_copies = plan.replaces | selectattr("only_copy") | list %}
+      <form class="rename-actions" method="post" action="/secondary/sync"
+            onsubmit="this.querySelector('button').disabled = true">
+        <input type="hidden" name="fingerprint" value="{{ plan_fingerprint }}">
+        {% if only_copies %}
+          <label class="small"><input type="checkbox" name="replace_only_copies" value="1">
+            Also replace {{ only_copies | length }} file{% if only_copies | length != 1 %}s{% endif %} marked <em>only copy</em> below (they’ll be deleted for good)</label>
+        {% endif %}
+        <button type="submit" class="button primary">Sync {{ "{:,}".format(plan.changes) }} change{% if plan.changes != 1 %}s{% endif %}</button>
+      </form>
+    {% endif %}
+  {% endif %}
   {% call(path) listing("Link", plan.links) %}
     <li><span class="badge">link</span><span class="path">{{ path }}</span></li>
   {% endcall %}
@@ -150,5 +168,29 @@
   {% call(path) listing("Left alone: symlinks and other special files", plan.other) %}
     <li><span class="badge">other</span><span class="path">{{ path }}</span></li>
   {% endcall %}
+</section>
+{% endif %}
+
+{% if syncs %}
+<section class="panel">
+  <h2>Recent syncs</h2>
+  <ul class="groups">
+    {% for s in syncs %}
+    <li class="group">
+      <div class="group-head">
+        <span class="badge {{ {'applied': 'ok', 'failed': 'error'}.get(s['status'], '') }}">{{ s["status"] }}</span>
+        <span>{{ "{:,}".format(s["changes"]) }} change{% if s["changes"] != 1 %}s{% endif %}</span>
+        <span class="muted small">#{{ s["id"] }} · {{ s["started_at"] | timestamp }} · {{ s["trigger"] }}</span>
+      </div>
+      {% if s["error"] %}<div class="rename-problem small">{{ s["error"] }}</div>{% endif %}
+      {% if s["changes"] %}
+      <details class="group-issues">
+        <summary hx-get="/secondary/syncs/{{ s['id'] }}" hx-target="next .batch-moves" hx-trigger="click once">Changes</summary>
+        <div class="batch-moves"></div>
+      </details>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
 </section>
 {% endif %}

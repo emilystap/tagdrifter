@@ -1,0 +1,18 @@
+{#- The journaled changes of one secondary sync. -#}
+<ul class="moves small">
+  {% for op in ops if op["kind"] != "mkdir" %}
+    <li>
+      <span class="badge">{{ op["kind"] }}</span>
+      <span class="move-paths">
+        {% if op["kind"] == "move" %}
+          {% set current, expected = diff_marks(op["src"], op["path"]) %}
+          <span class="path">{{ current }}</span>
+          <span class="path"><span class="muted" aria-label="became">→ </span>{{ expected }}</span>
+        {% else %}
+          <span class="path">{{ op["path"] }}</span>
+          {% if op["kind"] == "unlink" %}<span class="muted">{{ op["src"] }}</span>{% endif %}
+        {% endif %}
+      </span>
+    </li>
+  {% endfor %}
+</ul>

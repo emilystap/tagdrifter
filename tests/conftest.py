@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import struct
 import uuid
 from pathlib import Path, PurePosixPath
@@ -10,6 +11,7 @@ from tagdrifter.config import Settings
 from tagdrifter.core import TrackMeta
 from tagdrifter.db import Store
 from tagdrifter.scanner import run_scan
+from tagdrifter.secondary import MARKER
 
 
 def make_meta(path: str = "Artist/Album/track.flac", **tags: object) -> TrackMeta:
@@ -181,3 +183,33 @@ def scan(settings: Settings, **kw):
 
 def settings_for(lib: Path, tmp_path: Path, **kw) -> Settings:
     return Settings(library_path=lib, database_path=tmp_path / "db" / "td.db", workers=4, **kw)
+
+
+# --- A library and a secondary of hard links (tests/test_secondary*.py) ----------------
+
+
+def link(lib: Path, sec: Path, rel: str, dst: str | None = None) -> None:
+    target = sec / (dst or rel)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    os.link(lib / rel, target)
+
+
+@pytest.fixture
+def libraries(tmp_path):
+    """A library of two artists and a secondary that has only Pixies, with Doolittle linked
+    under its old folder name and its cover not linked."""
+    lib, sec = tmp_path / "libraries" / "music", tmp_path / "libraries" / "secondary"
+    build_flac(lib / "Pixies/Doolittle/01 Debaser.flac", good_tags())
+    (lib / "Pixies/Doolittle/01 Debaser.lrc").write_text("[00:00] la")
+    (lib / "Pixies/Doolittle/cover.jpg").write_bytes(b"jpg")
+    other = "99999999-9999-4999-8999-999999999999"
+    tags = good_tags(ALBUMARTIST="Other", ALBUM="Elsewhere", musicbrainz_albumartistid=other)
+    build_flac(lib / "Other/Elsewhere/01 Song.flac", tags)
+    sec.mkdir(parents=True)
+    (sec / MARKER).touch()
+    for name in ("01 Debaser.flac", "01 Debaser.lrc"):
+        link(lib, sec, f"Pixies/Doolittle/{name}", f"Pixies/Doolitle/{name}")
+    (sec / ".DS_Store").write_bytes(b"x")
+    settings = settings_for(lib, tmp_path, secondary_path=sec)
+    scan(settings)
+    return settings
