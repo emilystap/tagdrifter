@@ -1,5 +1,5 @@
-"""Command line interface: `tagdrifter scan | issues | rename | checks | scans | serve |
-hash-password`."""
+"""Command line interface: `tagdrifter scan | issues | rename | refresh | secondary | checks |
+scans | serve | hash-password`."""
 
 from __future__ import annotations
 
@@ -15,10 +15,11 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
-from . import __version__, library
+from . import __version__, library, secondary
 from .checks import REGISTRY
 from .config import Settings, load_settings
 from .core import is_mbid
+from .core.secondary import EXCLUSION_KINDS, Exclusion, normalize_extension
 from .db import IssueFilter, Store
 from .musicbrainz import client_for, refresh_releases
 from .renamer import apply_albums, library_writable, plan_albums
@@ -382,6 +383,104 @@ def cmd_scans(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_secondary(settings: Settings, args: argparse.Namespace) -> int:
+    """What keeping the secondary library in step would change, and its exclusions. Reads
+    only, except --save, which saves the proposed exclusions (to the database)."""
+    if settings.secondary_path is None:
+        print("error: no secondary library is set; set [secondary] path or "
+              "TAGDRIFTER_SECONDARY.", file=sys.stderr)  # fmt: skip
+        return 2
+    secondary.validate_settings(settings)
+    with Store(settings.database_path) as store:
+        if args.exclude_type:
+            try:
+                exts = [normalize_extension(e) for e in args.exclude_type]
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
+            added = store.add_secondary_exclusions(Exclusion("extension", e, e) for e in exts)
+            print(f"Saved {added:,} exclusion{'s' * (added != 1)} ({', '.join(exts)}).")
+            return 0
+        result = secondary.analyze(settings, store)
+        print(f"Secondary library: {settings.secondary_path}")
+        for problem in result.status.problems:
+            print(f"error: {problem}", file=sys.stderr)
+        if not result.status.ok:
+            return 2
+        for warning in result.status.warnings:
+            print(f"note: {warning}")
+
+        def listing(title: str, rows: list[str]) -> None:
+            if not rows:
+                return
+            print(f"\n{title} ({len(rows):,}):")
+            for row in rows[: args.limit]:
+                print(f"  {row}")
+            if args.limit and len(rows) > args.limit:
+                print(f"  … {len(rows) - args.limit:,} more (--limit 0 lists all)")
+
+        def rule_row(rule: Exclusion, files: int, folder: str) -> str:
+            where = f", {folder}" if folder else ", anywhere" if rule.kind == "extension" else ""
+            kind = EXCLUSION_KINDS[rule.kind]
+            return f"{kind:<13} {rule.label}  ({files:,} files{where})  [{rule.key}]"
+
+        if args.propose:
+            proposals = result.proposals
+            listing(
+                "Exclusions that describe what the secondary leaves out now",
+                [rule_row(p.exclusion, p.files, p.folder) for p in proposals],
+            )
+            if not proposals:
+                print("Every library audio file is linked or excluded; nothing to propose.")
+                return 0
+            if not args.save:
+                print("\nSave them with --save.")
+                return 0
+            if not args.yes:
+                if not sys.stdin.isatty():
+                    print("error: pass --yes to save without a prompt.", file=sys.stderr)
+                    return 2
+                if input("Save these exclusions? [y/N] ").strip().lower() not in ("y", "yes"):
+                    return 1
+            added = store.add_secondary_exclusions(p.exclusion for p in proposals)
+            print(f"Saved {added:,} exclusion{'s' * (added != 1)}.")
+            return 0
+
+    plan = result.plan
+    assert plan is not None
+    listing(
+        "Exclusions",
+        [rule_row(v.rule, v.files, v.folder) for v in result.rules],
+    )
+    print(
+        f"\nLibrary: {result.main_files:,} files, {result.excluded:,} excluded; "
+        f"{plan.unchanged:,} linked in place."
+    )
+    if result.unscanned:
+        print(f"note: {result.unscanned:,} audio files changed since the last scan, so only "
+              "path exclusions apply to them; scan first.")  # fmt: skip
+    listing("Link", plan.links)
+    listing("Move (renamed in the library)", [f"{m.src}\n    -> {m.dst}" for m in plan.moves])
+    listing("Unlink", [f"{path}  ({why})" for path, why in plan.unlinks])
+    listing(
+        "Replace (a different file is in the way)",
+        [f"{s.path}{'  (only copy)' if s.only_copy else ''}" for s in plan.replaces],
+    )
+    listing("Remove empty folder", plan.rmdirs)
+    listing("Blocked", [f"{path}: {why}" for path, why in plan.blocked])
+    listing(
+        "Left alone: not links to library files",
+        [f"{s.path}{'  (only copy)' if s.only_copy else ''}" for s in plan.strays],
+    )
+    listing("Left alone: symlinks and other special files", plan.other)
+    if result.proposals:
+        n = sum(p.files for p in result.proposals)
+        print(f"\n{n:,} of the files to link aren't in the secondary today; "
+              "`tagdrifter secondary --propose` suggests exclusions for them.")  # fmt: skip
+    print(f"\n{plan.changes:,} change{'s' * (plan.changes != 1)} (nothing is changed yet).")
+    return 0
+
+
 # --- Entry point ------------------------------------------------------------------------
 
 
@@ -447,6 +546,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     refresh.add_argument("--no-scan", action="store_true", help="don't rescan afterwards")
     refresh.set_defaults(func=cmd_refresh)
+
+    second = sub.add_parser(
+        "secondary",
+        help="show what keeping the secondary library in step would change (reads only)",
+    )
+    second.add_argument("--limit", type=int, default=20, help="rows per list (0 = all)")
+    second.add_argument(
+        "--propose",
+        action="store_true",
+        help="list exclusions that describe what the secondary leaves out now",
+    )
+    second.add_argument("--save", action="store_true", help="with --propose: save them")
+    second.add_argument(
+        "--exclude-type",
+        action="append",
+        metavar="EXT",
+        help="leave every file with this extension out of the secondary, e.g. .lrc (repeatable)",
+    )
+    second.add_argument("--yes", "-y", action="store_true", help="don't ask for confirmation")
+    second.set_defaults(func=cmd_secondary)
 
     checks = sub.add_parser("checks", help="list available checks")
     checks.set_defaults(func=cmd_checks)

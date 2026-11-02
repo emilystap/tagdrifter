@@ -38,3 +38,7 @@ services:
       # TAGDRIFTER_MUSICBRAINZ_CONTACT: "you@example.com" # how MusicBrainz can reach you
       # TAGDRIFTER_MUSICBRAINZ_API_ROOT: "http://mirror:5000" # your own mirror, if any
       # TAGDRIFTER_MUSICBRAINZ_INTERVAL: "0" # seconds between requests; mirrors only
+      # Optional: a secondary library of hard links; mount the folder holding both libraries
+      # instead of /music, and see docs/deployment.md
+      # TAGDRIFTER_LIBRARY: /libraries/music
+      # TAGDRIFTER_SECONDARY: /libraries/secondary

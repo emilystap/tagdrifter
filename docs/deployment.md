@@ -200,6 +200,52 @@ which usually comes from its other releases, so only a gap over `recording_toler
 (default 30) is reported, as info: a few seconds is just another master, tens of seconds
 suggest another version.
 
+## Optional: a secondary library
+
+A secondary library is a second folder with the library's structure, made of hard links to its
+files minus the artists, releases, tracks or folders you exclude: for a music server (or a
+person) that should see only part of the library and can't exclude anything itself. Links take
+no extra space, and tag edits made in place show in both. Tag Drifter works out what keeps it
+in step: library files to link, links to move after a rename, excluded files to unlink, empty
+folders to remove. **For now it only shows these changes**; applying them comes later.
+
+1. Hard links can't cross filesystems (or ZFS datasets), and the container must see both
+   folders through **one mount**: a link between two mounts fails even when they're the same
+   filesystem. Put the two side by side in a folder that holds nothing else and mount that:
+
+   ```yaml
+       volumes:
+         - /path/to/music_libraries:/libraries:ro
+       environment:
+         TAGDRIFTER_LIBRARY: /libraries/music
+         TAGDRIFTER_SECONDARY: /libraries/secondary
+   ```
+
+   The tag cache stores paths relative to the library, so moving its mount point doesn't make
+   the next scan re-read every file. The secondary can't be the library, inside it, or around it.
+2. Create an empty file named `.tagdrifter-secondary` in the secondary folder (e.g.
+   `touch /path/to/music_libraries/secondary/.tagdrifter-secondary`). Without it Tag Drifter
+   won't look at the folder, so a mistyped path can't do anything.
+3. Open *Secondary* after a scan. If the secondary already exists, it proposes exclusions that
+   describe what it leaves out today: an artist folder with no links becomes an album artist
+   exclusion, an album a release exclusion, a single track a track exclusion (all by MusicBrainz
+   ID, so renaming them later doesn't bring them back), and files without MBIDs a path
+   exclusion. A file type the secondary has none of (e.g. `.lrc`) becomes a file type
+   exclusion. Save them, then remove any you don't want. To leave out a file type yourself,
+   use *Exclude a file type* on the page. From the command line: `tagdrifter secondary` lists
+   the changes, `tagdrifter secondary --propose [--save]` the proposals, and
+   `tagdrifter secondary --exclude-type .lrc` excludes a file type.
+
+Other files follow their audio unless a file type exclusion covers them: a `.lrc` follows
+its track, and cover images and other files
+are left out when all the audio in their album (or artist) folder is. A sync never removes a
+secondary file that isn't a link to a library file; those are listed as left alone, marked
+*only copy* when no other link to them exists.
+
+Writing the links will need the container's user to own the library's files, or to be able to
+read and write them: Linux refuses to hard-link anything else when `fs.protected_hardlinks` is
+on, as it is on most systems.
+
 ## Optional: config.toml
 
 Environment variables cover the main settings. For per-check options (required tags, disabled
