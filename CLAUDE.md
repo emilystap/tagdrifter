@@ -365,7 +365,8 @@ present, are in the git-ignored `CLAUDE.local.md`.
      then album folders, then tracks, by shared MBID only when no linked file has it, else by
      path; `propose_extensions` adds non-audio extensions with no file in the secondary.
      Over SMB from Windows, inode numbers match the server's but link counts read 1. `secondary.py`: `validate_settings` (startup: not the library, inside it, around it,
-     or a filesystem root), `check` (a `.tagdrifter-secondary` marker file in its root, same
+     or a filesystem root), `check` (a `.tagdrifter-secondary` marker file in its root unless `secondary_marker` /
+     `[secondary] marker` / `TAGDRIFTER_SECONDARY_MARKER` is off; same
      `st_dev`; warnings: separate mounts per `/proc/self/mountinfo`, since link() across mounts
      fails with EXDEV even on one filesystem, and read-only), `walk` (lstat, no symlinks),
      `analyze`. `/secondary` (+ `/secondary/analysis`, loaded after the page; proposals saved

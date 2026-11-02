@@ -1,6 +1,7 @@
 """Secondary library (secondary.py, core/secondary.py): the plan that keeps a hard-linked copy
 of the library in step, exclusions, and the exclusions proposed from an existing copy."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -428,3 +429,19 @@ def test_secondary_cli(libraries, capsys, monkeypatch) -> None:
     assert main([*args, "secondary", "--exclude-type", "a b"]) == 2
     assert main([*args, "secondary"]) == 0
     assert "Pixies/Doolitle/01 Debaser.lrc  (excluded)" in capsys.readouterr().out
+
+
+def test_the_marker_can_be_turned_off(tmp_path) -> None:
+    lib, sec = tmp_path / "music", tmp_path / "secondary"
+    lib.mkdir()
+    sec.mkdir()
+    settings = settings_for(lib, tmp_path, secondary_path=sec)
+    assert MARKER in check(settings).problems[0]
+    assert "TAGDRIFTER_SECONDARY_MARKER=false" in check(settings).problems[0]
+    assert check(replace(settings, secondary_marker=False)).ok
+    cfg = tmp_path / "config.toml"
+    cfg.write_text("[secondary]\nmarker = false\n", encoding="utf-8")
+    assert load_settings(cfg, env={}).secondary_marker is False
+    env = {"TAGDRIFTER_SECONDARY_MARKER": "false"}
+    assert load_settings(env=env).secondary_marker is False
+    assert load_settings(env={}).secondary_marker is True

@@ -280,7 +280,10 @@ def _apply(
     plan, main, sec = analysis.plan, analysis.main, analysis.secondary
     assert plan is not None and main is not None and sec is not None
     assert settings.secondary_path is not None
-    check_marker(settings.secondary_path)  # once more, right before writing
+    try:
+        check_marker(settings)  # once more, right before writing
+    except ValueError as exc:
+        raise SyncError(str(exc)) from exc
     writer = SecondaryWriter(settings.library_path, settings.secondary_path)
     result = SyncResult(store.start_secondary_sync(trigger))
 

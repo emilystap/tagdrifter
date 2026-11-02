@@ -226,7 +226,11 @@ folders to remove. It shows these changes first; *Sync* makes them (when you all
    the next scan re-read every file. The secondary can't be the library, inside it, or around it.
 2. Create an empty file named `.tagdrifter-secondary` in the secondary folder (e.g.
    `touch /path/to/music_libraries/secondary/.tagdrifter-secondary`). Without it Tag Drifter
-   won't look at the folder, so a mistyped path can't do anything.
+   won't look at the folder, so a mistyped path can't do anything. If whatever reads the
+   secondary would show that file, set `TAGDRIFTER_SECONDARY_MARKER: "false"` instead and
+   double-check the path: a sync to the wrong folder still never deletes anything there (it
+   only removes links to library files whose data exists elsewhere), but it would fill that
+   folder with links.
 3. Open *Secondary* after a scan. If the secondary already exists, it proposes exclusions that
    describe what it leaves out today: an artist folder with no links becomes an album artist
    exclusion, an album a release exclusion, a single track a track exclusion (all by MusicBrainz

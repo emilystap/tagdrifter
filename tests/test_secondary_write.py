@@ -245,3 +245,11 @@ def test_sync_from_the_cli(libraries, capsys, monkeypatch) -> None:
     assert "Sync #1: 2 move, 2 link, 1 rmdir." in capsys.readouterr().out
     assert main([*args, "secondary"]) == 0
     assert "the secondary is in step" in capsys.readouterr().out
+
+
+def test_sync_without_the_marker(libraries) -> None:
+    settings = replace(synced(libraries), secondary_marker=False)
+    (settings.secondary_path / MARKER).unlink()
+    with Store(settings.database_path) as store:
+        result = apply_sync(settings, store, preview(settings))
+        assert result.error is None and analyze(settings, store).plan.changes == 0

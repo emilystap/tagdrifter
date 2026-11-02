@@ -43,3 +43,4 @@ services:
       # TAGDRIFTER_LIBRARY: /libraries/music
       # TAGDRIFTER_SECONDARY: /libraries/secondary
       # TAGDRIFTER_SECONDARY_SYNC: "true" # let it write links there (needs the mount :rw)
+      # TAGDRIFTER_SECONDARY_MARKER: "false" # don't require a .tagdrifter-secondary file

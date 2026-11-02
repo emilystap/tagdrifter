@@ -8,7 +8,8 @@ This module only reads; secondary_write.py applies the plan. Safety rules, check
 
 - The secondary is set explicitly (`secondary_path`) and is neither the library, inside it,
   nor around it, nor a filesystem root (`validate_settings`, at startup).
-- Its root holds a marker file (MARKER) that you create by hand, so a path pointing at the
+- Its root holds a marker file (MARKER) that you create by hand (unless `secondary_marker`
+  is off), so a path pointing at the
   wrong folder does nothing.
 - Both are on one filesystem (`st_dev`); links between two mounts fail (EXDEV) even when they
   are the same filesystem, so applying will also need them under one mount.
@@ -99,12 +100,16 @@ def _mounts() -> list[str]:
     return points
 
 
-def check_marker(secondary: Path) -> None:
-    """Raise ValueError unless the secondary's root holds the marker file."""
-    if not (secondary / MARKER).is_file():
+def check_marker(settings: Settings) -> None:
+    """Raise ValueError unless the secondary's root holds the marker file (or it isn't
+    required)."""
+    secondary = settings.secondary_path
+    assert secondary is not None
+    if settings.secondary_marker and not (secondary / MARKER).is_file():
         raise ValueError(
             f"{secondary} has no {MARKER} file. Create an empty file with that name in it to "
-            "confirm it's the secondary library (a safeguard against a wrong path)."
+            "confirm it's the secondary library (a safeguard against a wrong path), or turn "
+            "the check off with TAGDRIFTER_SECONDARY_MARKER=false."
         )
 
 
@@ -122,7 +127,7 @@ def check(settings: Settings) -> Status:
         status.problems.append(f"The library {library} isn't a folder (or isn't mounted).")
         return status
     try:
-        check_marker(secondary)
+        check_marker(settings)
     except ValueError as exc:
         status.problems.append(str(exc))
     if secondary.stat().st_dev != library.stat().st_dev:

@@ -18,6 +18,7 @@ Environment variables (handy in Docker compose):
     TAGDRIFTER_MUSICBRAINZ_CONTACT  your email (or URL), added to the MusicBrainz User-Agent
     TAGDRIFTER_SECONDARY       a secondary library kept in step by hard links (secondary.py)
     TAGDRIFTER_SECONDARY_SYNC  true/false: allow writing the secondary (secondary_write.py)
+    TAGDRIFTER_SECONDARY_MARKER  true/false: require a .tagdrifter-secondary file in it (default)
 """
 
 from __future__ import annotations
@@ -77,6 +78,9 @@ class Settings:
     secondary_path: Path | None = None
     # Allow syncing it: creating, moving and removing links there (needs a read-write mount).
     secondary_sync: bool = False
+    # Require a `.tagdrifter-secondary` file in its root, against a mistyped path. Turn off when
+    # whatever reads the secondary would show that file.
+    secondary_marker: bool = True
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -144,6 +148,7 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         ),
         secondary_path=Path(secondary["path"]) if secondary.get("path") else base.secondary_path,
         secondary_sync=bool(secondary.get("sync", base.secondary_sync)),
+        secondary_marker=bool(secondary.get("marker", base.secondary_marker)),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -196,6 +201,7 @@ def load_settings(
         "TAGDRIFTER_MUSICBRAINZ_INTERVAL": ("musicbrainz_interval", float),
         "TAGDRIFTER_SECONDARY": ("secondary_path", Path),
         "TAGDRIFTER_SECONDARY_SYNC": ("secondary_sync", _parse_bool),
+        "TAGDRIFTER_SECONDARY_MARKER": ("secondary_marker", _parse_bool),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):
