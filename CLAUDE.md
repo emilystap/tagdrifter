@@ -357,17 +357,20 @@ present, are in the git-ignored `CLAUDE.local.md`.
      links to library files are *strays*, never removed (`only_copy` = link count 1), folders
      left empty go (not ones holding ignored names). Exclusions (`secondary_exclusions`,
      migration 9): `artist` (album artist MBIDs joined with ";"), `release`, `track` (release
-     track MBID) or `path` (folder or file); `excluded_files` applies them to audio, then
-     sidecars follow their track and other files the nearest folder above with audio (left out
-     when all its audio is). Audio changed since the last scan has no keys (path rules only).
+     track MBID), `path` (folder or file) or `extension` (".lrc", any file anywhere;
+     `normalize_extension`); `excluded_files` applies them to audio, then
+     other files match path / extension rules, sidecars follow their track and the rest the
+     nearest folder above with audio (left out when all its audio is). Audio changed since the last scan has no keys (path rules only).
      `propose_exclusions` describes what an existing secondary leaves out: artist folders,
      then album folders, then tracks, by shared MBID only when no linked file has it, else by
-     path. `secondary.py`: `validate_settings` (startup: not the library, inside it, around it,
+     path; `propose_extensions` adds non-audio extensions with no file in the secondary.
+     Over SMB from Windows, inode numbers match the server's but link counts read 1. `secondary.py`: `validate_settings` (startup: not the library, inside it, around it,
      or a filesystem root), `check` (a `.tagdrifter-secondary` marker file in its root, same
      `st_dev`; warnings: separate mounts per `/proc/self/mountinfo`, since link() across mounts
      fails with EXDEV even on one filesystem, and read-only), `walk` (lstat, no symlinks),
      `analyze`. `/secondary` (+ `/secondary/analysis`, loaded after the page; proposals saved
-     with a fingerprint) and `tagdrifter secondary [--propose [--save]]`.
+     with a fingerprint; *Exclude a file type*) and `tagdrifter secondary [--propose [--save]]
+     [--exclude-type EXT]`.
    - 8b: apply with journal + undo, through one guarded write module: only link / rename /
      unlink / mkdir / rmdir via dir fds with `follow_symlinks=False`, sources inside the
      library and destinations inside the secondary, never a file's contents, never unlinking

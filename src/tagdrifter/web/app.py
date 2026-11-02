@@ -39,7 +39,12 @@ from .. import __version__, library, secondary
 from ..checks import REGISTRY, Severity
 from ..checks.builtin_musicbrainz import DEFAULT_TOLERANCE_SECONDS
 from ..config import Settings
-from ..core.secondary import EXCLUSION_KINDS, proposals_fingerprint
+from ..core.secondary import (
+    EXCLUSION_KINDS,
+    Exclusion,
+    normalize_extension,
+    proposals_fingerprint,
+)
 from ..db import FOLLOW_UP_REASONS, SCAN_REASONS, IssueFilter, Store
 from ..musicbrainz import MAX_TRACK_LOOKUPS, SyncResult
 from ..notify import Notifications, NotifyError
@@ -734,6 +739,18 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         if added is None:
             error = "The libraries changed since the preview; review the proposals again."
             return RedirectResponse("/secondary?" + urlencode({"error": error}), 303)
+        return RedirectResponse(f"/secondary?saved={added}", status_code=303)
+
+    @app.post("/secondary/exclusions/extension")
+    async def secondary_exclude_extension(request: Request) -> Response:
+        """Exclude every file with an extension (e.g. ".lrc")."""
+        require_secondary()
+        try:
+            ext = normalize_extension((await _form(request)).get("extension", ""))
+        except ValueError as exc:
+            return RedirectResponse("/secondary?" + urlencode({"error": str(exc)}), 303)
+        with Store(settings.database_path) as store:
+            added = store.add_secondary_exclusions([Exclusion("extension", ext, ext)])
         return RedirectResponse(f"/secondary?saved={added}", status_code=303)
 
     @app.post("/secondary/exclusions/{exclusion_id}/delete")

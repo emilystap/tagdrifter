@@ -35,6 +35,7 @@ from .core.secondary import (
     excluded_files,
     plan_sync,
     propose_exclusions,
+    propose_extensions,
     rule_matches,
 )
 from .db import Store
@@ -75,7 +76,7 @@ class Status:
 
 
 def _mount_point(path: Path, mounts: list[str]) -> str:
-    text = str(path)
+    text = path.as_posix()
     return max(
         (m for m in mounts if text == m or text.startswith(m.rstrip("/") + "/")),
         key=len,
@@ -94,7 +95,7 @@ def _mounts() -> list[str]:
         fields = line.split(" ")
         if len(fields) > 4:
             # Octal escapes for space, tab, newline and backslash
-            points.append(re.sub(r"\([0-7]{3})", lambda m: chr(int(m[1], 8)), fields[4]))
+            points.append(re.sub(r"\\([0-7]{3})", lambda m: chr(int(m[1], 8)), fields[4]))
     return points
 
 
@@ -168,8 +169,8 @@ def walk(root: Path, ignore: tuple[str, ...], *, skip: frozenset[str] = frozense
 @dataclass(frozen=True)
 class RuleView:
     rule: Exclusion
-    files: int  # audio files it matches now
-    folder: str  # the first one's folder ('' = none)
+    files: int  # audio files it matches now (every file, for a file type)
+    folder: str  # the first one's folder ('' = none, or anywhere for a file type)
 
 
 @dataclass
@@ -214,14 +215,20 @@ def analyze(settings: Settings, store: Store) -> Analysis:
     plan = plan_sync(main, secondary, excluded)
 
     views = []
+    no_keys = AudioKeys()
     for rule in rules:
+        if rule.kind == "extension":  # spans the library: count every file, not just audio
+            n = sum(rule_matches(rule, p, no_keys) for p in main.files)
+            views.append(RuleView(rule, n, ""))
+            continue
         matched = sorted(p for p, keys in audio.items() if rule_matches(rule, p, keys))
         folder = str(PurePosixPath(matched[0]).parent) if matched else ""
         views.append(RuleView(rule, len(matched), folder))
-    missing = [p for p in plan.links if p in audio]
     analysis.plan = plan
     analysis.rules = views
-    analysis.proposals = propose_exclusions(audio, missing, excluded)
+    analysis.proposals = propose_extensions(main.files, audio, plan.links, excluded)
+    missing = [p for p in plan.links if p in audio]
+    analysis.proposals += propose_exclusions(audio, missing, excluded)
     analysis.main_files = len(main.files)
     analysis.excluded = len(excluded)
     analysis.main_other = len(main.other)

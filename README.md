@@ -120,7 +120,7 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
 - **Secondary library (optional)**: with `TAGDRIFTER_SECONDARY` set, *Secondary* shows what
   keeping a second, hard-linked copy of the library in step would change: new files to link,
   links to move after renames, excluded files to unlink. Exclusions follow MusicBrainz IDs (album
-  artist, release, track) or a path, and the page proposes the exclusions that describe what an
+  artist, release, track), a path or a file type (e.g. `.lrc`), and the page proposes the exclusions that describe what an
   existing copy leaves out. It only reads for now. See
   [docs/deployment.md](docs/deployment.md#optional-a-secondary-library).
 - **Login (optional)**: set a password hash and every page needs a login; sessions last 30

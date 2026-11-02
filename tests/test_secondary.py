@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from tagdrifter import secondary as secondary_module
 from tagdrifter.config import load_settings
 from tagdrifter.core.secondary import (
     AudioKeys,
@@ -16,8 +17,10 @@ from tagdrifter.core.secondary import (
     Tree,
     audio_keys,
     excluded_files,
+    normalize_extension,
     plan_sync,
     propose_exclusions,
+    propose_extensions,
 )
 from tagdrifter.db import Store
 from tagdrifter.secondary import MARKER, analyze, check, validate_settings, walk
@@ -297,15 +300,17 @@ def test_analyze_end_to_end(libraries) -> None:
         ]
         assert plan.links == ["Other/Elsewhere/01 Song.flac", "Pixies/Doolittle/cover.jpg"]
         assert plan.rmdirs == ["Pixies/Doolitle"]
-        # The missing artist is proposed; the unlinked cover isn't audio, so it isn't.
-        (proposal,) = result.proposals
+        # The missing artist is proposed, and so is .jpg: no cover is in the secondary.
+        jpg, proposal = result.proposals
+        assert (jpg.exclusion, jpg.files) == (Exclusion("extension", ".jpg", ".jpg"), 1)
         assert proposal.exclusion.kind == "artist" and proposal.exclusion.label == "Other"
 
         assert store.add_secondary_exclusions([proposal.exclusion]) == 1
         assert store.add_secondary_exclusions([proposal.exclusion]) == 0
         result = analyze(libraries, store)
         assert result.plan.links == ["Pixies/Doolittle/cover.jpg"]
-        assert not result.proposals and result.excluded == 1
+        assert [p.exclusion.kind for p in result.proposals] == ["extension"]
+        assert result.excluded == 1
         (view,) = result.rules
         assert (view.files, view.folder) == (1, "Other/Elsewhere")
 
@@ -322,6 +327,58 @@ def test_unscanned_files_only_follow_path_rules(libraries) -> None:
     assert "Other/Elsewhere/02 New.flac" in result.plan.links
 
 
+def test_file_type_exclusions() -> None:
+    audio = {"A/X/01.flac": keys(), "A/X/02.flac": keys()}
+    files = [*audio, "A/X/01.lrc", "A/X/notes.TXT", "A/X/cover.jpg", "A/X/02.lrc"]
+    rules = [Exclusion("extension", ".lrc", ""), Exclusion("extension", ".txt", "")]
+    # Sidecars of included tracks too; matching ignores case.
+    assert excluded_files(files, audio, rules, (".lrc", ".txt")) == {
+        "A/X/01.lrc",
+        "A/X/02.lrc",
+        "A/X/notes.TXT",
+    }
+    assert normalize_extension(" LRC ") == normalize_extension(".lrc") == ".lrc"
+    for bad in ("", ".", "a/b", "tar.gz", ".l rc"):
+        with pytest.raises(ValueError):
+            normalize_extension(bad)
+
+
+def test_file_type_proposals() -> None:
+    audio = {"A/X/01.flac": keys(), "A/Y/01.flac": keys()}
+    files = [*audio, "A/X/01.lrc", "A/Y/01.lrc", "A/X/cover.jpg", "A/Y/cover.jpg", "README"]
+    missing = ["A/X/01.lrc", "A/Y/01.lrc", "A/X/cover.jpg", "README", "A/Y/01.flac"]
+    proposals = propose_extensions(files, audio, missing, excluded=set())
+    # Not .jpg (one is linked), not audio, not files without an extension.
+    assert [(p.exclusion, p.files) for p in proposals] == [
+        (Exclusion("extension", ".lrc", ".lrc"), 2)
+    ]
+    assert propose_extensions(files, audio, ["A/X/01.lrc"], {"A/Y/01.lrc"})[0].files == 1
+
+
+def test_mount_points(tmp_path, monkeypatch) -> None:
+    info = tmp_path / "mountinfo"
+    info.write_text(
+        "22 1 0:21 / / rw - ext4 /dev/sda1 rw\n"
+        "30 22 0:40 /media/music_libraries /libraries rw - zfs pool/media rw\n"
+        "31 22 0:40 /media/other /my\\040libs rw - zfs pool/media rw\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(secondary_module, "MOUNTINFO", info)
+    mounts = secondary_module._mounts()
+    assert mounts == ["/", "/libraries", "/my libs"]
+    assert secondary_module._mount_point(Path("/libraries/music/A"), mounts) == "/libraries"
+    assert secondary_module._mount_point(Path("/librariesX"), mounts) == "/"
+
+
+def test_separate_mounts_are_a_warning(libraries, monkeypatch) -> None:
+    lib, sec = (p.resolve().as_posix() for p in (libraries.library_path, libraries.secondary_path))
+    monkeypatch.setattr(secondary_module, "_mounts", lambda: ["/", lib, sec])
+    status = check(libraries)
+    assert status.ok and "separate mounts" in status.warnings[0]
+    monkeypatch.setattr(secondary_module, "_mounts", lambda: ["/", lib.rsplit("/", 1)[0]])
+    assert not any("mounts" in w for w in check(libraries).warnings)
+
+
 # --- Web and CLI --------------------------------------------------------------------------
 
 
@@ -334,22 +391,32 @@ def test_secondary_page(libraries) -> None:
         assert 'href="/secondary"' in c.get("/").text
         assert "Reading both libraries" in c.get("/secondary").text
         page = c.get("/secondary/analysis").text
-        assert "Proposed exclusions" in page and "Other" in page
+        assert "Proposed exclusions" in page and "Other" in page and ".jpg" in page
         assert "Doolitle/01 Debaser.flac" in page  # a move
         fingerprint = page.split('name="fingerprint" value="')[1].split('"')[0]
 
         response = c.post("/secondary/exclusions/propose", data={"fingerprint": "stale"})
         assert "changed+since+the+preview" in response.headers["location"]
         response = c.post("/secondary/exclusions/propose", data={"fingerprint": fingerprint})
-        assert response.status_code == 303 and response.headers["location"].endswith("saved=1")
-        assert "Saved 1 exclusion." in c.get(response.headers["location"]).text
+        assert response.status_code == 303 and response.headers["location"].endswith("saved=2")
+        assert "Saved 2 exclusions." in c.get(response.headers["location"]).text
         page = c.get("/secondary/analysis").text
         assert "Proposed exclusions" not in page and "/delete" in page
 
         with Store(libraries.database_path) as store:
-            (rule,) = store.secondary_exclusions()
-        c.post(f"/secondary/exclusions/{rule.id}/delete")
+            artist, _jpg = store.secondary_exclusions()  # sorted by kind
+        c.post(f"/secondary/exclusions/{artist.id}/delete")
         assert "Proposed exclusions" in c.get("/secondary/analysis").text
+
+        response = c.post("/secondary/exclusions/extension", data={"extension": "LRC"})
+        assert response.headers["location"].endswith("saved=1")
+        response = c.post("/secondary/exclusions/extension", data={"extension": "a/b"})
+        assert "not+a+file+extension" in response.headers["location"]
+        with Store(libraries.database_path) as store:
+            kinds = [(r.kind, r.key) for r in store.secondary_exclusions()]
+        assert kinds == [("extension", ".jpg"), ("extension", ".lrc")]
+        page = c.get("/secondary/analysis").text
+        assert "Pixies/Doolitle/01 Debaser.lrc" in page  # now unlinked: excluded
 
 
 def test_secondary_page_problems_and_off(library, tmp_path) -> None:
@@ -377,8 +444,15 @@ def test_secondary_cli(libraries, capsys, monkeypatch) -> None:
     assert "Move (renamed in the library) (2):" in out and "Link (2):" in out
     assert "secondary --propose" in out
     assert main([*args, "secondary", "--propose"]) == 0
-    assert "Album artist  Other  (1 files, Other/Elsewhere)" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "Album artist  Other  (1 files, Other/Elsewhere)" in out
+    assert "File type     .jpg  (1 files, anywhere)" in out
     assert main([*args, "secondary", "--propose", "--save", "--yes"]) == 0
-    assert "Saved 1 exclusion." in capsys.readouterr().out
+    assert "Saved 2 exclusions." in capsys.readouterr().out
     assert main([*args, "secondary"]) == 0
-    assert "Link (1):" in capsys.readouterr().out
+    assert "Link (" not in capsys.readouterr().out
+    assert main([*args, "secondary", "--exclude-type", "lrc", "--exclude-type", ".TXT"]) == 0
+    assert "Saved 2 exclusions (.lrc, .txt)." in capsys.readouterr().out
+    assert main([*args, "secondary", "--exclude-type", "a b"]) == 2
+    assert main([*args, "secondary"]) == 0
+    assert "Pixies/Doolitle/01 Debaser.lrc  (excluded)" in capsys.readouterr().out

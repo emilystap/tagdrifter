@@ -5,12 +5,14 @@ A hard link shares its inode with the library's file, so the plan needs no state
 a secondary file whose inode belongs to a library file at another path was renamed there and
 moves to match; a library file with no link anywhere in the secondary gets one. Exclusions
 are keyed on MusicBrainz IDs where the tags have them, so renaming an excluded album doesn't
-bring it back; a path rule covers files without them.
+bring it back; a path rule covers files without them, and a file type rule (e.g. ".lrc") every
+file with that extension.
 """
 
 from __future__ import annotations
 
 import hashlib
+import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -20,6 +22,7 @@ from .metadata import is_mbid
 
 # Exclusion kinds, in the order the bootstrap proposes them.
 EXCLUSION_KINDS = {
+    "extension": "File type",  # key: a lower-case extension with its dot, e.g. ".lrc"
     "artist": "Album artist",  # key: the album artist MBIDs, lower-case, joined with ";"
     "release": "Release",  # key: release MBID
     "track": "Track",  # key: release track MBID
@@ -104,9 +107,24 @@ def _ancestors(path: str) -> Iterable[str]:
             yield str(parent)
 
 
+RE_EXTENSION = re.compile(r"\.[^./\\\s]+")
+
+
+def normalize_extension(text: str) -> str:
+    """A file type rule's key: ".LRC", "lrc" -> ".lrc". Raises ValueError for anything that
+    isn't a single extension."""
+    ext = text.strip().lower()
+    ext = ext if ext.startswith(".") else f".{ext}"
+    if not RE_EXTENSION.fullmatch(ext):
+        raise ValueError(f"not a file extension: {text!r}")
+    return ext
+
+
 def rule_matches(rule: Exclusion, path: str, keys: AudioKeys) -> bool:
     if rule.kind == "path":
         return _under(path, rule.key)
+    if rule.kind == "extension":
+        return PurePosixPath(path).suffix.lower() == rule.key
     return bool(rule.key) and getattr(keys, rule.kind, "") == rule.key
 
 
@@ -118,8 +136,8 @@ def excluded_files(
 ) -> set[str]:
     """Library files the rules leave out of the secondary.
 
-    Audio files (the keys of `audio`) match rules directly. Any other file matches a path
-    rule; a sidecar (same name as a track, with a sidecar extension) follows its track;
+    Audio files (the keys of `audio`) match rules directly. Any other file matches a path or
+    file type rule; a sidecar (same name as a track, with a sidecar extension) follows its track;
     everything else (cover images, scans, ...) follows the nearest folder above it with audio
     files below: it's left out when all of that folder's audio is.
     """
@@ -139,7 +157,7 @@ def excluded_files(
     for path in files:
         if path in audio:
             continue
-        if any(r.kind == "path" and rule_matches(r, path, no_keys) for r in rules):
+        if any(r.kind in ("path", "extension") and rule_matches(r, path, no_keys) for r in rules):
             excluded.add(path)
             continue
         pure = PurePosixPath(path)
@@ -327,6 +345,25 @@ def propose_exclusions(
             propose("release", paths, folder)
     for path in sorted(missing - covered):
         propose("track", [path], path)
+    return proposals
+
+
+def propose_extensions(
+    files: Iterable[str], audio: Mapping[str, AudioKeys], missing: Iterable[str], excluded: set[str]
+) -> list[Proposal]:
+    """File type rules for non-audio extensions (e.g. ".lrc") that the secondary has no file
+    of: every library file with that extension is `missing` (no link) or already excluded."""
+    missing = set(missing)
+    by_ext: dict[str, list[str]] = defaultdict(list)
+    for path in files:
+        ext = PurePosixPath(path).suffix.lower()
+        if ext and path not in audio:
+            by_ext[ext].append(path)
+    proposals = []
+    for ext, paths in sorted(by_ext.items()):
+        news = [p for p in paths if p in missing]
+        if news and all(p in missing or p in excluded for p in paths):
+            proposals.append(Proposal(Exclusion("extension", ext, ext), len(news), ""))
     return proposals
 
 

@@ -230,11 +230,14 @@ folders to remove. **For now it only shows these changes**; applying them comes 
    describe what it leaves out today: an artist folder with no links becomes an album artist
    exclusion, an album a release exclusion, a single track a track exclusion (all by MusicBrainz
    ID, so renaming them later doesn't bring them back), and files without MBIDs a path
-   exclusion. Save them, then remove any you don't want. From the command line:
-   `tagdrifter secondary` lists the changes and `tagdrifter secondary --propose [--save]` the
-   proposals.
+   exclusion. A file type the secondary has none of (e.g. `.lrc`) becomes a file type
+   exclusion. Save them, then remove any you don't want. To leave out a file type yourself,
+   use *Exclude a file type* on the page. From the command line: `tagdrifter secondary` lists
+   the changes, `tagdrifter secondary --propose [--save]` the proposals, and
+   `tagdrifter secondary --exclude-type .lrc` excludes a file type.
 
-Other files follow their audio: a `.lrc` follows its track, and cover images and other files
+Other files follow their audio unless a file type exclusion covers them: a `.lrc` follows
+its track, and cover images and other files
 are left out when all the audio in their album (or artist) folder is. A sync never removes a
 secondary file that isn't a link to a library file; those are listed as left alone, marked
 *only copy* when no other link to them exists.

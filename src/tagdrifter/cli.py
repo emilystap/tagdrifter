@@ -19,7 +19,7 @@ from . import __version__, library, secondary
 from .checks import REGISTRY
 from .config import Settings, load_settings
 from .core import is_mbid
-from .core.secondary import EXCLUSION_KINDS, Exclusion
+from .core.secondary import EXCLUSION_KINDS, Exclusion, normalize_extension
 from .db import IssueFilter, Store
 from .musicbrainz import client_for, refresh_releases
 from .renamer import apply_albums, library_writable, plan_albums
@@ -392,6 +392,15 @@ def cmd_secondary(settings: Settings, args: argparse.Namespace) -> int:
         return 2
     secondary.validate_settings(settings)
     with Store(settings.database_path) as store:
+        if args.exclude_type:
+            try:
+                exts = [normalize_extension(e) for e in args.exclude_type]
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                return 2
+            added = store.add_secondary_exclusions(Exclusion("extension", e, e) for e in exts)
+            print(f"Saved {added:,} exclusion{'s' * (added != 1)} ({', '.join(exts)}).")
+            return 0
         result = secondary.analyze(settings, store)
         print(f"Secondary library: {settings.secondary_path}")
         for problem in result.status.problems:
@@ -411,7 +420,7 @@ def cmd_secondary(settings: Settings, args: argparse.Namespace) -> int:
                 print(f"  … {len(rows) - args.limit:,} more (--limit 0 lists all)")
 
         def rule_row(rule: Exclusion, files: int, folder: str) -> str:
-            where = f", {folder}" if folder else ""
+            where = f", {folder}" if folder else ", anywhere" if rule.kind == "extension" else ""
             kind = EXCLUSION_KINDS[rule.kind]
             return f"{kind:<13} {rule.label}  ({files:,} files{where})  [{rule.key}]"
 
@@ -549,6 +558,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="list exclusions that describe what the secondary leaves out now",
     )
     second.add_argument("--save", action="store_true", help="with --propose: save them")
+    second.add_argument(
+        "--exclude-type",
+        action="append",
+        metavar="EXT",
+        help="leave every file with this extension out of the secondary, e.g. .lrc (repeatable)",
+    )
     second.add_argument("--yes", "-y", action="store_true", help="don't ask for confirmation")
     second.set_defaults(func=cmd_secondary)
 

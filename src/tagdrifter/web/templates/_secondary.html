@@ -17,10 +17,10 @@
   <td><span class="badge">{{ exclusion_kinds[rule.kind] }}</span></td>
   <td>
     {{ rule.label }}
-    {% if rule.kind != "path" %}<div class="muted small"><code>{{ rule.key }}</code></div>{% endif %}
+    {% if rule.kind not in ("path", "extension") %}<div class="muted small"><code>{{ rule.key }}</code></div>{% endif %}
   </td>
   <td class="num">{{ "{:,}".format(files) }}</td>
-  <td class="path small">{{ folder }}</td>
+  <td class="path small">{% if rule.kind == "extension" %}<span class="muted">anywhere</span>{% else %}{{ folder }}{% endif %}</td>
 {% endmacro %}
 
 {% if not result.status.ok %}
@@ -63,7 +63,7 @@
   {% if result.rules %}
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>Kind</th><th>Excludes</th><th class="num">Audio files</th><th>Folder</th><th></th></tr></thead>
+      <thead><tr><th>Kind</th><th>Excludes</th><th class="num">Files</th><th>Folder</th><th></th></tr></thead>
       <tbody>
         {% for view in result.rules %}
         <tr>
@@ -82,20 +82,27 @@
   {% else %}
     <p class="muted">No exclusions: every library file belongs in the secondary.</p>
   {% endif %}
+  <form class="filters" method="post" action="/secondary/exclusions/extension">
+    <label>
+      <span>Exclude a file type</span>
+      <input type="text" name="extension" placeholder=".lrc" required size="10" autocomplete="off">
+    </label>
+    <button type="submit" class="button">Exclude</button>
+  </form>
 </section>
 
 {% if result.proposals %}
 <section class="panel">
   <h2>Proposed exclusions</h2>
   <p class="muted small">
-    {{ "{:,}".format(result.proposals | sum(attribute="files")) }} library audio files have no link
-    in the secondary today. Saving these exclusions keeps them out; otherwise a sync would link them.
+    {{ "{:,}".format(result.proposals | sum(attribute="files")) }} library files have no link in the
+    secondary today. Saving these exclusions keeps them out; otherwise a sync would link them.
     Album artist, release and track exclusions follow the files’ MusicBrainz IDs, so renaming
-    them doesn’t bring them back.
+    them doesn’t bring them back; a file type covers every file with that extension.
   </p>
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>Kind</th><th>Excludes</th><th class="num">Audio files</th><th>Folder</th></tr></thead>
+      <thead><tr><th>Kind</th><th>Excludes</th><th class="num">Files</th><th>Folder</th></tr></thead>
       <tbody>
         {% for p in result.proposals[:limit] %}<tr>{{ rule_cells(p.exclusion, p.files, p.folder) }}</tr>{% endfor %}
       </tbody>
