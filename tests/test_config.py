@@ -9,7 +9,7 @@ def test_defaults_without_config(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     s = load_settings(env={})
     assert s.case_sensitive is True
-    assert s.audio_extensions == (".flac",)
+    assert s.audio_extensions == (".flac", ".mp3")
 
 
 def test_toml_env_and_override_precedence(tmp_path) -> None:

@@ -1,7 +1,8 @@
 """Track metadata: the only module in core that touches audio files.
 
 `TrackMeta.from_tags` is pure and takes a plain mapping, so naming and placement logic can be
-tested without any audio files. `read_metadata` is the thin mutagen adapter.
+tested without any audio files. `read_metadata` reads a file: FLAC with `flac.py`, other
+formats with mutagen (MP3's ID3 frames renamed by `id3.py`).
 """
 
 from __future__ import annotations
@@ -244,7 +245,7 @@ def read_tags(path: PurePath) -> dict[str, tuple[str, ...]]:
     """Read a file's tags as {lower-case key: values}. Raises MetadataReadError on failure.
 
     FLAC uses the built-in reader, which skips embedded artwork. Other formats fall back to
-    mutagen.
+    mutagen; MP3's ID3 frames are renamed to the Vorbis comment names Picard writes to FLAC.
     """
     if path.suffix.lower() == ".flac":
         from .flac import FlacError, read_flac
@@ -262,6 +263,9 @@ def read_tags(path: PurePath) -> dict[str, tuple[str, ...]]:
 
     from mutagen import File as MutagenFile  # imported lazily; only needed for non-FLAC
     from mutagen import MutagenError
+    from mutagen.id3 import ID3FileType
+
+    from .id3 import id3_pictures, id3_tags
 
     try:
         audio = MutagenFile(path)
@@ -269,12 +273,18 @@ def read_tags(path: PurePath) -> dict[str, tuple[str, ...]]:
         raise MetadataReadError(f"{path}: {exc}") from exc
     if audio is None:
         raise MetadataReadError(f"{path}: unrecognized audio format")
-    # Vorbis comments (Ogg/Opus) are (key, value) pairs; ID3/MP4 will need a key-mapping
-    # adapter here when those formats are supported.
-    tags = audio.tags or []
-    pairs = tags if isinstance(tags, list) else list(tags.items())
     length = getattr(getattr(audio, "info", None), "length", 0) or 0
     derived = [(LENGTH_KEY, str(round(length * 1000)))]
+    if isinstance(audio, ID3FileType):  # MP3: ID3 frames under Picard's Vorbis-style names
+        version = audio.tags.version if audio.tags is not None else (2, 4, 0)
+        pairs = id3_tags(audio.tags, version)
+        pics = [EmbeddedPicture(*p) for p in id3_pictures(audio.tags)]
+        derived.append((PICTURES_KEY, [p.describe() for p in pics]))
+        return normalize_tags([*pairs, *derived])
+    # Vorbis comments (Ogg/Opus) are (key, value) pairs; MP4 will need a key-mapping
+    # adapter like id3.py when it's supported.
+    tags = audio.tags or []
+    pairs = tags if isinstance(tags, list) else list(tags.items())
     if hasattr(audio, "pictures"):  # FLAC-style pictures (e.g. Ogg FLAC); else unknown
         pics = [EmbeddedPicture(p.type, p.mime, p.width, p.height) for p in audio.pictures]
         derived.append((PICTURES_KEY, [p.describe() for p in pics]))

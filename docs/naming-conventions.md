@@ -6,6 +6,10 @@ The rules Tag Drifter checks a library against. Implemented in `src/tagdrifter/c
 <Library Root>/<Artist Folder>/<Album Folder>/<Track Filename>.flac
 ```
 
+Other audio formats (`audio_extensions`, by default `.flac` and `.mp3`) follow the same rules and
+keep their own extension. MP3s are read through Picard's ID3 mapping, so their tags are compared
+under the same names as FLAC's.
+
 ## Artist Folder (`core/placement.py`)
 
 - **Format:** `{Album Artist}` (sanitized), or `Various Artists` for compilations.

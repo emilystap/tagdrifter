@@ -9,7 +9,7 @@
 path = "M:/music"            # in Docker this will be "/music"
 # Treat names differing only by letter case as different (match your filesystem).
 case_sensitive = true
-audio_extensions = [".flac"]
+audio_extensions = [".flac", ".mp3"]
 sidecar_extensions = [".lrc", ".txt"]
 # File/folder names to skip (fnmatch patterns).
 ignore = [".*", "@eaDir", "#recycle", "$RECYCLE.BIN", "Thumbs.db"]

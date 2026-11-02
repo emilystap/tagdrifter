@@ -8,7 +8,7 @@ letter case.
 The conventions are described in [docs/naming-conventions.md](docs/naming-conventions.md).
 
 > **A personal project, shared as-is.** Tag Drifter is built around one library's conventions:
-> FLAC files tagged with [Picard](https://picard.musicbrainz.org/) / MusicBrainz, on a
+> FLAC (and some MP3) files tagged with [Picard](https://picard.musicbrainz.org/) / MusicBrainz, on a
 > case-sensitive filesystem that's also shared over SMB. The naming rules are opinionated and not
 > configurable yet. By default it only reports; renaming files is opt-in. The web UI's
 > login is optional and basic, so keep it on your LAN. AI relied on heavily during
@@ -155,7 +155,8 @@ docker run -p 8080:8080 -v /path/to/music:/music:ro -v tagdrifter-data:/data tag
 1. **Discover**: walk the library (skipping `ignore` patterns such as `.zfs` and `@eaDir`),
    recording each audio file's size and modification time.
 2. **Read**: re-read tags only for new or changed files. FLAC tags are read by a built-in parser
-   that skips embedded cover art. Results are cached in SQLite.
+   that skips embedded cover art; MP3 (ID3) tags by mutagen, under the same names Picard uses
+   for FLAC, so every check applies to both. Results are cached in SQLite.
 3. **Check**: run every enabled check over the whole library (cheap; no disk access).
 4. **Save**: issues are identified by (check, path). New ones are recorded with the scan they
    first appeared in, and ones no longer reported are marked resolved.
@@ -214,7 +215,7 @@ Options from `[checks."custom.no_live_albums"]` in `config.toml` are available a
 ```
 src/tagdrifter/
   core/          Pure naming rules (sanitize, metadata, naming, placement, paths), mbrelease.py
-                 (parsed MusicBrainz releases) + flac.py reader
+                 (parsed MusicBrainz releases), flac.py reader, id3.py (MP3 tag names)
   checks/        Check framework (base.py) and built-in checks
   config.py      Settings: defaults < config.toml < TAGDRIFTER_* env vars < CLI flags
   renamer.py     Rename plans (preview), apply with a journal, undo
@@ -229,7 +230,7 @@ src/tagdrifter/
   web/           FastAPI app (app.py), background ScanRunner, cron ScanScheduler,
                  MusicBrainzSync (mbsync.py), BulkRenamer (bulk.py), Jinja
                  templates, static/ (CSS, vendored htmx.min.js 2.0.4)
-tests/           pytest suite; builds real FLAC files on the fly (no fixtures to commit)
+tests/           pytest suite; builds real FLAC and MP3 files on the fly (no fixtures to commit)
 docs/            Naming conventions, deployment
 Dockerfile, compose.yaml, .github/workflows/ (CI: lint + tests; Image: build, smoke test, GHCR)
 ```

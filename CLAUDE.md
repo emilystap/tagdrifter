@@ -1,6 +1,6 @@
 # Tag Drifter: notes for Claude
 
-Self-hosted service that monitors a FLAC music library for files that drift from a set of
+Self-hosted service that monitors a FLAC (and MP3) music library for files that drift from a set of
 naming and tagging conventions. Python backend, deployed as a single Docker container (Docker
 compose). Read `README.md` (usage, checks, layout) and
 `docs/naming-conventions.md` (the rules) before changing behaviour. Personal setup details, if
@@ -20,7 +20,7 @@ present, are in the git-ignored `CLAUDE.local.md`.
 - **One container, one process**: FastAPI + Jinja2/HTMX UI (no JS build step), SQLite on a
   mounted volume, APScheduler for periodic scans plus a "scan now" button.
 - **Core stays pure**: `core/` never touches the filesystem except `metadata.read_tags` /
-  `core/flac.py`. Everything else operates on `TrackMeta` and is unit-testable without audio.
+  `core/flac.py` (`core/id3.py` only renames ID3 frames mutagen has read). Everything else operates on `TrackMeta` and is unit-testable without audio.
 - **Checks are plugins**: subclass `Check`, set `id`/`scope`, decorate with `@register`, import
   in `checks/__init__.py`. Issue identity is `(check_id, subject)`; at most one issue per
   subject per check. The scanner, DB and CLI pick checks up automatically, and the UI should too.
@@ -139,7 +139,15 @@ present, are in the git-ignored `CLAUDE.local.md`.
      ended "Artist name" alias's name or sort name, i.e. a former name (CRASH: "Charli XCX",
      now Charli xcx), so tags may keep a former name; folders shouldn't, or an artist splits
      (and case-only splits collide over SMB).
-   - Later: non-FLAC formats via mutagen.
+   - MP3 ✅ (`audio_extensions` default `.flac`, `.mp3`): mutagen reads it, `core/id3.py`
+     renames the frames as Picard maps them (`TPE1` = artist, `TXXX:MusicBrainz Album Id`,
+     the `UFID` owned by http://musicbrainz.org = recording MBID, `TRCK` "n/N" =
+     tracknumber + totaltracks; other TXXX keep their description, other text frames their
+     frame ID), so every check applies unchanged. `~pictures` from APIC frames, with the size
+     read from the PNG / JPEG / GIF header. ID3v2.3 can't hold several values in a frame
+     (Picard joins them with "/"): MBID lists are split again, names aren't ("AC/DC").
+     `tests/conftest.py::build_mp3` writes silent MPEG frames plus `picard_id3()` frames.
+   - Later: other formats (M4A: an MP4 atom mapping like `id3.py`).
    - Later: a conventional first-run login. On first launch with no
      password set, every page leads to a "Set a password" form; the scrypt hash is stored in
      SQLite (a small `app_settings` table) instead of env/config, with a *Change password* page
@@ -433,8 +441,8 @@ uv run tagdrifter serve           # web UI on http://127.0.0.1:8080
   `SLASH_REPLACEMENT`), so the rules still catch accidental lookalikes.
 - Tests never call the MusicBrainz API (blocked in `tests/conftest.py`); use the recorded
   fixtures in `tests/fixtures/musicbrainz/`.
-- Tests build real FLAC files on the fly (`tests/conftest.py::build_flac`, including
-  cover-art blocks); never commit audio fixtures.
+- Tests build real FLAC and MP3 files on the fly (`tests/conftest.py::build_flac`, including
+  cover-art blocks, and `build_mp3`); never commit audio fixtures.
 - `.gitattributes` forces LF line endings.
 - When changing naming rules, update `docs/naming-conventions.md` and add a test for the
   example.
