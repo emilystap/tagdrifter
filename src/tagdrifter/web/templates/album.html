@@ -1,9 +1,37 @@
 {#- One album folder: files, tags, cached MusicBrainz tracklist and open issues. Expects
     `album` (library.AlbumDetail, or None when the folder isn't in the scan), `issues`,
-    `renamable`, `groups` ((release group MBID, library.GroupComparison or None), ...). -#}
+    `renamable`, `groups` ((release group MBID, library.GroupComparison or None), ...),
+    `exclusions` (secondary.AlbumExclusions, or None without a secondary library). -#}
 {% extends "base.html" %}
 {% block title %}{{ album.folder if album else "Not found" }} · Library · Tag Drifter{% endblock %}
 {% block content %}
+{% macro include_form(rule, files, tracks, anchor) %}
+  <form method="post" action="/secondary/exclusions/{{ rule.id }}/delete"
+        onsubmit="return confirm('{% if files > tracks %}This exclusion covers {{ '{:,}'.format(files) }} files in the library, not just this album. {% endif %}Remove it? Its files will be linked at the next sync.')">
+    <input type="hidden" name="next" value="/library/album?folder={{ album.folder | urlencode }}{{ anchor }}">
+    <button type="submit" class="button compact">Include again</button>
+  </form>
+{% endmacro %}
+{% macro exclude_form(kind, label, path="", title="") %}
+  <form method="post" action="/library/exclude">
+    <input type="hidden" name="folder" value="{{ album.folder }}">
+    <input type="hidden" name="kind" value="{{ kind }}">
+    {% if path %}<input type="hidden" name="path" value="{{ path }}">{% endif %}
+    <button type="submit" class="button compact"{% if title %} title="{{ title }}"{% endif %}>{{ label }}</button>
+  </form>
+{% endmacro %}
+{% macro secondary_cell(t) %}
+  {% set rules = exclusions.by_track.get(t.path) %}
+  {% set own = exclusions.tracks.get(t.path) %}
+  <td class="secondary-cell">
+    {% if rules %}
+      <span class="badge" title="Excluded by {{ rules | map(attribute='label') | join(', ') }}">excluded</span>
+      {% if own.saved %}{{ include_form(own.rule, own.files, 1, "#tracks") }}{% endif %}
+    {% elif own %}
+      {{ exclude_form("track", "Exclude", path=t.path, title="By its release track MBID" if own.rule.kind == "track" else "By file path (no release track MBID)") }}
+    {% endif %}
+  </td>
+{% endmacro %}
 <p class="muted small crumbs"><a href="/library">Library</a> /
   {% if album %}<a href="/library?q={{ album.artist_folder | urlencode }}">{{ album.artist_folder }}</a>{% endif %}</p>
 
@@ -38,6 +66,61 @@
   {% endif %}
 </section>
 
+{% if exclusions %}
+{% set n_audio = exclusions.by_track | length %}
+<section class="panel album-section" id="secondary">
+  <h2>Secondary library
+    {% if exclusions.excluded %}<span class="badge">{% if exclusions.excluded == n_audio %}excluded{% else %}{{ exclusions.excluded }} of {{ n_audio }} excluded{% endif %}</span>{% endif %}
+  </h2>
+  <p class="small">
+    {% if not exclusions.excluded %}Every track of this album belongs in the secondary library.
+    {% elif exclusions.excluded == n_audio %}This album is left out of the secondary library.
+    {% else %}{{ exclusions.excluded }} of {{ n_audio }} tracks are left out of the secondary library.{% endif %}
+    <span class="muted">Changes take effect at the next <a href="/secondary">sync</a>.</span>
+  </p>
+  {% if exclusions.rules %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Kind</th><th>Excluded by</th><th class="num">Files</th><th></th></tr></thead>
+      <tbody>
+        {% for view in exclusions.rules %}
+        <tr>
+          <td><span class="badge">{{ exclusion_kinds[view.rule.kind] }}</span></td>
+          <td>
+            {{ view.rule.label }}
+            {% if view.rule.kind not in ("path", "extension") %}<div class="muted small"><code>{{ view.rule.key }}</code></div>{% endif %}
+          </td>
+          <td class="num">{{ "{:,}".format(view.files) }}</td>
+          <td>{{ include_form(view.rule, view.files, n_audio, "#secondary") }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if exclusions.excluded < n_audio %}
+  {% set artist, release = exclusions.artist, exclusions.release %}
+  <div class="rename-actions">
+    {% if not release.saved %}
+      {% if release.rule.kind == "release" %}
+        {{ exclude_form("release", "Exclude this album", title="By its release MBID, so renaming the folder doesn’t bring it back") }}
+      {% else %}
+        {{ exclude_form("release", "Exclude this folder", title="Its tracks don’t share one release MBID, so by folder") }}
+      {% endif %}
+    {% endif %}
+    {% if not artist.saved %}
+      {% set tracks_note = " (" ~ "{:,}".format(artist.files) ~ " track" ~ ("s" if artist.files != 1 else "") ~ ")" %}
+      {% if artist.rule.kind == "artist" %}
+        {{ exclude_form("artist", "Exclude every album by " ~ artist.rule.label ~ tracks_note, title="By album artist MBID, so it covers this artist’s albums in any folder") }}
+      {% else %}
+        {{ exclude_form("artist", "Exclude the folder " ~ artist.rule.label ~ tracks_note, title="This album’s tracks don’t share one set of album artist MBIDs, so by artist folder") }}
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
 <section class="panel album-section" id="issues">
   <h2>Open issues
     {% if issues %}<span class="badge {{ 'error' if issues | selectattr('severity', 'equalto', 'error') | list else 'warning' if issues | selectattr('severity', 'equalto', 'warning') | list else 'info' }}">{{ issues | length }}</span>{% endif %}
@@ -60,12 +143,12 @@
   {% endif %}
 </section>
 
-<section class="panel album-section">
+<section class="panel album-section" id="tracks">
   <h2>Tracks</h2>
   <div class="table-wrap">
     <table class="table">
       <thead>
-        <tr><th class="num">#</th><th>Title</th><th>Artist</th><th class="num">Length</th><th class="col-file">File</th></tr>
+        <tr><th class="num">#</th><th>Title</th><th>Artist</th><th class="num">Length</th><th class="col-file">File</th>{% if exclusions %}<th>Secondary</th>{% endif %}</tr>
       </thead>
       <tbody>
         {% for t in album.tracks %}
@@ -76,12 +159,14 @@
               <td>{{ t.meta.artist or "–" }}</td>
               <td class="num">{{ t.meta.length_ms | track_length }}</td>
               <td class="path small col-file">{{ t.name }}</td>
+              {% if exclusions %}{{ secondary_cell(t) }}{% endif %}
             </tr>
           {% else %}
             <tr>
               <td class="num">–</td>
               <td colspan="3" class="rename-problem small">Unreadable: {{ t.error or "unknown error" }}<div class="path">{{ t.name }}</div></td>
               <td class="col-file"></td>
+              {% if exclusions %}{{ secondary_cell(t) }}{% endif %}
             </tr>
           {% endif %}
         {% endfor %}

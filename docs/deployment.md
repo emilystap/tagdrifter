@@ -237,7 +237,9 @@ folders to remove. It shows these changes first; *Sync* makes them (when you all
    ID, so renaming them later doesn't bring them back), and files without MBIDs a path
    exclusion. A file type the secondary has none of (e.g. `.lrc`) becomes a file type
    exclusion. Save them, then remove any you don't want. To leave out a file type yourself,
-   use *Exclude a file type* on the page. From the command line: `tagdrifter secondary` lists
+   use *Exclude a file type* on the page. To leave out (or bring back) an album artist, an
+   album or a single track, use the *Secondary library* panel and the *Secondary* column on
+   the album's page in *Library*; the library list marks excluded albums. From the command line: `tagdrifter secondary` lists
    the changes, `tagdrifter secondary --propose [--save]` the proposals, and
    `tagdrifter secondary --exclude-type .lrc` excludes a file type.
 

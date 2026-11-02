@@ -26,7 +26,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 5 | Album grouping ✅, login + CSRF protection ✅, rename preview + undo ✅, Gotify notifications ✅, bulk renames ✅, later a first-run password setup | ⏳ |
 | 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, other releases ranked by track-length fit ✅, refresh on demand ✅, then Picard-style retagging | ⏳ |
 | 7 | Library browser: search any album, release page with tags and the MusicBrainz tracklist ✅, then embedded cover art | ⏳ |
-| 8 | Secondary library kept in step by hard links: plan, exclusions and proposed exclusions ✅, syncing ✅, then exclusion toggles on the Library pages and automatic syncs | ⏳ |
+| 8 | Secondary library kept in step by hard links: plan, exclusions and proposed exclusions ✅, syncing ✅, exclusion toggles on the Library pages ✅, then automatic syncs | ⏳ |
 
 ## Quick start (local)
 
@@ -122,7 +122,8 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   keeping a second, hard-linked copy of the library in step would change: new files to link,
   links to move after renames, excluded files to unlink. Exclusions follow MusicBrainz IDs (album
   artist, release, track), a path or a file type (e.g. `.lrc`), and the page proposes the
-  exclusions that describe what an existing copy leaves out. With `TAGDRIFTER_SECONDARY_SYNC`,
+  exclusions that describe what an existing copy leaves out; an album's page in *Library*
+  excludes or includes its album artist, the album or single tracks. With `TAGDRIFTER_SECONDARY_SYNC`,
   *Sync* makes the changes: only hard links are created, moved or removed in the secondary,
   never the library, and a file that isn't a link to a library file is never removed unasked.
   See [docs/deployment.md](docs/deployment.md#optional-a-secondary-library).

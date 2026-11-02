@@ -128,6 +128,21 @@ def rule_matches(rule: Exclusion, path: str, keys: AudioKeys) -> bool:
     return bool(rule.key) and getattr(keys, rule.kind, "") == rule.key
 
 
+def exclusion_for(
+    kind: str, paths: Iterable[str], audio: Mapping[str, AudioKeys], path: str
+) -> Exclusion:
+    """The rule that excludes the audio files `paths`: by the MBID key of `kind` ("artist",
+    "release" or "track") when they all have the same one, else by `path` (a folder holding
+    them, or the file itself)."""
+    paths = sorted(paths)
+    keys = {getattr(audio[p], kind) for p in paths}
+    key = next(iter(keys)) if len(keys) == 1 else ""
+    if not key:
+        return Exclusion("path", path, path)
+    labels = (getattr(audio[p], f"{kind}_label") for p in paths)
+    return Exclusion(kind, key, next(filter(None, labels), path))
+
+
 def excluded_files(
     files: Iterable[str],
     audio: Mapping[str, AudioKeys],

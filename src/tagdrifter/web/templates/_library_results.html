@@ -1,5 +1,6 @@
 {#- Album folders matching the library search; swapped into #results by the search form and
-    pager. Expects `albums` (AlbumSummary, this page), `entries`, `total`, `q`. -#}
+    pager. Expects `albums` (AlbumSummary, this page), `entries`, `total`, `q`, `excluded`
+    ({folder: audio files left out of the secondary library}). -#}
 <div class="results-head">
   <span>
     {% if not entries %}
@@ -31,6 +32,7 @@
         <td>
           <a href="/library/album?folder={{ a.folder | urlencode }}">{{ a.titles[0] if a.titles else a.folder.rpartition("/")[2] }}</a>
           {% if a.titles | length > 1 %}<span class="badge warning" title="{{ a.titles | join(' · ') }}">{{ a.titles | length }} album titles</span>{% endif %}
+          {% if excluded.get(a.folder) %}<span class="badge" title="Left out of the secondary library">{% if excluded[a.folder] >= a.tracks %}excluded{% else %}{{ excluded[a.folder] }} of {{ a.tracks }} excluded{% endif %}</span>{% endif %}
           <div class="path muted small">{{ a.folder }}</div>
         </td>
         <td>{{ a.artist }}</td>

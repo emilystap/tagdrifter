@@ -34,6 +34,7 @@ from .core.secondary import (
     Tree,
     audio_keys,
     excluded_files,
+    exclusion_for,
     plan_sync,
     propose_exclusions,
     propose_extensions,
@@ -42,6 +43,16 @@ from .core.secondary import (
 from .db import Store
 
 MARKER = ".tagdrifter-secondary"
+# Tags audio_keys reads (keys and labels), for the Library pages' cache-only view.
+KEY_TAGS = (
+    "albumartist",
+    "artist",
+    "album",
+    "title",
+    "musicbrainz_albumartistid",
+    "musicbrainz_albumid",
+    "musicbrainz_releasetrackid",
+)
 MOUNTINFO = Path("/proc/self/mountinfo")
 
 
@@ -251,3 +262,83 @@ def analyze(settings: Settings, store: Store) -> Analysis:
     analysis.main_other = len(main.other)
     analysis.main, analysis.secondary = main, secondary
     return analysis
+
+
+# --- Library pages ------------------------------------------------------------------------
+# Exclusion toggles for an album, its album artist and its tracks. These read only the scan's
+# cache (no walk), so they show what the rules say, not what the secondary holds right now.
+
+
+def cached_audio_keys(store: Store) -> dict[str, AudioKeys]:
+    """Exclusion keys of every audio file in the scan's cache."""
+    return {path: audio_keys(tags) for path, tags in store.file_tags(KEY_TAGS).items()}
+
+
+def excluded_by_folder(store: Store) -> dict[str, int]:
+    """{album folder: audio files the rules leave out}, for folders with any."""
+    rules = store.secondary_exclusions()
+    counts: dict[str, int] = {}
+    if not rules:
+        return counts
+    for path, keys in cached_audio_keys(store).items():
+        if any(rule_matches(r, path, keys) for r in rules):
+            folder = path.rpartition("/")[0]
+            counts[folder] = counts.get(folder, 0) + 1
+    return counts
+
+
+@dataclass(frozen=True)
+class Toggle:
+    """What excluding an album artist, album or track adds, or the saved rule that does it."""
+
+    rule: Exclusion  # the saved one (with its id) when `saved`
+    saved: bool
+    files: int  # audio files in the library it covers
+
+
+@dataclass
+class AlbumExclusions:
+    rules: list[RuleView]  # saved rules that leave out any of the album's audio files
+    by_track: dict[str, list[Exclusion]]  # each audio file: the saved rules leaving it out
+    artist: Toggle
+    release: Toggle
+    tracks: dict[str, Toggle]
+
+    @property
+    def excluded(self) -> int:
+        return sum(1 for rules in self.by_track.values() if rules)
+
+
+def album_exclusions(store: Store, folder: str) -> AlbumExclusions | None:
+    """How the exclusions apply to an album folder's audio files, and the rules that would
+    exclude its album artist, the album or each track: by MusicBrainz ID when the files share
+    one, else by path (the artist folder, the album folder or the file). None if the cache
+    has no audio files directly in the folder."""
+    folder = folder.strip("/")
+    audio = cached_audio_keys(store)
+    paths = sorted(p for p in audio if p.rpartition("/")[0] == folder)
+    if not folder or not paths:
+        return None
+    rules = store.secondary_exclusions()
+    saved = {(r.kind, r.key): r for r in rules}
+
+    def covers(rule: Exclusion) -> list[str]:
+        return sorted(p for p, keys in audio.items() if rule_matches(rule, p, keys))
+
+    def toggle(rule: Exclusion) -> Toggle:
+        found = saved.get((rule.kind, rule.key))
+        return Toggle(found or rule, found is not None, len(covers(rule)))
+
+    by_track = {p: [r for r in rules if rule_matches(r, p, audio[p])] for p in paths}
+    views = []
+    for rule in rules:
+        if any(rule in matched for matched in by_track.values()):
+            matched = covers(rule)
+            views.append(RuleView(rule, len(matched), str(PurePosixPath(matched[0]).parent)))
+    return AlbumExclusions(
+        rules=views,
+        by_track=by_track,
+        artist=toggle(exclusion_for("artist", paths, audio, folder.split("/", 1)[0])),
+        release=toggle(exclusion_for("release", paths, audio, folder)),
+        tracks={p: toggle(exclusion_for("track", [p], audio, p)) for p in paths},
+    )
