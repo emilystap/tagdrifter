@@ -117,7 +117,10 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   now and rescans; a release looked up in the last 5 minutes isn't asked for again.
   Releases no longer tagged on any file are dropped from the cache. The
   dashboard shows how many releases are cached. See
-  [docs/deployment.md](docs/deployment.md#optional-musicbrainz-lookups).
+  [docs/deployment.md](docs/deployment.md#optional-musicbrainz-lookups). Release data comes
+  from [MusicBrainz](https://musicbrainz.org/), by the
+  [MetaBrainz Foundation](https://metabrainz.org/); only its CC0 core data is used (no
+  annotations, tags, genres or ratings), and the footer credits it while lookups are on.
 - **Secondary library (optional)**: with `TAGDRIFTER_SECONDARY` set, *Secondary* shows what
   keeping a second, hard-linked copy of the library in step would change: new files to link,
   links to move after renames, excluded files to unlink. Exclusions follow MusicBrainz IDs (album
