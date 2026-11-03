@@ -454,6 +454,11 @@ def cmd_secondary(settings: Settings, args: argparse.Namespace) -> int:
         "Exclusions",
         [rule_row(v.rule, v.files, v.folder) for v in result.rules],
     )
+    if settings.secondary_exclude_issues in secondary.ISSUE_SEVERITIES:
+        listing(
+            "Albums left out for open issues",
+            [f"{a.folder}  ({a.issues:,} issues, {a.files:,} files)" for a in result.issue_albums],
+        )
     print(
         f"\nLibrary: {result.main_files:,} files, {result.excluded:,} excluded; "
         f"{plan.unchanged:,} linked in place."

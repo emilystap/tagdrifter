@@ -411,8 +411,8 @@ def test_album_exclusions(libraries) -> None:
     from tagdrifter.secondary import album_exclusions, excluded_by_folder
 
     with Store(libraries.database_path) as store:
-        assert album_exclusions(store, "Pixies") is None  # no audio directly in it
-        album = album_exclusions(store, "/Pixies/Doolittle/")
+        assert album_exclusions(libraries, store, "Pixies") is None  # no audio directly in it
+        album = album_exclusions(libraries, store, "/Pixies/Doolittle/")
         assert album is not None and album.excluded == 0 and not album.rules
         assert (album.release.rule.kind, album.release.saved) == ("release", False)
         assert album.release.rule.label == "Pixies - Doolittle"
@@ -423,16 +423,16 @@ def test_album_exclusions(libraries) -> None:
         )
         (track,) = album.tracks.values()
         assert track.rule.kind == "track" and track.rule.label == "Pixies - Debaser"
-        assert excluded_by_folder(store) == {}
+        assert excluded_by_folder(libraries, store) == {}
 
         store.add_secondary_exclusions([album.release.rule])
-        album = album_exclusions(store, "Pixies/Doolittle")
+        album = album_exclusions(libraries, store, "Pixies/Doolittle")
         assert album.excluded == 1 and album.release.saved and album.release.rule.id
         # Other/Elsewhere is tagged with the same release MBID, so the rule covers it too.
         (view,) = album.rules
         assert (view.rule, view.files) == (album.release.rule, 2)
         assert album.by_track == {"Pixies/Doolittle/01 Debaser.flac": [album.release.rule]}
-        assert excluded_by_folder(store) == {"Pixies/Doolittle": 1, "Other/Elsewhere": 1}
+        assert excluded_by_folder(libraries, store) == {"Pixies/Doolittle": 1, "Other/Elsewhere": 1}
 
 
 def test_library_exclusion_toggles(libraries) -> None:
@@ -532,3 +532,84 @@ def test_the_marker_can_be_turned_off(tmp_path) -> None:
     env = {"TAGDRIFTER_SECONDARY_MARKER": "false"}
     assert load_settings(env=env).secondary_marker is False
     assert load_settings(env={}).secondary_marker is True
+
+
+# --- Albums with open issues --------------------------------------------------------------
+
+
+def test_exclude_issues_setting(tmp_path) -> None:
+    cfg = tmp_path / "config.toml"
+    assert load_settings(env={}).secondary_exclude_issues == "off"
+    for value, expected in [('"Warning"', "warning"), ("true", "warning"), ("false", "off")]:
+        cfg.write_text(f"[secondary]\nexclude_issues = {value}\n", encoding="utf-8")
+        assert load_settings(cfg, env={}).secondary_exclude_issues == expected
+    env = {"TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES": "error"}
+    assert load_settings(cfg, env=env).secondary_exclude_issues == "error"
+    with pytest.raises(ValueError, match="not a severity"):
+        load_settings(cfg, env={"TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES": "severe"})
+
+
+def test_albums_with_open_issues_are_left_out(libraries) -> None:
+    from tagdrifter.secondary import album_exclusions, excluded_by_folder
+
+    # Both albums have a path.track_location warning; make Other/Elsewhere's info only.
+    with Store(libraries.database_path) as store:
+        store.conn.execute("UPDATE issues SET severity = 'info' WHERE album = 'Other/Elsewhere'")
+        store.conn.commit()
+        assert not analyze(libraries, store).issue_albums  # off by default
+
+        settings = replace(libraries, secondary_exclude_issues="warning")
+        result = analyze(settings, store)
+        (album,) = result.issue_albums
+        assert (album.folder, album.issues, album.files) == ("Pixies/Doolittle", 1, 1)
+        # The whole album goes, sidecar and cover too; the saved rules are untouched.
+        assert result.plan.links == ["Other/Elsewhere/01 Song.flac"]
+        assert result.plan.unlinks == [
+            ("Pixies/Doolitle/01 Debaser.flac", "excluded"),
+            ("Pixies/Doolitle/01 Debaser.lrc", "excluded"),
+        ]
+        assert result.excluded == 3 and not result.rules
+        assert excluded_by_folder(settings, store) == {"Pixies/Doolittle": 1}
+        excl = album_exclusions(settings, store, "Pixies/Doolittle")
+        assert (excl.issues, excl.excluded, excl.left_out) == (1, 0, 1)
+
+        info = replace(libraries, secondary_exclude_issues="info")
+        assert [a.folder for a in analyze(info, store).issue_albums] == [
+            "Other/Elsewhere",
+            "Pixies/Doolittle",
+        ]
+        errors = replace(libraries, secondary_exclude_issues="error")
+        assert not analyze(errors, store).issue_albums
+
+        # Resolved issues no longer leave the album out.
+        store.conn.execute("UPDATE issues SET resolved_scan = last_seen_scan")
+        store.conn.commit()
+        assert not analyze(settings, store).issue_albums
+        assert album_exclusions(settings, store, "Pixies/Doolittle").left_out == 0
+
+
+def test_open_issue_exclusions_on_the_pages(libraries, capsys, monkeypatch) -> None:
+    from fastapi.testclient import TestClient
+
+    from tagdrifter.cli import main
+    from tagdrifter.web import create_app
+
+    settings = replace(libraries, secondary_exclude_issues="warning")
+    with TestClient(create_app(settings)) as c:
+        page = c.get("/secondary/analysis").text
+        assert "Albums with open issues" in page and "an open warning or error" in page
+        assert "/library/album?folder=Pixies/Doolittle#issues" in page
+        page = c.get("/library/album?folder=Pixies%2FDoolittle").text
+        assert "left out of the secondary library while it has an open warning" in page
+        assert "Exclude this album" in page  # a lasting exclusion can still be saved
+        assert ">excluded</span>" in c.get("/library").text
+    with TestClient(create_app(libraries)) as c:
+        assert "Albums with open issues" not in c.get("/secondary/analysis").text
+
+    monkeypatch.setenv("TAGDRIFTER_SECONDARY", str(libraries.secondary_path))
+    monkeypatch.setenv("TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES", "warning")
+    args = ["--library", str(libraries.library_path), "--db", str(libraries.database_path)]
+    assert main([*args, "secondary"]) == 0
+    out = capsys.readouterr().out
+    assert "Albums left out for open issues (2):" in out
+    assert "Pixies/Doolittle  (1 issues, 1 files)" in out

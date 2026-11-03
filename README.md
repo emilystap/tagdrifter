@@ -126,7 +126,9 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   links to move after renames, excluded files to unlink. Exclusions follow MusicBrainz IDs (album
   artist, release, track), a path or a file type (e.g. `.lrc`), and the page proposes the
   exclusions that describe what an existing copy leaves out; an album's page in *Library*
-  excludes or includes its album artist, the album or single tracks. With `TAGDRIFTER_SECONDARY_SYNC`,
+  excludes or includes its album artist, the album or single tracks. Optionally, albums with
+  open issues are left out until they're resolved (`TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES=warning`).
+  With `TAGDRIFTER_SECONDARY_SYNC`,
   *Sync* makes the changes: only hard links are created, moved or removed in the secondary,
   never the library, and a file that isn't a link to a library file is never removed unasked.
   See [docs/deployment.md](docs/deployment.md#optional-a-secondary-library).

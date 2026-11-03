@@ -82,6 +82,34 @@
   {% else %}
     <p class="muted">No exclusions: every library file belongs in the secondary.</p>
   {% endif %}
+  {% if issues_left_out %}
+  <h3>Albums with open issues</h3>
+  <p class="muted small">
+    Albums with {{ issues_left_out }} are left out too (<code>exclude_issues</code> in the
+    config), and linked again at the first sync after their issues are resolved.
+  </p>
+  {% if result.issue_albums %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Album</th><th class="num">Issues</th><th class="num">Files</th></tr></thead>
+      <tbody>
+        {% for a in result.issue_albums[:limit] %}
+        <tr>
+          <td class="path small"><a href="/library/album?folder={{ a.folder | urlencode }}#issues">{{ a.folder }}</a></td>
+          <td class="num">{{ "{:,}".format(a.issues) }}</td>
+          <td class="num">{{ "{:,}".format(a.files) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if result.issue_albums | length > limit %}
+    <p class="muted small">… {{ "{:,}".format(result.issue_albums | length - limit) }} more (<code>tagdrifter secondary --limit 0</code> lists all).</p>
+  {% endif %}
+  {% else %}
+    <p class="muted small">None right now.</p>
+  {% endif %}
+  {% endif %}
   <form class="filters" method="post" action="/secondary/exclusions/extension">
     <label>
       <span>Exclude a file type</span>

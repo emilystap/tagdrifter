@@ -411,6 +411,16 @@ present, are in the git-ignored `CLAUDE.local.md`.
      `POST /library/exclude` (`folder`, `kind` = artist | release | track, `path`) re-derives
      the rule server side; `/secondary/exclusions/{id}/delete` takes a `next` to return to.
      Changes apply at the next sync.
+   - 8c-2 ✅ Albums with open issues left out (`secondary_exclude_issues` /
+     `[secondary] exclude_issues` / `TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES`: error, warning,
+     info or off, the default; true = warning). `secondary.issue_albums` reads
+     `Store.open_issue_albums` (issues with an `album`, so not artist/library scope) and
+     `issue_exclusions` turns them into unsaved rules of kind `ISSUES_KIND` (matches audio
+     directly in the folder), added to the saved ones in `analyze`, `excluded_by_folder` and
+     `album_exclusions` (`AlbumExclusions.issues` / `left_out`; saved-rule buttons stay, so a
+     lasting exclusion can still be saved). Listed on *Secondary* (`Analysis.issue_albums`)
+     and by `tagdrifter secondary`. An album is linked again at the first sync after its
+     issues resolve.
    - 8d: automatic sync after scans and renames for changes that never free a last copy;
      the rest waits for approval; failures notify.
 

@@ -24,8 +24,8 @@
   {% set rules = exclusions.by_track.get(t.path) %}
   {% set own = exclusions.tracks.get(t.path) %}
   <td class="secondary-cell">
-    {% if rules %}
-      <span class="badge" title="Excluded by {{ rules | map(attribute='label') | join(', ') }}">excluded</span>
+    {% if rules or exclusions.issues %}
+      <span class="badge" title="Excluded by {{ (rules | map(attribute='label') | list + (['the album’s open issues'] if exclusions.issues else [])) | join(', ') }}">excluded</span>
       {% if own.saved %}{{ include_form(own.rule, own.files, 1, "#tracks") }}{% endif %}
     {% elif own %}
       {{ exclude_form("track", "Exclude", path=t.path, title="By its release track MBID" if own.rule.kind == "track" else "By file path (no release track MBID)") }}
@@ -70,10 +70,12 @@
 {% set n_audio = exclusions.by_track | length %}
 <section class="panel album-section" id="secondary">
   <h2>Secondary library
-    {% if exclusions.excluded %}<span class="badge">{% if exclusions.excluded == n_audio %}excluded{% else %}{{ exclusions.excluded }} of {{ n_audio }} excluded{% endif %}</span>{% endif %}
+    {% if exclusions.left_out %}<span class="badge">{% if exclusions.left_out == n_audio %}excluded{% else %}{{ exclusions.left_out }} of {{ n_audio }} excluded{% endif %}</span>{% endif %}
   </h2>
   <p class="small">
-    {% if not exclusions.excluded %}Every track of this album belongs in the secondary library.
+    {% if exclusions.issues %}This album is left out of the secondary library while it has {{ issues_left_out }}
+      (<a href="#issues">{{ exclusions.issues }} now</a>); it’s linked again at the first sync after they’re resolved{% if exclusions.excluded %}, unless the exclusions below still leave {% if exclusions.excluded == n_audio %}it{% else %}{{ exclusions.excluded }} of its tracks{% endif %} out{% endif %}.
+    {% elif not exclusions.excluded %}Every track of this album belongs in the secondary library.
     {% elif exclusions.excluded == n_audio %}This album is left out of the secondary library.
     {% else %}{{ exclusions.excluded }} of {{ n_audio }} tracks are left out of the secondary library.{% endif %}
     <span class="muted">Changes take effect at the next <a href="/secondary">sync</a>.</span>

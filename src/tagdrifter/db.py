@@ -634,6 +634,19 @@ class Store:
             ).fetchall()
         )
 
+    def open_issue_albums(self, severities: Sequence[str]) -> dict[str, int]:
+        """{album folder: open issues} for albums with open issues of these severities."""
+        if not severities:
+            return {}
+        marks = ", ".join("?" * len(severities))
+        return dict(
+            self.conn.execute(
+                "SELECT album, COUNT(*) FROM issues WHERE resolved_scan IS NULL"
+                f" AND album IS NOT NULL AND severity IN ({marks}) GROUP BY album",
+                tuple(severities),
+            ).fetchall()
+        )
+
     # --- MusicBrainz release cache ------------------------------------------------------
 
     def library_release_ids(self) -> set[str]:

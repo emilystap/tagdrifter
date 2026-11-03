@@ -19,6 +19,8 @@ Environment variables (handy in Docker compose):
     TAGDRIFTER_SECONDARY       a secondary library kept in step by hard links (secondary.py)
     TAGDRIFTER_SECONDARY_SYNC  true/false: allow writing the secondary (secondary_write.py)
     TAGDRIFTER_SECONDARY_MARKER  true/false: require a .tagdrifter-secondary file in it (default)
+    TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES  leave out albums with open issues of this severity or
+                               worse: error, warning, info, or off (default)
 """
 
 from __future__ import annotations
@@ -81,6 +83,10 @@ class Settings:
     # Require a `.tagdrifter-secondary` file in its root, against a mistyped path. Turn off when
     # whatever reads the secondary would show that file.
     secondary_marker: bool = True
+    # Leave albums out of the secondary while they have an open issue of this severity or
+    # worse ("error", "warning" or "info"); "off" = never. They're linked again at the first
+    # sync after the issues are resolved.
+    secondary_exclude_issues: str = "off"
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -96,6 +102,22 @@ def _parse_bool(value: str) -> bool:
     if lowered in {"0", "false", "no", "off"}:
         return False
     raise ValueError(f"not a boolean: {value!r}")
+
+
+SEVERITY_THRESHOLDS = ("off", "error", "warning", "info")
+
+
+def _parse_threshold(value: str | bool) -> str:
+    """A severity threshold: error, warning, info or off (true = warning, false = off)."""
+    if not isinstance(value, bool):
+        lowered = str(value).strip().lower()
+        if lowered in SEVERITY_THRESHOLDS:
+            return lowered
+        try:
+            value = _parse_bool(lowered)
+        except ValueError:
+            raise ValueError(f"not a severity (error, warning, info or off): {value!r}") from None
+    return "warning" if value else "off"
 
 
 def _parse_events(value: str) -> frozenset[str]:
@@ -149,6 +171,9 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         secondary_path=Path(secondary["path"]) if secondary.get("path") else base.secondary_path,
         secondary_sync=bool(secondary.get("sync", base.secondary_sync)),
         secondary_marker=bool(secondary.get("marker", base.secondary_marker)),
+        secondary_exclude_issues=_parse_threshold(
+            secondary.get("exclude_issues", base.secondary_exclude_issues)
+        ),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -202,6 +227,7 @@ def load_settings(
         "TAGDRIFTER_SECONDARY": ("secondary_path", Path),
         "TAGDRIFTER_SECONDARY_SYNC": ("secondary_sync", _parse_bool),
         "TAGDRIFTER_SECONDARY_MARKER": ("secondary_marker", _parse_bool),
+        "TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES": ("secondary_exclude_issues", _parse_threshold),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):
