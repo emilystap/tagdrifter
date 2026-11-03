@@ -242,6 +242,13 @@ folders to remove. It shows these changes first; *Sync* makes them (when you all
    the album's page in *Library*; the library list marks excluded albums. From the command line: `tagdrifter secondary` lists
    the changes, `tagdrifter secondary --propose [--save]` the proposals, and
    `tagdrifter secondary --exclude-type .lrc` excludes a file type.
+4. Optionally, leave out albums while they have open issues, so only albums that pass the
+   checks reach the secondary: `TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES: warning` (or
+   `[secondary] exclude_issues = "warning"`) leaves out every album with an open warning or
+   error; `error` only errors, `info` any issue, `off` (the default) none. It applies to issues
+   that belong to an album (track and album checks), not artist-wide ones. Nothing is saved:
+   the next sync after a scan resolves an album's issues links it again, and *Secondary*
+   lists the albums it leaves out for now.
 
 Other files follow their audio unless a file type exclusion covers them: a `.lrc` follows
 its track, and cover images and other files

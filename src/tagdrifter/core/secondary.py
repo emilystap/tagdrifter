@@ -28,6 +28,9 @@ EXCLUSION_KINDS = {
     "track": "Track",  # key: release track MBID
     "path": "Path",  # key: a library-relative folder or file; matches everything under it
 }
+# Not saved: worked out from the open issues on each use when `secondary_exclude_issues` is on.
+# Key: an album folder; matches the audio files directly in it.
+ISSUES_KIND = "issues"
 
 
 @dataclass(frozen=True)
@@ -125,6 +128,8 @@ def rule_matches(rule: Exclusion, path: str, keys: AudioKeys) -> bool:
         return _under(path, rule.key)
     if rule.kind == "extension":
         return PurePosixPath(path).suffix.lower() == rule.key
+    if rule.kind == ISSUES_KIND:
+        return path.rpartition("/")[0] == rule.key
     return bool(rule.key) and getattr(keys, rule.kind, "") == rule.key
 
 

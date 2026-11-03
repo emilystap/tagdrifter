@@ -71,6 +71,10 @@ sync = false
 # Require the `.tagdrifter-secondary` file, so a mistyped path does nothing. Turn it off if
 # whatever reads the secondary would show the file. Env: TAGDRIFTER_SECONDARY_MARKER.
 marker = true
+# Leave albums out while they have an open issue of this severity or worse: "error",
+# "warning" or "info" ("off" = never). They're linked again at the first sync after the issues
+# are resolved. Env: TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES.
+exclude_issues = "off"
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

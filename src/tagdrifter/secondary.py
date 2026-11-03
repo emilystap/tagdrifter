@@ -14,18 +14,24 @@ This module only reads; secondary_write.py applies the plan. Safety rules, check
 - Both are on one filesystem (`st_dev`); links between two mounts fail (EXDEV) even when they
   are the same filesystem, so applying will also need them under one mount.
 - Walks never follow symlinks.
+
+With `secondary_exclude_issues` on, albums with open issues of that severity or worse are left
+out too, by rules worked out from the issues each time (never saved): an album is linked again
+at the first sync after its issues are resolved.
 """
 
 from __future__ import annotations
 
 import os
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 
 from .config import Settings
 from .core.secondary import (
+    ISSUES_KIND,
     AudioKeys,
     Exclusion,
     FileEntry,
@@ -192,6 +198,29 @@ def walk(root: Path, ignore: tuple[str, ...], *, skip: frozenset[str] = frozense
     return tree
 
 
+# `secondary_exclude_issues` -> the severities that leave an album out, and how pages say it
+ISSUE_SEVERITIES = {
+    "error": (("error",), "an open error"),
+    "warning": (("error", "warning"), "an open warning or error"),
+    "info": (("error", "warning", "info"), "an open issue"),
+}
+
+
+def issue_albums(settings: Settings, store: Store) -> dict[str, int]:
+    """{album folder: open issues} for the albums `secondary_exclude_issues` leaves out
+    (none when it's off)."""
+    severities, _ = ISSUE_SEVERITIES.get(settings.secondary_exclude_issues, ((), ""))
+    return store.open_issue_albums(severities)
+
+
+def issue_exclusions(albums: Mapping[str, int]) -> list[Exclusion]:
+    """Rules leaving out `issue_albums`, never saved."""
+    return [
+        Exclusion(ISSUES_KIND, folder, f"{n} open issue{'s' * (n != 1)}")
+        for folder, n in sorted(albums.items())
+    ]
+
+
 @dataclass(frozen=True)
 class RuleView:
     rule: Exclusion
@@ -199,11 +228,19 @@ class RuleView:
     folder: str  # the first one's folder ('' = none, or anywhere for a file type)
 
 
+@dataclass(frozen=True)
+class IssueAlbum:
+    folder: str
+    issues: int  # open issues at `secondary_exclude_issues` or worse
+    files: int  # audio files it leaves out
+
+
 @dataclass
 class Analysis:
     status: Status
     plan: SyncPlan | None = None
     rules: list[RuleView] = field(default_factory=list)
+    issue_albums: list[IssueAlbum] = field(default_factory=list)  # left out for open issues
     proposals: list[Proposal] = field(default_factory=list)
     main_files: int = 0
     excluded: int = 0
@@ -220,6 +257,8 @@ def analyze(settings: Settings, store: Store) -> Analysis:
     exclusions that would describe what the secondary leaves out now. Reads only."""
     status = check(settings)
     rules = store.secondary_exclusions()
+    albums = issue_albums(settings, store)
+    by_issues = issue_exclusions(albums)
     analysis = Analysis(status, rules=[RuleView(r, 0, "") for r in rules])
     if not status.ok:
         return analysis
@@ -239,7 +278,7 @@ def analyze(settings: Settings, store: Store) -> Analysis:
             audio[path] = AudioKeys()
         else:
             audio[path] = audio_keys(cached.tags)
-    excluded = excluded_files(main.files, audio, rules, settings.sidecar_extensions)
+    excluded = excluded_files(main.files, audio, rules + by_issues, settings.sidecar_extensions)
     plan = plan_sync(main, secondary, excluded)
 
     views = []
@@ -254,6 +293,10 @@ def analyze(settings: Settings, store: Store) -> Analysis:
         views.append(RuleView(rule, len(matched), folder))
     analysis.plan = plan
     analysis.rules = views
+    analysis.issue_albums = [
+        IssueAlbum(r.key, albums[r.key], sum(rule_matches(r, p, no_keys) for p in audio))
+        for r in by_issues
+    ]
     analysis.proposals = propose_extensions(main.files, audio, plan.links, excluded)
     missing = [p for p in plan.links if p in audio]
     analysis.proposals += propose_exclusions(audio, missing, excluded)
@@ -274,9 +317,10 @@ def cached_audio_keys(store: Store) -> dict[str, AudioKeys]:
     return {path: audio_keys(tags) for path, tags in store.file_tags(KEY_TAGS).items()}
 
 
-def excluded_by_folder(store: Store) -> dict[str, int]:
-    """{album folder: audio files the rules leave out}, for folders with any."""
-    rules = store.secondary_exclusions()
+def excluded_by_folder(settings: Settings, store: Store) -> dict[str, int]:
+    """{album folder: audio files the rules (and open issues) leave out}, for folders with
+    any."""
+    rules = store.secondary_exclusions() + issue_exclusions(issue_albums(settings, store))
     counts: dict[str, int] = {}
     if not rules:
         return counts
@@ -303,17 +347,25 @@ class AlbumExclusions:
     artist: Toggle
     release: Toggle
     tracks: dict[str, Toggle]
+    # Open issues leaving the whole album out (`secondary_exclude_issues`); 0 = none
+    issues: int = 0
 
     @property
     def excluded(self) -> int:
+        """Audio files the saved rules leave out."""
         return sum(1 for rules in self.by_track.values() if rules)
 
+    @property
+    def left_out(self) -> int:
+        """Audio files left out of the secondary, by rules or open issues."""
+        return len(self.by_track) if self.issues else self.excluded
 
-def album_exclusions(store: Store, folder: str) -> AlbumExclusions | None:
-    """How the exclusions apply to an album folder's audio files, and the rules that would
-    exclude its album artist, the album or each track: by MusicBrainz ID when the files share
-    one, else by path (the artist folder, the album folder or the file). None if the cache
-    has no audio files directly in the folder."""
+
+def album_exclusions(settings: Settings, store: Store, folder: str) -> AlbumExclusions | None:
+    """How the exclusions (and open issues) apply to an album folder's audio files, and the
+    rules that would exclude its album artist, the album or each track: by MusicBrainz ID when
+    the files share one, else by path (the artist folder, the album folder or the file). None
+    if the cache has no audio files directly in the folder."""
     folder = folder.strip("/")
     audio = cached_audio_keys(store)
     paths = sorted(p for p in audio if p.rpartition("/")[0] == folder)
@@ -341,4 +393,5 @@ def album_exclusions(store: Store, folder: str) -> AlbumExclusions | None:
         artist=toggle(exclusion_for("artist", paths, audio, folder.split("/", 1)[0])),
         release=toggle(exclusion_for("release", paths, audio, folder)),
         tracks={p: toggle(exclusion_for("track", [p], audio, p)) for p in paths},
+        issues=issue_albums(settings, store).get(folder, 0),
     )

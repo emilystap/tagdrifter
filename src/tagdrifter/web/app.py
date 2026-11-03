@@ -161,6 +161,11 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "auth_enabled": authenticator.enabled,
         "fix_enabled": settings.fix_enabled,
         "exclusion_kinds": EXCLUSION_KINDS,
+        # "an open warning or error" etc. when albums with issues are left out of the
+        # secondary library, else ""
+        "issues_left_out": secondary.ISSUE_SEVERITIES.get(
+            settings.secondary_exclude_issues, ((), "")
+        )[1],
         "move_labels": fmt.move_labels,
         "notifications": notifications,
         "mb_sync": mb_sync,
@@ -334,7 +339,9 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             "page": "library",
             "q": q,
             # Audio files left out of the secondary library, per album folder
-            "excluded": secondary.excluded_by_folder(store) if settings.secondary_path else {},
+            "excluded": (
+                secondary.excluded_by_folder(settings, store) if settings.secondary_path else {}
+            ),
             "albums": found[offset : offset + GROUP_PAGE_SIZE],
             "total": len(albums),
             "entries": len(found),
@@ -367,7 +374,9 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
             issues=issues,
             renamable=renamable,
             exclusions=(
-                secondary.album_exclusions(store, album.folder) if settings.secondary_path else None
+                secondary.album_exclusions(settings, store, album.folder)
+                if settings.secondary_path
+                else None
             ),
             groups=[
                 (g, library.compare_release_group(store, album, g, tolerance))
@@ -817,7 +826,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         form = await _form(request)
         folder = form.get("folder", "")
         with Store(settings.database_path) as store:
-            album = secondary.album_exclusions(store, folder)
+            album = secondary.album_exclusions(settings, store, folder)
             if album is None:
                 raise HTTPException(404, "No such album.")
             kind = form.get("kind", "")
