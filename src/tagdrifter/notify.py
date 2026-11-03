@@ -24,7 +24,7 @@ from .db import IssueFilter, Store
 
 log = logging.getLogger(__name__)
 
-EVENTS = frozenset({"new_issues", "failures"})
+EVENTS = frozenset({"new_issues", "failures", "triage"})
 MAX_ALBUMS = 10  # albums listed in a new-issues message
 USER_AGENT = f"tagdrifter/{__version__} (+https://github.com/emilystap/tagdrifter)"
 
@@ -215,6 +215,29 @@ class Notifications:
                     "/renames",
                 )
             )
+
+    def triage_finished(self, moved: list[tuple[str, str]], waiting: list[tuple[str, str]]) -> None:
+        """Albums triage moved into the library (label, folder), and ones that newly wait in
+        the triage folder (label, status: confirm or blocked)."""
+        if not self.wants("triage") or not (moved or waiting):
+            return
+        lines = []
+        if moved:
+            lines.append(f"Moved {_plural(len(moved), 'album')} into the library:")
+            lines += [f"- **{md_escape(label)}** → {md_escape(folder)}" for label, folder in moved]
+        need = "needs you" if len(waiting) == 1 else "need you"
+        if waiting:
+            if lines:
+                lines.append("")
+            lines.append(f"{_plural(len(waiting), 'album')} in triage {need}:")
+            why = {"confirm": "needs confirmation", "blocked": "can't be moved"}
+            lines += [f"- **{md_escape(label)}**: {why[status]}" for label, status in waiting]
+        title = (
+            f"Tag Drifter: {_plural(len(moved), 'album')} moved from triage"
+            if moved and not waiting
+            else f"Tag Drifter: {_plural(len(waiting), 'album')} in triage {need}"
+        )
+        self._send_later(Notification(title, "\n".join(lines), 5, "/triage"))
 
     def send_test(self) -> str:
         """Send a test message now. Returns the service's confirmation; raises NotifyError."""

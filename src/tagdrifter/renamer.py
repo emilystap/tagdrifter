@@ -303,11 +303,17 @@ def _free(root: Path, src: str, dst: str) -> bool:
 def _rename(root: Path, src: str, dst: str) -> None:
     """Rename without overwriting. Case-only renames go through a hidden temporary name, which
     works on case-insensitive filesystems too (and scans ignore it if left behind)."""
-    a, b = _abs(root, src), _abs(root, dst)
+    move_path(root, src, root, dst)
+
+
+def move_path(src_root: Path, src: str, dst_root: Path, dst: str) -> None:
+    """Move `src` (relative to `src_root`) to `dst` (relative to `dst_root`, on the same
+    filesystem) without overwriting; see `_rename`."""
+    a, b = _abs(src_root, src), _abs(dst_root, dst)
     if not os.path.lexists(a):
         raise RenameError(f"{src} no longer exists.")
-    if compare_paths(src, dst) is PathMatch.CASE_ONLY:
-        if os.path.lexists(b) and not _free(root, src, dst):
+    if src_root == dst_root and compare_paths(src, dst) is PathMatch.CASE_ONLY:
+        if os.path.lexists(b) and not _free(src_root, src, dst):
             raise RenameError(f"{dst} already exists.")
         temp = a.with_name(f".tagdrifter-{uuid.uuid4().hex[:8]}")
         os.rename(a, temp)
@@ -380,8 +386,15 @@ def undo_batch(
     """Reverse a batch's journaled moves, newest first. Returns how many were reversed.
 
     Each reversed move is marked in the journal, so an undo that stops halfway (e.g. a file
-    was moved again since) can be retried after fixing the cause."""
+    was moved again since) can be retried after fixing the cause. A batch moved in from the
+    triage folder (origin 'triage') goes back there."""
     root = settings.library_path
+    batch = store.rename_batch(batch_id)
+    from_root = root
+    if batch is not None and batch["origin"] == "triage":
+        if settings.triage_path is None:
+            raise RenameError("No triage folder is set, so these files can't go back there.")
+        from_root = settings.triage_path
     reversed_count = 0
     for move in store.rename_moves(batch_id, pending_only=True)[::-1]:
         try:
@@ -390,9 +403,9 @@ def undo_batch(
                 if path.is_dir() and not os.listdir(path):
                     path.rmdir()
             elif move["kind"] == "rmdir":
-                _abs(root, move["src"]).mkdir(exist_ok=True)
+                _abs(from_root, move["src"]).mkdir(exist_ok=True)
             else:
-                _rename(root, move["dst"], move["src"])
+                move_path(root, move["dst"], from_root, move["src"])
         except (OSError, RenameError) as exc:
             store.finish_rename_batch(batch_id, "partial", f"Undo stopped: {exc}")
             raise RenameError(

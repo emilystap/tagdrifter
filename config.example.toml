@@ -3,7 +3,7 @@
 # TAGDRIFTER_CASE_SENSITIVE, TAGDRIFTER_WORKERS, TAGDRIFTER_SCHEDULE, TAGDRIFTER_FIX,
 # TAGDRIFTER_PUBLIC_URL, TAGDRIFTER_GOTIFY_URL, TAGDRIFTER_GOTIFY_TOKEN, TAGDRIFTER_NOTIFY_ON,
 # TAGDRIFTER_MUSICBRAINZ, TAGDRIFTER_MUSICBRAINZ_CONTACT, TAGDRIFTER_SECONDARY,
-# TAGDRIFTER_CONFIG.
+# TAGDRIFTER_TRIAGE, TAGDRIFTER_CONFIG.
 
 [library]
 path = "M:/music"            # in Docker this will be "/music"
@@ -40,9 +40,10 @@ enabled = false
 # Unset = no notifications. Env: TAGDRIFTER_GOTIFY_URL, TAGDRIFTER_GOTIFY_TOKEN.
 # gotify_url = "http://gotify.lan:8080"
 # gotify_token = "..."
-# What to send: "new_issues" (a scan found issues that weren't open before) and/or
-# "failures" (a scan failed, or a rename was left half-done). Env: TAGDRIFTER_NOTIFY_ON.
-on = ["new_issues", "failures"]
+# What to send: "new_issues" (a scan found issues that weren't open before), "failures" (a
+# scan failed, or a rename was left half-done) and/or "triage" (albums moved in from the
+# triage folder, or waiting there for you). Env: TAGDRIFTER_NOTIFY_ON.
+on = ["new_issues", "failures", "triage"]
 
 [musicbrainz]
 # Look up each release on MusicBrainz for the mb.* checks: one request per release, at most
@@ -75,6 +76,20 @@ marker = true
 # "warning" or "info" ("off" = never). They're linked again at the first sync after the issues
 # are resolved. Env: TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES.
 exclude_issues = "off"
+
+[triage]
+# A folder for newly tagged files: albums move from here into the library at their expected
+# paths, on their own when the checks find nothing of warning severity or worse (path checks
+# aside), else once confirmed on the Triage page. Files are moved, never copied, so it must be
+# on the library's filesystem and, in Docker, under the same read-write mount.
+# Env: TAGDRIFTER_TRIAGE.
+# path = "M:/triage"
+# Seconds between automatic runs in the web app (0 = only "Process now" and the CLI).
+# Env: TAGDRIFTER_TRIAGE_INTERVAL.
+interval = 300
+# Seconds a folder's files must be left alone before they move (still copying or tagging).
+# Env: TAGDRIFTER_TRIAGE_SETTLE.
+settle = 120
 
 [checks]
 # Check ids to switch off (see `tagdrifter checks`).

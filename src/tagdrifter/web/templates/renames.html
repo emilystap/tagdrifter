@@ -14,10 +14,11 @@
     <li class="group">
       <div class="group-head">
         <span class="badge {{ {'applied': 'ok', 'failed': 'error', 'partial': 'warning'}.get(b['status'], '') }}">{{ b["status"] }}</span>
+        {% if b["origin"] == "triage" %}<span class="badge info">from triage</span>{% endif %}
         <span class="path group-path">{{ b["album"] }}</span>
         {% if b["status"] in ("applied", "partial") and writable %}
         <form class="batch-undo" method="post" action="/renames/{{ b['id'] }}/undo"
-              onsubmit="return confirm('Move these files back to where they were?')">
+              onsubmit="return confirm('{% if b['origin'] == 'triage' %}Move these files back into the triage folder?{% else %}Move these files back to where they were?{% endif %}')">
           <button type="submit" class="button">Undo</button>
         </form>
         {% endif %}
@@ -34,7 +35,7 @@
     {% endfor %}
   </ul>
   {% else %}
-    <p class="muted">Nothing renamed yet. Album cards on the Issues page have a “Preview renames” button.</p>
+    <p class="muted">Nothing renamed yet.{% if fix_enabled %} Album cards on the Issues page have a “Preview renames” button.{% endif %}{% if settings.triage_path %} Albums moved in from triage are listed here too.{% endif %}</p>
   {% endif %}
 </section>
 {% endblock %}

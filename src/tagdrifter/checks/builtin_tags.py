@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import re
 from collections import Counter, defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 from ..core import CurrentArtist, TrackMeta, audit_album_placement, is_mbid
-from ..core.mbrelease import current_credit_text
+from ..core.mbrelease import MbRelease, current_credit_text
 from ..core.metadata import (
     ALBUM_ARTIST_KEYS,
     ALBUM_ARTISTS_KEYS,
@@ -405,26 +406,30 @@ class AlbumPlacement(Check):
             )
 
     def _current_artist(self, ctx: AlbumContext) -> CurrentArtist | None:
-        """The release's album artist credit with each artist's current name, so an artist's
-        albums share a folder across a name change, even where Picard keeps the former name
-        in the tags. None (go by the tags) with `artist_folder = "album_artist"`, or when no
-        track's release is looked up yet."""
-        mode = self.options.get("artist_folder", "musicbrainz")
-        if mode not in ("musicbrainz", "album_artist"):
-            raise ValueError(
-                f'album.placement artist_folder must be "musicbrainz" or "album_artist": {mode!r}'
-            )
-        if mode == "album_artist":
-            return None
         release = next((r for t in ctx.tracks if (r := ctx.release_of(t.meta))), None)
-        if release is None or not release.artists:
-            return None
-        credit = release.artists
-        return CurrentArtist(
-            name=current_credit_text(credit),
-            sort_name="".join((c.sort_name or c.current_name) + c.joinphrase for c in credit),
-            names=tuple(c.current_name for c in credit),
+        return current_album_artist(release, self.options)
+
+
+def current_album_artist(
+    release: MbRelease | None, options: Mapping[str, Any]
+) -> CurrentArtist | None:
+    """The release's album artist credit with each artist's current name, so an artist's
+    albums share a folder across a name change, even where Picard keeps the former name in
+    the tags. None (go by the tags) with `artist_folder = "album_artist"` in the
+    album.placement options, or when the release isn't looked up yet."""
+    mode = options.get("artist_folder", "musicbrainz")
+    if mode not in ("musicbrainz", "album_artist"):
+        raise ValueError(
+            f'album.placement artist_folder must be "musicbrainz" or "album_artist": {mode!r}'
         )
+    if mode == "album_artist" or release is None or not release.artists:
+        return None
+    credit = release.artists
+    return CurrentArtist(
+        name=current_credit_text(credit),
+        sort_name="".join((c.sort_name or c.current_name) + c.joinphrase for c in credit),
+        names=tuple(c.current_name for c in credit),
+    )
 
 
 @register

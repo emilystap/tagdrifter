@@ -1,0 +1,131 @@
+{#- /triage's contents: the last run, then the albums in the triage folder by status. Expects
+    `plan`, `run` (the last run, or none), `fresh` (it just ran) and `error`. -#}
+{% set can_move = plan.status.ok and not plan.status.warnings %}
+{% set labels = {
+  "confirm": ("warning", "needs confirmation"),
+  "blocked": ("error", "can’t move"),
+  "waiting": ("info", "waiting"),
+  "ready": ("ok", "ready"),
+} %}
+
+{% macro findings(rows) %}
+  <ul class="small triage-findings">
+    {% for f in rows %}
+      <li>
+        <span class="badge {{ f.severity }}">{{ f.severity }}</span>
+        <code>{{ f.check_id }}</code>
+        {% if f.where != "album" %}<span class="path">{{ f.where }}</span>:{% endif %}
+        {{ f.message }}
+      </li>
+    {% endfor %}
+  </ul>
+{% endmacro %}
+
+{% macro album_card(a) %}
+  {% set badge, label = labels[a.status] %}
+  <li class="group">
+    <div class="group-head">
+      <span class="badge {{ badge }}">{{ label }}</span>
+      <span class="group-path">{{ a.label }}</span>
+    </div>
+    <div class="muted small">
+      {{ a.files | length }} track{% if a.files | length != 1 %}s{% endif %}
+      {% if a.target %} → <span class="path">{{ a.target }}</span>{% endif %}
+      {% if a.release_mbid %} · <a href="https://musicbrainz.org/release/{{ a.release_mbid }}" rel="noopener">MusicBrainz</a>{% endif %}
+    </div>
+    {% for p in a.problems %}<p class="rename-problem small">{{ p }}</p>{% endfor %}
+    {% for w in a.waiting %}<p class="muted small">{{ w }}</p>{% endfor %}
+    {% for r in a.reasons %}<p class="small">{{ r }}</p>{% endfor %}
+    {% if a.issues %}{{ findings(a.issues) }}{% endif %}
+    {% for r in a.remarks %}<p class="muted small">{{ r }}</p>{% endfor %}
+    {% if a.notes %}
+      <details class="group-issues">
+        <summary>Info ({{ a.notes | length }})</summary>
+        {{ findings(a.notes) }}
+      </details>
+    {% endif %}
+    {% if a.moves %}
+      <details class="group-issues">
+        <summary>Moves ({{ a.moves | length }})</summary>
+        <ul class="moves small">
+          {% for m in a.moves %}
+            <li>
+              <span class="badge">{{ m.kind }}</span>
+              <span class="move-paths">
+                <span class="path">triage/{{ m.src }}</span>
+                <span class="path"><span class="muted" aria-label="becomes">→ </span>{{ m.dst }}</span>
+              </span>
+            </li>
+          {% endfor %}
+        </ul>
+      </details>
+    {% endif %}
+    {% if a.status in ("confirm", "ready") and can_move %}
+      <form class="rename-actions" hx-post="/triage/move" hx-target="#triage" hx-swap="innerHTML"
+            hx-disabled-elt="find button">
+        <input type="hidden" name="key" value="{{ a.key }}">
+        <input type="hidden" name="fingerprint" value="{{ a.fingerprint }}">
+        <button type="submit" class="button{% if a.status == 'confirm' %} primary{% endif %}">
+          {% if a.status == "confirm" %}Move anyway{% else %}Move now{% endif %}
+        </button>
+      </form>
+    {% endif %}
+  </li>
+{% endmacro %}
+
+{% if error %}
+<section class="panel"><p class="rename-problem" role="alert">{{ error }}</p></section>
+{% endif %}
+
+{% if run and (fresh or run.moved or run.failed) %}
+<section class="panel" role="status">
+  <h2>{% if fresh %}Just now{% else %}Last run, {{ run.finished | ago }}{% endif %}</h2>
+  {% if run.moved %}
+    <p class="rename-done"><span class="badge ok">moved</span>
+      {{ run.moved | length }} album{% if run.moved | length != 1 %}s{% endif %} into the library:</p>
+    <ul class="small">
+      {% for label, result in run.moved %}<li>{{ label }} → <span class="path">{{ result.target }}</span></li>{% endfor %}
+    </ul>
+  {% elif fresh and not run.failed %}
+    <p class="muted small">Nothing was ready to move.</p>
+  {% endif %}
+  {% for label, why in run.failed %}<p class="rename-problem small"><strong>{{ label }}:</strong> {{ why }}</p>{% endfor %}
+  {% if run.note %}<p class="muted small">{{ run.note }}</p>{% endif %}
+  {% if run.rescanning %}<p class="muted small">Scanning the library…</p>{% endif %}
+</section>
+{% elif run and run.note %}
+<section class="panel"><p class="muted small">Last run ({{ run.finished | ago }}): {{ run.note }}</p></section>
+{% endif %}
+
+{% if not plan.status.ok %}
+<section class="panel">
+  <h2>Triage can’t run</h2>
+  {% for problem in plan.status.problems %}<p class="rename-problem">{{ problem }}</p>{% endfor %}
+</section>
+{% else %}
+  {% for warning in plan.status.warnings %}
+    <section class="panel"><p class="rename-problem">{{ warning }}</p></section>
+  {% endfor %}
+  {% if not plan.albums %}
+    <section class="panel"><p class="muted">The triage folder has no audio files.</p></section>
+  {% endif %}
+  {% for status, title in [
+    ("confirm", "Needs confirmation"),
+    ("blocked", "Can’t move"),
+    ("waiting", "Waiting"),
+    ("ready", "Ready to move"),
+  ] %}
+    {% set albums = plan.by_status(status) %}
+    {% if albums %}
+    <section class="panel">
+      <h2>{{ title }} ({{ albums | length }})</h2>
+      {% if status == "confirm" %}<p class="muted small">The checks found issues (or another album is affected). <em>Move anyway</em> moves the album as shown; fix the tags and it moves on its own instead.</p>
+      {% elif status == "blocked" %}<p class="muted small">Fix these in the triage folder (or the library); they’re checked again at every run.</p>
+      {% elif status == "ready" %}<p class="muted small">These move at the next run.</p>{% endif %}
+      <ul class="groups">
+        {% for a in albums %}{{ album_card(a) }}{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  {% endfor %}
+{% endif %}

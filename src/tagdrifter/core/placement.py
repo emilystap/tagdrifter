@@ -50,6 +50,14 @@ class CurrentArtist:
     names: tuple[str, ...]  # one per artist, like ALBUMARTISTS
 
 
+def expected_artist_folder(album_artist: str) -> str:
+    """The artist folder for an album artist: "Various Artists" for compilations, else the
+    sanitized name."""
+    if is_various_artists_tag(album_artist):
+        return VARIOUS_ARTISTS_FOLDER
+    return sanitize_folder(album_artist)
+
+
 def album_artist_matches_folder(meta: TrackMeta, artist_folder: str) -> bool:
     """Track-level check from the v1 organizer: does this track's album artist belong here?"""
     album_artist = meta.effective_album_artist
@@ -107,7 +115,7 @@ def audit_album_placement(
     folder_va = is_various_artists_folder(artist_folder)
 
     issue: PlacementIssueType | None = None
-    expected_folder = VARIOUS_ARTISTS_FOLDER if tagged_va else sanitized_aa
+    expected_folder = expected_artist_folder(album_artist)
     if tagged_va and not folder_va:
         issue = PlacementIssueType.COMPILATION_IN_ARTIST_FOLDER
     elif folder_va and not tagged_va:
