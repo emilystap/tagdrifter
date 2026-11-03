@@ -161,6 +161,11 @@ MIGRATIONS: list[str] = [
     );
     CREATE INDEX secondary_ops_sync ON secondary_ops(sync_id);
     """,
+    # 11: where a rename batch's files came from: NULL = renamed within the library, 'triage' =
+    # moved in from the triage folder (triage.py; `src` paths are then triage-relative)
+    """
+    ALTER TABLE rename_batches ADD COLUMN origin TEXT;
+    """,
 ]
 
 # Why a scan ran. Follow-up rescans (FOLLOW_UP_REASONS) are hidden from the Scans page by
@@ -172,8 +177,9 @@ SCAN_REASONS = {
     "rename": "After renames",
     "undo": "After undo",
     "musicbrainz": "After MusicBrainz lookups",
+    "triage": "After triage",
 }
-FOLLOW_UP_REASONS = ("rename", "undo", "musicbrainz")
+FOLLOW_UP_REASONS = ("rename", "undo", "musicbrainz", "triage")
 _ROUTINE_SCAN = (
     f"(coalesce(reason, '') IN ({', '.join(repr(r) for r in FOLLOW_UP_REASONS)})"
     " AND status = 'completed' AND issues_new = 0)"
@@ -770,11 +776,12 @@ class Store:
 
     # --- Rename journal -----------------------------------------------------------------
 
-    def start_rename_batch(self, album: str) -> int:
+    def start_rename_batch(self, album: str, origin: str | None = None) -> int:
         with self.conn:
             cur = self.conn.execute(
-                "INSERT INTO rename_batches (album, created_at, status) VALUES (?, ?, 'running')",
-                (album, utcnow()),
+                "INSERT INTO rename_batches (album, created_at, status, origin)"
+                " VALUES (?, ?, 'running', ?)",
+                (album, utcnow(), origin),
             )
         return int(cur.lastrowid)
 

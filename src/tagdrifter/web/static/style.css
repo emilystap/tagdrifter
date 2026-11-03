@@ -412,3 +412,5 @@ form.htmx-request .lookup-busy { display: inline; }
   .album-section .mobile-only { display: inline; }
   .release-fits .mobile-only { display: block; }
 }
+.triage-findings { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.triage-findings li { overflow-wrap: anywhere; }

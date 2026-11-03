@@ -21,6 +21,9 @@ Environment variables (handy in Docker compose):
     TAGDRIFTER_SECONDARY_MARKER  true/false: require a .tagdrifter-secondary file in it (default)
     TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES  leave out albums with open issues of this severity or
                                worse: error, warning, info, or off (default)
+    TAGDRIFTER_TRIAGE          a folder of newly tagged files to move into the library (triage.py)
+    TAGDRIFTER_TRIAGE_INTERVAL seconds between automatic triage runs (0 = only from the web UI)
+    TAGDRIFTER_TRIAGE_SETTLE   seconds a folder's files must be unchanged before triage moves them
 """
 
 from __future__ import annotations
@@ -61,7 +64,7 @@ class Settings:
     # Notifications (notify.py): a Gotify server and application token; empty = off.
     gotify_url: str = ""
     gotify_token: str = field(default="", repr=False)
-    notify_on: frozenset[str] = frozenset({"new_issues", "failures"})
+    notify_on: frozenset[str] = frozenset({"new_issues", "failures", "triage"})
     # Look up the library's releases on MusicBrainz (1 request/s, cached for weeks) so the
     # mb.* checks can compare tags with it. Off by default: it's the only network access
     # besides notifications.
@@ -87,6 +90,15 @@ class Settings:
     # worse ("error", "warning" or "info"); "off" = never. They're linked again at the first
     # sync after the issues are resolved.
     secondary_exclude_issues: str = "off"
+    # A triage folder (triage.py): newly tagged files dropped here move into the library at
+    # their expected paths, on their own when nothing is wrong, else once confirmed in the web
+    # UI. On the same filesystem and mount as the library; None = none.
+    triage_path: Path | None = None
+    # Seconds between automatic triage runs in the web app; 0 = only when asked (web UI, CLI).
+    triage_interval: int = 300
+    # Seconds a triage folder's files must be unchanged before they move, so files still
+    # being copied or tagged are left alone.
+    triage_settle: int = 120
     disabled_checks: frozenset[str] = frozenset()
     # Per-check options, keyed by check id: [checks."tags.required"] in TOML.
     check_options: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
@@ -135,6 +147,7 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
     notify = data.get("notify", {})
     musicbrainz = data.get("musicbrainz", {})
     secondary = data.get("secondary", {})
+    triage = data.get("triage", {})
     checks = dict(data.get("checks", {}))
     disabled = checks.pop("disabled", [])
 
@@ -174,6 +187,9 @@ def _from_toml(data: Mapping[str, Any], base: Settings) -> Settings:
         secondary_exclude_issues=_parse_threshold(
             secondary.get("exclude_issues", base.secondary_exclude_issues)
         ),
+        triage_path=Path(triage["path"]) if triage.get("path") else base.triage_path,
+        triage_interval=int(triage.get("interval", base.triage_interval)),
+        triage_settle=int(triage.get("settle", base.triage_settle)),
         disabled_checks=frozenset(disabled),
         check_options={k: v for k, v in checks.items() if isinstance(v, Mapping)},
     )
@@ -228,6 +244,9 @@ def load_settings(
         "TAGDRIFTER_SECONDARY_SYNC": ("secondary_sync", _parse_bool),
         "TAGDRIFTER_SECONDARY_MARKER": ("secondary_marker", _parse_bool),
         "TAGDRIFTER_SECONDARY_EXCLUDE_ISSUES": ("secondary_exclude_issues", _parse_threshold),
+        "TAGDRIFTER_TRIAGE": ("triage_path", Path),
+        "TAGDRIFTER_TRIAGE_INTERVAL": ("triage_interval", int),
+        "TAGDRIFTER_TRIAGE_SETTLE": ("triage_settle", int),
     }
     for var, (attr, convert) in env_map.items():
         if env.get(var):

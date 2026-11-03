@@ -56,7 +56,7 @@ present, are in the git-ignored `CLAUDE.local.md`.
    background scan at a time, progress polled by HTMX every 1s; a finished scan fires the
    `scan-finished` event and the page reloads `#page`). Each scan records why it ran
    (`scans.reason`, migration 7, `db.SCAN_REASONS`: manual, schedule, cli, rename, undo,
-   musicbrainz; pass `reason=` to `ScanRunner.start` / `run_scan` for a new trigger). The
+   musicbrainz, triage; pass `reason=` to `ScanRunner.start` / `run_scan` for a new trigger). The
    Scans page (`_scan_results.html`, 50 per page) hides follow-up rescans that completed with
    no new issues unless `?all=1`; older scans that started within a minute of a rename
    finishing were backfilled as `rename`. Old scans aren't deleted (rows are tiny, and
@@ -423,6 +423,40 @@ present, are in the git-ignored `CLAUDE.local.md`.
      issues resolve.
    - 8d: automatic sync after scans and renames for changes that never free a last copy;
      the rest waits for approval; failures notify.
+9. Triage folder ✅ (`triage.py`, `web/triage.py`; off unless `triage_path` / `[triage] path` /
+   `TAGDRIFTER_TRIAGE`). Newly tagged files dropped there move into the library at their
+   expected paths. `plan_triage` walks it (no symlinks), groups audio by release MBID (else by
+   folder) and gives each album a status: *waiting* (a folder's files changed within
+   `triage_settle`, default 120 s, so copies and tagging finish; or, with MusicBrainz on, the
+   release isn't cached yet, then `TriageWatcher` looks it up via `MusicBrainzSync.refresh`),
+   *blocked* (unreadable, `NEEDED_TAGS` or MBIDs missing, a target that exists (compared
+   case-insensitively, never overwritten), two files with one target, the release already in
+   the library in another folder (no splitting), an artist folder colliding by case),
+   *confirm* (checks of warning or worse, run over the album as it would be in the library:
+   its library tracks + the new ones, minus `SKIPPED_CHECKS` = `path.*`, `album.placement`;
+   or the folder name clashes with another release, which then gets a suffix and a rename
+   proposal) or *ready* (info issues don't hold up). The artist folder is
+   `expected_artist_folder` of the album artist (`current_album_artist`, shared with
+   `album.placement`), else an existing folder `audit_album_placement` accepts. Targets come
+   from `resolve_release_collisions` together with the artist folder's library tracks (triage
+   metas live under the fake `STAGING` folder meanwhile). Sidecars follow their track; when
+   every audio file at or below a triage folder belongs to the album (`_owned`, walking up to
+   the first parent with other audio), its other files and audio-less folders move into the
+   album folder unless the name is taken. `move_album` journals one rename batch per album
+   with `origin = 'triage'` (migration 11; `src` triage-relative), creates library folders,
+   removes emptied triage folders, rolls back on failure; `undo_batch` sends a triage batch
+   back to the triage folder (`renamer.move_path` takes two roots). Moves are renames, so
+   `check` warns (and nothing moves) on another filesystem, separate mounts or read-only.
+   `TriageWatcher`: a timer every `triage_interval` (default 300 s; 0 = on request only), one
+   run or confirmed move at a time, moves ready albums under `ScanRunner.paused()`, one
+   rescan (`reason="triage"`, automatic), and a `triage` notification (new default event)
+   listing moves and albums that newly need you (once per album fingerprint, in memory).
+   `/triage` (plan loaded by `/triage/plan`), *Process now* (`POST /triage/run`), *Move anyway*
+   / *Move now* (`POST /triage/move`, `confirm_album` re-plans and checks the `fingerprint`,
+   which covers the moves and the findings). The Renames page (journal + Undo) opens when fix
+   or triage is on. CLI: `tagdrifter triage [--apply] [--confirm KEY ...] [--no-scan]`.
+   - Later: an "ignore this issue" choice per album (e.g. a known `mb.duration` difference),
+     and moving across artist folders for releases already in the library elsewhere.
 
 ## Source of truth
 

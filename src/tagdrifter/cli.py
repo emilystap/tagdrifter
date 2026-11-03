@@ -1,5 +1,5 @@
-"""Command line interface: `tagdrifter scan | issues | rename | refresh | secondary | checks |
-scans | serve | hash-password`."""
+"""Command line interface: `tagdrifter scan | issues | rename | refresh | secondary | triage |
+checks | scans | serve | hash-password`."""
 
 from __future__ import annotations
 
@@ -15,14 +15,14 @@ from collections import Counter
 from dataclasses import replace
 from pathlib import Path
 
-from . import __version__, library, secondary
+from . import __version__, library, secondary, triage
 from .checks import REGISTRY
 from .config import Settings, load_settings
 from .core import is_mbid
 from .core.secondary import EXCLUSION_KINDS, Exclusion, normalize_extension, plan_fingerprint
 from .db import IssueFilter, Store
 from .musicbrainz import client_for, refresh_releases
-from .renamer import apply_albums, library_writable, plan_albums
+from .renamer import RenameError, apply_albums, library_writable, plan_albums
 from .scanner import ScanProgress, run_scan
 from .secondary_write import SyncError, apply_sync
 
@@ -308,6 +308,76 @@ def cmd_refresh(settings: Settings, args: argparse.Namespace) -> int:
         rescan = argparse.Namespace(full=False, reason="musicbrainz")
         return cmd_scan(settings, rescan) or (1 if result.error else 0)
     return 1 if result.error else 0
+
+
+def cmd_triage(settings: Settings, args: argparse.Namespace) -> int:
+    """Show what triage would do with the triage folder; with --apply, move the albums that
+    are ready (and those named with --confirm). Releases it waits for are looked up first
+    when MusicBrainz lookups are on."""
+    if settings.triage_path is None:
+        print("error: no triage folder is set; set [triage] path or TAGDRIFTER_TRIAGE.",
+              file=sys.stderr)  # fmt: skip
+        return 2
+    try:
+        triage.validate_settings(settings)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    with Store(settings.database_path) as store:
+        plan = triage.plan_triage(settings, store)
+        lookups = [a.release_mbid for a in plan.albums if a.needs_lookup]
+        if lookups:
+            print(f"Looking up {len(lookups)} release{'s' * (len(lookups) != 1)} on MusicBrainz…",
+                  file=sys.stderr)  # fmt: skip
+            result = refresh_releases(store, client_for(settings), lookups)
+            if result.error:
+                print(f"error: {result.error}", file=sys.stderr)
+            plan = triage.plan_triage(settings, store)
+        for problem in plan.status.problems:
+            print(f"error: {problem}", file=sys.stderr)
+        if not plan.status.ok:
+            return 2
+        for warning in plan.status.warnings:
+            print(f"note: {warning}", file=sys.stderr)
+        confirmed = {k.lower() for k in args.confirm or ()}
+        for album in plan.albums:
+            target = f" -> {album.target}" if album.target else ""
+            print(f"{album.status:<8} {album.label}{target}  [{album.key}]")
+            for line in album.problems + album.waiting + album.reasons:
+                print(f"           {line}")
+            for f in album.issues:
+                print(f"           {f.severity}: {f.where}: {f.message} ({f.check_id})")
+            for line in album.remarks:
+                print(f"           {line}")
+        movable = [
+            a
+            for a in plan.albums
+            if a.status == triage.READY or (a.status == triage.CONFIRM and a.key in confirmed)
+        ]
+        if not plan.albums:
+            print("The triage folder has no audio files.")
+        if not args.apply or not movable:
+            return 0
+        if plan.status.warnings:
+            print("error: nothing can be moved (see the notes above).", file=sys.stderr)
+            return 2
+        moved = failed = 0
+        for album in movable:
+            try:
+                result = triage.move_album(settings, store, album)
+            except RenameError as exc:
+                print(f"failed  {album.label}: {exc}", file=sys.stderr)
+                failed += 1
+                if exc.partial:
+                    break
+                continue
+            print(f"moved   {album.label} -> {result.target}")
+            moved += 1
+        print(f"Moved {moved:,} album{'s' * (moved != 1)}; {failed:,} failed.")
+    if moved and not args.no_scan:
+        rescan = argparse.Namespace(full=False, reason="triage")
+        return cmd_scan(settings, rescan) or (1 if failed else 0)
+    return 1 if failed else 0
 
 
 def cmd_checks(settings: Settings, args: argparse.Namespace) -> int:
@@ -622,6 +692,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     second.add_argument("--yes", "-y", action="store_true", help="don't ask for confirmation")
     second.set_defaults(func=cmd_secondary)
+
+    tri = sub.add_parser(
+        "triage",
+        help="show what triage would do with the triage folder; --apply moves what's ready",
+        description=(
+            "Plan the albums in the triage folder: ready ones move on their own, others need "
+            "confirmation (issues of warning severity or worse) or can't move. Moves are "
+            "journaled on the web UI's Renames page, where they can be undone."
+        ),
+    )
+    tri.add_argument("--apply", action="store_true", help="move the albums that are ready")
+    tri.add_argument(
+        "--confirm",
+        action="append",
+        metavar="KEY",
+        help="with --apply: also move this album that needs confirmation (the key in brackets,"
+        " usually its release MBID; repeatable)",
+    )
+    tri.add_argument("--no-scan", action="store_true", help="don't rescan afterwards")
+    tri.set_defaults(func=cmd_triage)
 
     checks = sub.add_parser("checks", help="list available checks")
     checks.set_defaults(func=cmd_checks)

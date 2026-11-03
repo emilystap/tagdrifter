@@ -27,6 +27,7 @@ The conventions are described in [docs/naming-conventions.md](docs/naming-conven
 | 6 | MusicBrainz integration: local tag checks (MBIDs, artist counts, duplicates) ✅, a cached MusicBrainz lookup per release with checks for track versions, numbering and durations ✅, titles and artist credits ✅, other releases ranked by track-length fit ✅, refresh on demand ✅, then Picard-style retagging | ⏳ |
 | 7 | Library browser: search any album, release page with tags and the MusicBrainz tracklist ✅, then embedded cover art | ⏳ |
 | 8 | Secondary library kept in step by hard links: plan, exclusions and proposed exclusions ✅, syncing ✅, exclusion toggles on the Library pages ✅, then automatic syncs | ⏳ |
+| 9 | Triage folder: newly tagged files move into the library at their expected paths, on their own when the checks pass, else once confirmed | ✅ |
 
 ## Quick start (local)
 
@@ -45,6 +46,8 @@ uv run tagdrifter rename --dry-run       # proposed renames for every album (bul
 uv run tagdrifter refresh "Artist/Album"   # look its release up on MusicBrainz again
 uv run tagdrifter secondary              # what keeping the secondary library in step would change
 uv run tagdrifter secondary --apply      # ...and make those changes (needs [secondary] sync)
+uv run tagdrifter triage                 # what triage would do with the triage folder
+uv run tagdrifter triage --apply         # ...and move the albums that are ready
 uv run tagdrifter serve                  # web UI on http://127.0.0.1:8080
 ```
 
@@ -132,6 +135,16 @@ file. Ctrl+C during a scan keeps the tags read so far, so the next scan picks up
   *Sync* makes the changes: only hard links are created, moved or removed in the secondary,
   never the library, and a file that isn't a link to a library file is never removed unasked.
   See [docs/deployment.md](docs/deployment.md#optional-a-secondary-library).
+- **Triage folder (optional)**: with `TAGDRIFTER_TRIAGE` set, newly tagged files dropped in that
+  folder move into the library at their expected paths, with their lyrics, artwork and other
+  files. An album moves on its own (every 5 minutes, once its files have been left alone for 2)
+  when every file has release and recording MBIDs and the tags its path needs, and the checks
+  find nothing of warning severity or worse, path checks aside, run over the album as it would
+  be in the library. Albums with issues wait on *Triage* until you confirm them (or fix the
+  tags); nothing is ever overwritten, and a release already in the library is only added to in
+  its own folder. Moves are renames (never copies), so the folder must be on the library's
+  filesystem; each album is journaled on *Renames*, where *Undo* moves it back into triage.
+  See [docs/deployment.md](docs/deployment.md#optional-a-triage-folder).
 - **Login (optional)**: set a password hash and every page needs a login; sessions last 30
   days. Generate the hash with `tagdrifter hash-password` and set it as
   `TAGDRIFTER_PASSWORD_HASH` or `[web] password_hash`. Without one, there's no login (rely on
@@ -226,8 +239,9 @@ src/tagdrifter/
   renamer.py     Rename plans (preview), apply with a journal, undo
   secondary.py   Secondary library: safety checks, walks, sync plan (core/secondary.py)
   secondary_write.py  The guarded write path and applying a sync, with a journal
+  triage.py      Triage folder: plan albums dropped there, move them into the library
   library.py     Library browser: album list, search and release pages from the cache
-  notify.py      Notifications (Gotify): new issues after a scan, failures
+  notify.py      Notifications (Gotify): new issues after a scan, failures, triage
   musicbrainz.py MusicBrainz client (rate-limited) and release cache sync
   db.py          SQLite: file/tag cache, scan history, issue lifecycle
   scanner.py     Discover → read changed → check → save

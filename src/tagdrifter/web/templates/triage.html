@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Triage · Tag Drifter{% endblock %}
+{% block content %}
+<div class="stack">
+<section class="panel">
+  <h2>Triage</h2>
+  <p class="muted small">
+    Newly tagged files dropped in <span class="path">{{ settings.triage_path }}</span> move into
+    the library at their expected paths. An album moves on its own when its files have release
+    and recording MBIDs and the tags its path needs, and the checks find nothing of warning
+    severity or worse (path checks aside). Otherwise it waits here for you.
+    {% if settings.triage_interval > 0 %}Triage runs every {{ settings.triage_interval | duration }}{% else %}Triage runs only when you press <em>Process now</em>{% endif %},
+    once a folder’s files have been left alone for {{ settings.triage_settle | duration }}.
+    Moves are listed on the Renames page, where they can be undone.
+  </p>
+  <form hx-post="/triage/run" hx-target="#triage" hx-swap="innerHTML" hx-disabled-elt="find button">
+    <button type="submit" class="button primary">Process now</button>
+    <span class="lookup-busy muted small">Working…</span>
+  </form>
+</section>
+<div id="triage" class="stack" hx-get="/triage/plan" hx-trigger="load" hx-swap="innerHTML">
+  <section class="panel"><span class="spinner" aria-hidden="true"></span> Reading the triage folder…</section>
+</div>
+</div>
+{% endblock %}

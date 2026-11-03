@@ -18,7 +18,8 @@
       <a href="/library" {% if page == "library" %}aria-current="page"{% endif %}>Library</a>
       <a href="/scans" {% if page == "scans" %}aria-current="page"{% endif %}>Scans</a>
       {% if settings.secondary_path %}<a href="/secondary" {% if page == "secondary" %}aria-current="page"{% endif %}>Secondary</a>{% endif %}
-      {% if fix_enabled %}<a href="/renames" {% if page == "renames" %}aria-current="page"{% endif %}>Renames</a>{% endif %}
+      {% if settings.triage_path %}<a href="/triage" {% if page == "triage" %}aria-current="page"{% endif %}>Triage</a>{% endif %}
+      {% if journal_enabled %}<a href="/renames" {% if page == "renames" %}aria-current="page"{% endif %}>Renames</a>{% endif %}
     </nav>
     <div class="topbar-actions">
       <div id="scan-status" hx-get="/scan/status" hx-trigger="load" hx-swap="outerHTML">

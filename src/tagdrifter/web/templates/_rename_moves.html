@@ -1,4 +1,5 @@
-{#- The journaled moves of one rename batch; undone ones are greyed out. -#}
+{#- The journaled moves of one rename batch; undone ones are greyed out. With `from_triage`,
+    files came from the triage folder: sources (and removed folders) are triage-relative. -#}
 <ul class="moves small">
   {% for m in moves %}
     <li{% if m["undone"] %} class="muted" title="Undone"{% endif %}>
@@ -7,7 +8,10 @@
         {% if m["kind"] == "mkdir" %}
           <span>created <span class="path">{{ m["dst"] }}</span></span>
         {% elif m["kind"] == "rmdir" %}
-          <span>removed empty <span class="path">{{ m["src"] }}</span></span>
+          <span>removed empty <span class="path">{% if from_triage %}triage/{% endif %}{{ m["src"] }}</span></span>
+        {% elif from_triage %}
+          <span class="path">triage/{{ m["src"] }}</span>
+          <span class="path"><span class="muted" aria-label="becomes">→ </span>{{ m["dst"] }}</span>
         {% else %}
           {% set a, b = move_labels(m) %}{% set current, expected = diff_marks(a, b) %}
           <span class="path">{{ current }}</span>

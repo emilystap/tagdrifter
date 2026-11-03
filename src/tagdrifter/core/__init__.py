@@ -20,6 +20,7 @@ from .placement import (
     PlacementIssueType,
     album_artist_matches_folder,
     audit_album_placement,
+    expected_artist_folder,
 )
 from .sanitize import (
     SLASH_REPLACEMENT,
@@ -47,6 +48,7 @@ __all__ = [
     "audit_album_placement",
     "compare_paths",
     "compute_target",
+    "expected_artist_folder",
     "find_case_collisions",
     "is_mbid",
     "is_mismatch",

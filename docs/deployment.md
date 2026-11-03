@@ -121,6 +121,8 @@ Tag Drifter can push to a [Gotify](https://gotify.net) server when something nee
   sends nothing. The first scan reports everything it finds.
 - **failures** (`failures`): a scan failed, or a rename or undo stopped partway and left files
   half-moved (high priority).
+- **triage** (`triage`): with a [triage folder](#optional-a-triage-folder), the albums a run
+  moved into the library, and new ones waiting there for your confirmation or a fix.
 
 1. In Gotify: *Apps* → *Create application* (e.g. "Tag Drifter") and copy its token.
 2. Add to `environment` in `compose.yaml`:
@@ -129,7 +131,7 @@ Tag Drifter can push to a [Gotify](https://gotify.net) server when something nee
    TAGDRIFTER_GOTIFY_URL: "http://gotify.lan:8080"   # the address the container can reach
    TAGDRIFTER_GOTIFY_TOKEN: "AbCdEf..."
    TAGDRIFTER_PUBLIC_URL: "https://tagdrifter.example" # optional: tap a notification to open it
-   # TAGDRIFTER_NOTIFY_ON: "failures"                 # optional; default new_issues,failures
+   # TAGDRIFTER_NOTIFY_ON: "failures"                 # optional; default new_issues,failures,triage
    ```
 
 3. Recreate the container. The dashboard's *Notifications* panel shows where they go and has
@@ -284,6 +286,64 @@ needs your tick.
 The container's user must own the library's files, or be able to read and write them: Linux
 refuses to hard-link anything else when `fs.protected_hardlinks` is on, as it is on most
 systems.
+
+## Optional: a triage folder
+
+A triage folder is where newly tagged files go before they're in the library. Tag your files
+with Picard, save them into the triage folder under any names, and Tag Drifter moves each album
+into the library at its expected path, with its lyrics, artwork and other files.
+
+1. Files are **moved, never copied**, and a move can't cross filesystems or mounts, so put the
+   triage folder next to the library and mount their common parent folder once, read-write:
+
+   ```yaml
+       volumes:
+         - /path/to/music_libraries:/libraries:rw
+       environment:
+         TAGDRIFTER_LIBRARY: /libraries/music
+         TAGDRIFTER_TRIAGE: /libraries/triage
+   ```
+
+   The triage folder can't be the library, inside it, or around it (nor the secondary
+   library's). The read-write mount is needed for the moves; it doesn't turn on renames of
+   library files (that's still `TAGDRIFTER_FIX`).
+2. Drop newly tagged files in it. Every 5 minutes (`TAGDRIFTER_TRIAGE_INTERVAL`, in seconds;
+   `0` = only when you ask), Tag Drifter looks at folders whose files haven't changed for 2
+   minutes (`TAGDRIFTER_TRIAGE_SETTLE`), so files still being copied or tagged are left alone.
+   Files are grouped into albums by release MBID. With MusicBrainz lookups on, a new release
+   is looked up first (one request), so the `mb.*` checks count too.
+3. An album moves on its own when:
+   - every file is readable and has a valid release and recording MBID, an album artist (or
+     artist), album, title and track number (and disc number on a multi-disc release);
+   - the checks find nothing of warning severity or worse. They run over the album as it
+     would be in the library (its tracks already there plus the new ones), except the path
+     checks (`path.*`, `album.placement`), since triage chooses the path. Info-level issues,
+     such as missing tracks, don't hold anything up.
+
+   Albums with issues wait on *Triage* under *Needs confirmation*, with the issues listed;
+   *Move anyway* moves the album exactly as shown, or fix the tags and it moves at the next
+   run. An album whose folder name another release already uses waits too, since both then
+   get the year (or another detail) added and the library one gets a rename proposal.
+4. Some albums can't move until you fix something: a target file that already exists (nothing
+   is ever overwritten), two files with one target, missing tags, or the release already in
+   the library in a folder other than its expected one (rename that album first, so the
+   release isn't split). Adding tracks to a release that's already in its expected folder is
+   fine.
+
+The artist folder follows `album.placement`: the album artist's current MusicBrainz name once
+the release is looked up (or the tags, with `artist_folder = "album_artist"`), and an existing
+folder the album would be correctly placed in is used as it's spelled. `.lrc` and `.txt` files
+with a track's name follow the track. When every audio file in a triage folder belongs to the
+album, the folder's other files (artwork, logs, cue sheets) and folders without audio move into
+the album folder too, unless the name is taken there; then they stay in triage. Emptied triage
+folders are removed.
+
+Each album's moves are listed on *Renames* (marked *from triage*), where *Undo* moves the files
+back into the triage folder. With notifications on, a run that moved albums, or found new ones
+that need you, sends a summary (`triage` in `TAGDRIFTER_NOTIFY_ON`). From the command line,
+`tagdrifter triage` lists what it would do, `tagdrifter triage --apply` moves the albums that
+are ready, and `--confirm <key>` (the release MBID shown in brackets) also moves one that needs
+confirmation.
 
 ## Optional: config.toml
 

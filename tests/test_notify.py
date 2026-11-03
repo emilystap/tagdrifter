@@ -77,7 +77,7 @@ def settings(library, tmp_path, gotify):
 
 
 def test_settings_from_toml_and_env(tmp_path) -> None:
-    assert Settings().notify_on == {"new_issues", "failures"}
+    assert Settings().notify_on == {"new_issues", "failures", "triage"}
     cfg = tmp_path / "config.toml"
     cfg.write_text(
         '[web]\npublic_url = "https://td.lan"\n'

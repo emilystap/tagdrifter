@@ -12,7 +12,9 @@ in the background and run at once after a scan someone started (mbsync.py); the 
 shows the cache's progress. With a secondary library set, /secondary shows what keeping it in
 step would change and its exclusions (secondary.py), and with `secondary_sync` applies it
 (secondary_write.py); the Library pages show and toggle the exclusions of an album, its album
-artist and its tracks.
+artist and its tracks. With a triage folder set, /triage shows what triage would do with the
+files dropped there and moves albums someone confirms; a TriageWatcher moves the rest on a timer
+(triage.py, web/triage.py), journaled on the Renames page.
 """
 
 from __future__ import annotations
@@ -37,7 +39,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from .. import __version__, library, secondary
+from .. import __version__, library, secondary, triage
 from ..checks import REGISTRY, Severity
 from ..checks.builtin_musicbrainz import DEFAULT_TOLERANCE_SECONDS
 from ..config import Settings
@@ -66,6 +68,7 @@ from .bulk import BulkRenamer
 from .mbsync import LookupRefused, MusicBrainzSync
 from .runner import ScanRunner
 from .scheduler import ScanScheduler
+from .triage import TriageBusy, TriageWatcher
 
 HERE = Path(__file__).parent
 PAGE_SIZE = 100  # issues per page in the flat list
@@ -88,6 +91,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     """Build the app. Raises ValueError for an invalid scan schedule, password hash,
     notification setting or secondary library path."""
     secondary.validate_settings(settings)
+    triage.validate_settings(settings)
     authenticator = auth.Authenticator(settings)
     notifications = Notifications(settings)
     runner = runner or ScanRunner(settings)
@@ -99,16 +103,19 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     mb_sync = runner.mb_sync
     scheduler = ScanScheduler(runner, settings.scan_schedule)
     bulk = BulkRenamer(settings, runner, notifications)
+    triager = TriageWatcher(settings, runner, notifications, mb_sync)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         scheduler.start()
         mb_sync.start()
+        triager.start()
         try:
             yield
         finally:
             scheduler.shutdown()
             mb_sync.shutdown()
+            triager.shutdown()
 
     app = FastAPI(
         title="Tag Drifter", version=__version__, docs_url=None, redoc_url=None, lifespan=lifespan
@@ -119,6 +126,7 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
     app.state.auth = authenticator
     app.state.notifications = notifications
     app.state.bulk = bulk
+    app.state.triage = triager
     app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
     @app.middleware("http")
@@ -170,6 +178,9 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         "notifications": notifications,
         "mb_sync": mb_sync,
         "bulk": bulk,
+        "triager": triager,
+        # The Renames page: renames, and albums moved in from triage, with undo
+        "journal_enabled": settings.fix_enabled or settings.triage_path is not None,
     }
 
     def is_partial(request: Request, target: str) -> bool:
@@ -677,9 +688,13 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
         bulk.stop()
         return render(request, "_bulk_status.html", status=bulk.status(), error=None)
 
+    def require_journal() -> None:
+        if not (settings.fix_enabled or settings.triage_path is not None):
+            raise HTTPException(404, "Renaming is off (set TAGDRIFTER_FIX=true to enable it).")
+
     @app.get("/renames", response_class=HTMLResponse)
     def renames(request: Request, store: StoreDep) -> HTMLResponse:
-        require_fix()
+        require_journal()
         return render(
             request,
             "renames.html",
@@ -691,12 +706,18 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
 
     @app.get("/renames/{batch_id}", response_class=HTMLResponse)
     def rename_moves(request: Request, store: StoreDep, batch_id: int) -> HTMLResponse:
-        require_fix()
-        return render(request, "_rename_moves.html", moves=store.rename_moves(batch_id))
+        require_journal()
+        batch = store.rename_batch(batch_id)
+        return render(
+            request,
+            "_rename_moves.html",
+            moves=store.rename_moves(batch_id),
+            from_triage=batch is not None and batch["origin"] == triage.ORIGIN,
+        )
 
     @app.post("/renames/{batch_id}/undo")
     def rename_undo(request: Request, batch_id: int) -> Response:
-        require_fix()
+        require_journal()
         with Store(settings.database_path) as store:
             batch = store.rename_batch(batch_id)
             if batch is None or batch["status"] not in ("applied", "partial"):
@@ -712,6 +733,60 @@ def create_app(settings: Settings, runner: ScanRunner | None = None) -> FastAPI:
                 )
         app.state.runner.start(reason="undo")
         return RedirectResponse("/renames", status_code=303)
+
+    # --- Triage -----------------------------------------------------------------------
+
+    def require_triage() -> None:
+        if settings.triage_path is None:
+            raise HTTPException(404, "No triage folder is set.")
+
+    @app.get("/triage", response_class=HTMLResponse)
+    def triage_page(request: Request) -> HTMLResponse:
+        """The page; the plan (tags read) loads in a second request."""
+        require_triage()
+        return render(request, "triage.html", page="triage")
+
+    def triage_view(request: Request, run=None, error: str | None = None) -> HTMLResponse:
+        plan = triager.plan()
+        response = render(
+            request,
+            "_triage.html",
+            plan=plan,
+            run=run or triager.last,
+            fresh=run is not None,
+            error=error,
+        )
+        if run is not None and run.rescanning:
+            response.headers["HX-Trigger"] = "scan-started"
+        return response
+
+    @app.get("/triage/plan", response_class=HTMLResponse)
+    async def triage_plan(request: Request) -> HTMLResponse:
+        require_triage()
+        return await asyncio.to_thread(triage_view, request)
+
+    @app.post("/triage/run", response_class=HTMLResponse)
+    async def triage_run(request: Request) -> HTMLResponse:
+        """*Process now*: look up waiting releases and move every ready album."""
+        require_triage()
+        try:
+            run = await asyncio.to_thread(triager.run)
+        except TriageBusy as exc:
+            return await asyncio.to_thread(triage_view, request, None, str(exc))
+        return await asyncio.to_thread(triage_view, request, run)
+
+    @app.post("/triage/move", response_class=HTMLResponse)
+    async def triage_move(request: Request) -> HTMLResponse:
+        """Move one album someone confirmed (`key`, `fingerprint` of the plan they saw)."""
+        require_triage()
+        form = await _form(request)
+        try:
+            run = await asyncio.to_thread(
+                triager.confirm, form.get("key", ""), form.get("fingerprint", "")
+            )
+        except (TriageBusy, RenameError, RuntimeError) as exc:
+            return await asyncio.to_thread(triage_view, request, None, str(exc))
+        return await asyncio.to_thread(triage_view, request, run)
 
     # --- Secondary library ------------------------------------------------------------
 
