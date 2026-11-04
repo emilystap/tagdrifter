@@ -67,9 +67,11 @@ present, are in the git-ignored `CLAUDE.local.md`.
    started in the app lifespan; `scan_schedule` / `TAGDRIFTER_SCHEDULE`, default `0 4 * * *`).
    APScheduler 3 numbers weekdays Monday = 0, so `_cron_weekdays` translates standard cron
    weekdays; don't pass raw crontab strings to `CronTrigger.from_crontab`. `Dockerfile`
-   (uv 0.13 build stage, python:3.13-slim, UID/GID 568, `/music` `/data` `/config`,
+   (uv 0.13 build stage, python:3.13-slim, both pinned by digest, UID/GID 568, `/music`
+   `/data` `/config`,
    HEALTHCHECK on `/healthz`), `compose.yaml`, `docs/deployment.md`, workflows `ci.yml` and
-   `image.yml` (build, smoke test, push to `ghcr.io/emilystap/tagdrifter` from main and `v*`
+   `image.yml` (build, smoke test, then a `publish` job, the only one with `packages: write`,
+   pushes to `ghcr.io/emilystap/tagdrifter` from main and `v*`
    tags). Image changes are tested by CI (build + smoke test) unless Docker is available locally.
    Both workflows start with a `changes` job (`.github/scripts/code-changed.sh`): if only
    `docs/**`, `CLAUDE.md` or `LICENSE` changed, `test`/`build` are skipped via `if:`, which
