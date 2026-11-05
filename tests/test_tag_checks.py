@@ -2,6 +2,8 @@
 
 from pathlib import PurePosixPath
 
+import pytest
+
 from tagdrifter.checks import AlbumContext
 from tagdrifter.checks.builtin_tags import (
     AlbumArtistMbidCount,
@@ -12,6 +14,7 @@ from tagdrifter.checks.builtin_tags import (
     MissingTracks,
     NamingTags,
     RecordingMbid,
+    ReplayGain,
     RequiredTags,
 )
 from tagdrifter.config import Settings
@@ -213,3 +216,93 @@ def test_cover_art_min_size() -> None:
     assert not list(CoverArt().run(tracks))  # off by default
     (issue,) = CoverArt({"min_size": 500}).run(tracks)
     assert issue.message == "2 of 3 tracks have a cover smaller than 500 px (300x300)"
+
+
+CONSISTENT = ReplayGain({"expect": "consistent"})
+
+
+def gain(n: int, track: str | None = "-7.00 dB", album_gain: str | None = "-6.50 dB", **tags):
+    if track:
+        tags["replaygain_track_gain"] = track
+    if album_gain:
+        tags["replaygain_album_gain"] = album_gain
+    return song(n, **tags)
+
+
+def test_replaygain_consistent_albums_pass() -> None:
+    assert not list(CONSISTENT.run(album(song(1), song(2))))
+    assert not list(CONSISTENT.run(album(gain(1), gain(2))))
+    # Track gain alone is complete too, and a single track can't disagree with itself.
+    assert not list(CONSISTENT.run(album(gain(1, album_gain=None), gain(2, album_gain=None))))
+    assert not list(CONSISTENT.run(album(gain(1, track=None, album_gain=None))))
+
+
+def test_replaygain_some_tracks_without() -> None:
+    (issue,) = CONSISTENT.run(album(gain(1), song(2), song(3)))
+    assert issue.message == "2 of 3 tracks have no track gain; 2 of 3 tracks have no album gain"
+    assert issue.severity == "info"
+    assert issue.details["missing"]["track gain"] == ["1-02.flac", "1-03.flac"]
+    (issue,) = CONSISTENT.run(album(gain(1), gain(2, album_gain=None)))
+    assert issue.message == "1 of 2 tracks has no album gain"
+
+
+def test_replaygain_counts_r128_tags() -> None:
+    tracks = album(gain(1, album_gain=None), song(2, r128_track_gain="0"))
+    assert not list(CONSISTENT.run(tracks))
+
+
+def test_replaygain_album_gain_differs() -> None:
+    # Rounding isn't a difference.
+    assert not list(CONSISTENT.run(album(gain(1), gain(2, album_gain="-6.5000 dB"))))
+    (issue,) = CONSISTENT.run(album(gain(1), gain(2, album_gain="+1.25 dB")))
+    assert issue.message == "Album gain differs between tracks (-6.50 to +1.25 dB)"
+
+
+def test_replaygain_album_gain_may_differ_between_discs_and_releases() -> None:
+    other_disc = song(1, disc=2, replaygain_track_gain="-7 dB", replaygain_album_gain="-3 dB")
+    assert not list(CONSISTENT.run(album(gain(1), other_disc)))
+    other_release = gain(2, album_gain="-3.00 dB", musicbrainz_albumid=A2)
+    assert not list(CONSISTENT.run(album(gain(1), other_release)))
+
+
+def test_replaygain_invalid_values() -> None:
+    tracks = album(gain(1), gain(2, album_gain="NaN dB"), gain(3, album_gain="inf dB"))
+    (issue,) = CONSISTENT.run(tracks)
+    assert issue.message == "2 of 3 tracks have an invalid album gain (NaN dB, inf dB)"
+    assert issue.details["invalid"]["album gain"] == {
+        "1-02.flac": "NaN dB",
+        "1-03.flac": "inf dB",
+    }
+    (issue,) = CONSISTENT.run(album(gain(1, track="NaN dB")))
+    assert issue.message == "The track has an invalid track gain (NaN dB)"
+
+
+def test_replaygain_flags_any_gain_tag_by_default() -> None:
+    check = ReplayGain()
+    assert not list(check.run(album(song(1), song(2, **{"volume level (replaygain)": "-7"}))))
+    (issue,) = check.run(
+        album(gain(1, replaygain_track_peak="0.9"), song(2, r128_album_gain="0"), song(3))
+    )
+    assert issue.message == (
+        "2 of 3 tracks have gain tags: r128_album_gain, replaygain_album_gain, "
+        "replaygain_track_gain, replaygain_track_peak"
+    )
+    assert issue.details["files"] == ["1-01.flac", "1-02.flac"]
+    (issue,) = check.run(album(gain(1), gain(2)))
+    assert issue.message.startswith("All tracks have gain tags: ")
+    (issue,) = check.run(album(gain(1, album_gain=None), gain(2, album_gain=None)))
+    assert issue.message == "All tracks have gain tags: replaygain_track_gain"
+
+
+def test_replaygain_default_names_invalid_values() -> None:
+    (issue,) = ReplayGain().run(album(gain(1, album_gain="NaN dB"), gain(2)))
+    assert issue.message == (
+        "All tracks have gain tags: replaygain_album_gain, replaygain_track_gain; "
+        "1 of 2 tracks has an invalid album gain (NaN dB)"
+    )
+    assert issue.details["invalid"] == {"album gain": {"1-01.flac": "NaN dB"}}
+
+
+def test_replaygain_rejects_an_unknown_expect() -> None:
+    with pytest.raises(ValueError, match="expect"):
+        list(ReplayGain({"expect": "all"}).run(album(song(1))))

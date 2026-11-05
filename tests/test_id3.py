@@ -113,3 +113,9 @@ def test_scan_treats_mp3_like_flac(tmp_path) -> None:
     assert issue.details["expected"] == (
         "Pixies/Doolittle/Pixies_Doolittle_03_Wave of Mutilation.mp3"
     )
+
+
+def test_replaygain_txxx_frames_keep_the_tag_name(tmp_path) -> None:
+    frames = {"TXXX:REPLAYGAIN_ALBUM_GAIN": TXXX(desc="REPLAYGAIN_ALBUM_GAIN", text="-6.50 dB")}
+    meta = read_metadata(build_mp3(tmp_path / "a.mp3", picard_id3(**frames)))
+    assert meta.tags["replaygain_album_gain"] == ("-6.50 dB",)

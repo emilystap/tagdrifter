@@ -107,6 +107,12 @@ tags = []
 min_size = 0
 require_front_cover = true
 
+# ReplayGain and R128 gain tags. "none" reports every album that has any; "consistent" keeps
+# them, reporting albums where only some tracks have them, a value is invalid or the album
+# gain differs within a disc.
+[checks."album.replaygain"]
+expect = "none"
+
 # How far a track's audio length may differ from MusicBrainz before mb.duration reports it.
 [checks."mb.duration"]
 tolerance_seconds = 3
