@@ -195,6 +195,12 @@ present, are in the git-ignored `CLAUDE.local.md`.
        are `DERIVED_KEYS`; a cached file missing one is re-read once. Files read before
        `~pictures` existed are skipped, not flagged. Different covers within an album
        aren't compared (that needs the image data).
+     - `album.replaygain` (info; added after 6d): any `replaygain_*` / `r128_*_gain` tag on
+       any track (`expect = "none"`, the default), naming invalid values (`NaN dB`,
+       `inf dB`; some taggers write them). `expect = "consistent"` is for keeping gain tags:
+       only tracks without them, invalid values, or an album gain that differs within a disc
+       of a release. Read-only: removing them is left to a tagger. Descriptive tags such as
+       `volume level (replaygain)` don't count, nor do ID3 RVA2 frames.
    - 6b ✅ MusicBrainz cache + structural checks. Off unless `musicbrainz_enabled` /
      `[musicbrainz] enabled` / `TAGDRIFTER_MUSICBRAINZ`. Keep the strain on the API minimal
      (MusicBrainz is a small non-profit; this is a firm project rule):

@@ -16,7 +16,9 @@ from ..core.metadata import (
     DATE_KEYS,
     RECORDING_MBID_KEYS,
     RELEASE_MBID_KEYS,
+    first_tag,
     parse_index,
+    tag_list,
 )
 from .base import AlbumContext, Check, Issue, Scope, Severity, TrackContext, register
 
@@ -44,6 +46,16 @@ NAMING_TAGS = (
 )
 DISC_NUMBER_FALLBACK = "multi-disc filenames default to disc 1"
 TOTAL_TRACKS_KEYS = ("totaltracks", "tracktotal")
+
+# Playback gain: players turn a track with these down (usually by several dB) and leave one
+# without them alone, so a mix of the two jumps in volume. Descriptive tags some rippers add,
+# such as "volume level (replaygain)", aren't read by players and don't count.
+GAIN_TAG_PREFIX = "replaygain_"
+TRACK_GAIN = "replaygain_track_gain"
+ALBUM_GAIN = "replaygain_album_gain"
+TRACK_GAIN_TAGS = (TRACK_GAIN, "r128_track_gain")
+ALBUM_GAIN_TAGS = (ALBUM_GAIN, "r128_album_gain")
+GAIN_VALUE = re.compile(r"\s*([+-]?\d+(?:\.\d+)?)")
 
 # Tags holding MusicBrainz UUIDs. (musicbrainz_discid is not a UUID and is deliberately absent.)
 DEFAULT_MBID_TAGS = (
@@ -297,8 +309,7 @@ class MissingTracks(Check):
                 gaps.append(f"disc{'s' * (len(absent_discs) > 1)} {_ranges(absent_discs)} missing")
                 details.append({"total_discs": total_discs, "missing_discs": absent_discs})
         if gaps:
-            message = "; ".join(gaps)
-            yield self.issue(ctx.rel_path, message[0].upper() + message[1:], gaps=details)
+            yield self.issue(ctx.rel_path, _sentence("; ".join(gaps)), gaps=details)
 
 
 @register
@@ -331,19 +342,107 @@ class CoverArt(Check):
                 sizes.add(f"{cover.width}x{cover.height}")
         if not problems:
             return
-        parts = []
-        for what, files in problems.items():
-            if len(files) == len(known):
-                count = "All tracks" if len(known) > 1 else "The track"
-                verb = "have" if len(known) > 1 else "has"
-            else:
-                count = f"{len(files)} of {len(known)} tracks"
-                verb = "has" if len(files) == 1 else "have"
-            parts.append(f"{count} {verb} {what}")
+        parts = [
+            f"{_tracks_have(len(files), len(known))} {what}" for what, files in problems.items()
+        ]
         message = "; ".join(parts)
         if sizes:
             message += f" ({', '.join(sorted(sizes))})"
         yield self.issue(ctx.rel_path, message, files=problems)
+
+
+@register
+class ReplayGain(Check):
+    id = "album.replaygain"
+    scope = Scope.ALBUM
+    severity = Severity.INFO
+    description = (
+        "ReplayGain or R128 gain tags on any track, naming invalid values (NaN, inf). With "
+        'expect = "consistent", only tags that would make playback volume jump: some tracks '
+        "without them, invalid values, or an album gain that differs within a disc."
+    )
+
+    def run(self, ctx: AlbumContext) -> Iterable[Issue]:
+        expect = self.options.get("expect", "none")
+        if expect not in ("consistent", "none"):
+            raise ValueError(f'album.replaygain expect must be "consistent" or "none": {expect!r}')
+        if expect == "none":
+            yield from self._any_gain_tags(ctx)
+        else:
+            yield from self._inconsistent(ctx)
+
+    def _any_gain_tags(self, ctx: AlbumContext) -> Iterable[Issue]:
+        found = {t.rel_path.name: _gain_tags(t.meta) for t in ctx.tracks}
+        files = [name for name, tags in found.items() if tags]
+        if files:
+            tags = sorted({tag for names in found.values() for tag in names})
+            present = f"{_tracks_have(len(files), len(found))} gain tags: {', '.join(tags)}"
+            problems, invalid = _invalid_gains(ctx)
+            message = "; ".join([present, *problems])
+            yield self.issue(ctx.rel_path, message, tags=tags, files=files, invalid=invalid)
+
+    def _inconsistent(self, ctx: AlbumContext) -> Iterable[Issue]:
+        total = len(ctx.tracks)
+        parts: list[str] = []
+        missing: dict[str, list[str]] = {}
+        for what, keys in (("track gain", TRACK_GAIN_TAGS), ("album gain", ALBUM_GAIN_TAGS)):
+            files = [t.rel_path.name for t in ctx.tracks if not tag_list(t.meta.tags, keys)]
+            if 0 < len(files) < total:
+                parts.append(f"{_tracks_have(len(files), total)} no {what}")
+                missing[what] = files
+        problems, invalid = _invalid_gains(ctx)
+        parts += problems
+        # Per disc of each release: a folder can hold several, and some tools measure each
+        # disc as its own album.
+        gains: dict[tuple[str, int], set[float]] = defaultdict(set)
+        for t in ctx.tracks:
+            if (gain := _album_gain(t.meta)) is not None:
+                gains[t.meta.release_mbid.lower(), t.meta.disc_number].add(gain)
+        spread = [values for values in gains.values() if len(values) > 1]
+        if spread:
+            low, high = min(map(min, spread)), max(map(max, spread))
+            parts.append(f"album gain differs between tracks ({low:+.2f} to {high:+.2f} dB)")
+        if parts:
+            message = _sentence("; ".join(parts))
+            yield self.issue(ctx.rel_path, message, missing=missing, invalid=invalid)
+
+
+def _invalid_gains(ctx: AlbumContext) -> tuple[list[str], dict[str, dict[str, str]]]:
+    """Gain values that aren't numbers, such as "NaN dB": (messages, {what: {file: value}})."""
+    parts: list[str] = []
+    invalid: dict[str, dict[str, str]] = {}
+    for what, key in (("track gain", TRACK_GAIN), ("album gain", ALBUM_GAIN)):
+        values = {t.rel_path.name: first_tag(t.meta.tags, (key,)) for t in ctx.tracks}
+        bad = {name: v for name, v in values.items() if v and not GAIN_VALUE.match(v)}
+        if bad:
+            shown = ", ".join(sorted(set(bad.values())))
+            have = _tracks_have(len(bad), len(ctx.tracks))
+            parts.append(f"{have[0].lower()}{have[1:]} an invalid {what} ({shown})")
+            invalid[what] = bad
+    return parts, invalid
+
+
+def _gain_tags(meta: TrackMeta) -> list[str]:
+    known = (*TRACK_GAIN_TAGS, *ALBUM_GAIN_TAGS)
+    return [k for k, v in meta.tags.items() if v and (k.startswith(GAIN_TAG_PREFIX) or k in known)]
+
+
+def _album_gain(meta: TrackMeta) -> float | None:
+    """The album gain in dB, to 0.01 dB as tools round it. R128 tags count in other units and
+    from another reference, so they aren't compared."""
+    match = GAIN_VALUE.match(first_tag(meta.tags, (ALBUM_GAIN,)))
+    return round(float(match[1]), 2) if match else None
+
+
+def _tracks_have(count: int, total: int) -> str:
+    """ "All tracks have", "The track has" or "2 of 3 tracks have"."""
+    if count == total:
+        return "All tracks have" if total > 1 else "The track has"
+    return f"{count} of {total} tracks {'has' if count == 1 else 'have'}"
+
+
+def _sentence(text: str) -> str:
+    return text[0].upper() + text[1:]
 
 
 def _total_tracks(meta: TrackMeta) -> int:

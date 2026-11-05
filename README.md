@@ -194,6 +194,7 @@ docker run -p 8080:8080 -v /path/to/music:/music:ro -v tagdrifter-data:/data tag
 | `album.duplicate_tracks` | album | Two files are the same track: same release track MBID, or same release, disc and track number (error) |
 | `album.cover_art` | album | Tracks without an embedded cover, or with pictures but none marked as the front cover; optionally covers smaller than `min_size` px. Read from the picture headers only, never the image |
 | `album.missing_tracks` | album | Fewer tracks or discs than `TOTALTRACKS` / `TOTALDISCS` say (info; e.g. a single kept without its B-side) |
+| `album.replaygain` | album | Any ReplayGain / R128 gain tags, track gain alone included, naming invalid values such as `NaN dB` (info). Players turn tagged tracks down and leave the rest, so a partly tagged library jumps in volume. To keep gain tags, `expect = "consistent"` reports only tracks without them, invalid values, or an album gain that differs within a disc |
 | `mb.release_unknown` | album | Release MBID MusicBrainz doesn't have (deleted) or has merged into another (error) |
 | `mb.track_mismatch` | album | A track's release-track or recording MBID doesn't match the tagged release (a different version, or a stale tag) |
 | `mb.numbering` | album | Track/disc numbers (per track) or track/disc totals (per album) differ from MusicBrainz |
